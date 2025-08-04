@@ -3,212 +3,235 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard</title>
+    <title>Pondicherry University Login</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Font Awesome for icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <!-- Alpine.js for interactivity -->
-    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
-    <script src="config.js"></script> 
-    <style>
-        /* Custom styles for Montserrat font */
-        body {
-            font-family: 'Montserrat', sans-serif;
-            background-image: linear-gradient(to right, #14555F, #0B1940);
-            background-attachment: fixed;
-        }
-        .modern-button {
-            background-image: linear-gradient(to right, #6366F1, #8B5CF6);
-            transition: all 0.3s ease-in-out;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-        }
-        .modern-button:hover {
-            background-image: linear-gradient(to right, #8B5CF6, #6366F1);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
-        }
-        [x-cloak] { display: none !important; }
-    </style>
     <!-- Google Fonts - Montserrat -->
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- **FIXED**: Load the main configuration file -->
+    <script src="../config.js"></script>
+    <style>
+        /* Custom styles for the body, login card, inputs, and buttons */
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background-color: #E0F2F7; /* Light blue background */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh; /* Full viewport height */
+            margin: 0;
+            padding: 20px; /* Padding for mobile responsiveness */
+            box-sizing: border-box;
+        }
+        .login-card {
+            background-color: #FFFFFF;
+            border-radius: 1.5rem; /* Rounded corners */
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* Soft shadow */
+            padding: 2.5rem; /* Spacious padding */
+            width: 100%;
+            max-width: 400px; /* Max width for desktop */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 2rem; /* Space between logo and card */
+        }
+        .input-field {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            margin-bottom: 1.25rem; /* Space between input fields */
+            border: 2px solid #0066ff; /* Blue border */
+            border-radius: 0.75rem; /* Rounded input fields */
+            font-size: 1rem;
+            color: #374151; /* Dark text color */
+            outline: none; /* Remove default outline */
+            transition: border-color 0.2s; /* Smooth transition for border color */
+            text-align: center; /* Center align text in input fields */
+        }
+        .input-field:focus {
+            border-color: #3B82F6; /* Blue border on focus */
+        }
+        .login-button {
+            width: 100%;
+            padding: 0.85rem 1.5rem; /* Button size */
+            background-color: #3B82F6; /* Blue button color */
+            color: #FFFFFF; /* White text */
+            font-weight: 600; /* Semi-bold text */
+            border-radius: 0.75rem; /* Rounded button */
+            cursor: pointer; /* Pointer cursor on hover */
+            transition: background-color 0.2s; /* Smooth transition for background */
+            border: none; /* Remove default border */
+            font-size: 1rem;
+        }
+        .login-button:hover {
+            background-color: #2563EB; /* Darker blue on hover */
+        }
+        .forgot-password {
+            color: #3B82F6; /* Blue text */
+            font-size: 0.9rem;
+            margin-top: 1.5rem; /* Space above link */
+            text-decoration: none; /* Remove underline */
+            font-weight: 500; /* Medium weight */
+            transition: color 0.2s; /* Smooth transition for color */
+        }
+        .forgot-password:hover {
+            color: #2563EB; /* Darker blue on hover */
+            text-decoration: underline; /* Underline on hover */
+        }
+        .logo {
+            max-width: 150px; /* Adjust logo size */
+            height: auto;
+            margin-bottom: 1rem; /* Space below the logo */
+        }
+        .login-title {
+            font-size: 1.75rem; /* Larger title */
+            font-weight: 700; /* Bold title */
+            color: #2563EB; /* Dark blue text */
+            margin-bottom: 2rem; /* Space below title */
+            text-transform: uppercase; /* Uppercase text */
+        }
+        /* Message styling for success and error feedback */
+        .message {
+            margin-top: 1rem;
+            font-weight: 500;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            text-align: center;
+            width: 100%;
+            /* Hide by default, shown by JS */
+            display: none;
+        }
+        .message.success {
+            background-color: #D1FAE5; /* Light green */
+            color: #065F46; /* Dark green text */
+            border: 1px solid #34D399; /* Green border */
+        }
+        .message.error {
+            background-color: #FEE2E2; /* Light red */
+            color: #991B1B; /* Dark red text */
+            border: 1px solid #F87171; /* Red border */
+        }
+    </style>
 </head>
-<body class="min-h-screen flex flex-col">
+<body>
+    <!-- Pondicherry University Logo -->
+    <img src="download.png" alt="Pondicherry University Logo" class="logo">
 
-    <!-- Placeholders for centralized header and navigation -->
-    <div id="header-placeholder"></div>
-    <div id="nav-placeholder"></div>
+    <!-- Login Card Container -->
+    <div class="login-card">
+        <h2 class="login-title">Login</h2>
+        
+        <!-- Login Form -->
+        <form id="loginForm" style="width: 100%;">
+            <!-- Email Input Field -->
+            <label for="email" class="sr-only">Email</label>
+            <input type="email" id="email" placeholder="EMAIL" class="input-field" required>
 
-    <!-- Main Content Area -->
-    <main class="flex-grow p-6" x-data="dashboardData" x-cloak>
-        <div class="container mx-auto">
-            <h2 class="text-3xl font-bold text-white mb-8">Admin Dashboard</h2>
+            <!-- Password Input Field -->
+            <label for="password" class="sr-only">Password</label>
+            <input type="password" id="password" placeholder="PASSWORD" class="input-field" required>
 
-            <!-- Key Metrics Grid -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <!-- Total Halls Card -->
-                <div class="bg-white/10 p-6 rounded-lg shadow-lg text-white flex items-center transform transition-transform hover:scale-105 duration-300">
-                    <div class="bg-indigo-500 p-4 rounded-full mr-4"><i class="fas fa-door-open fa-2x"></i></div>
-                    <div>
-                        <p class="text-gray-300 text-sm font-semibold uppercase">Total Halls</p>
-                        <p class="text-3xl font-bold" x-text="counts.totalHalls"></p>
-                    </div>
-                </div>
-                <!-- Schools Card -->
-                <div class="bg-white/10 p-6 rounded-lg shadow-lg text-white flex items-center transform transition-transform hover:scale-105 duration-300">
-                    <div class="bg-purple-500 p-4 rounded-full mr-4"><i class="fas fa-school fa-2x"></i></div>
-                    <div>
-                        <p class="text-gray-300 text-sm font-semibold uppercase">Schools</p>
-                        <p class="text-3xl font-bold" x-text="counts.schools"></p>
-                    </div>
-                </div>
-                <!-- Departments Card -->
-                <div class="bg-white/10 p-6 rounded-lg shadow-lg text-white flex items-center transform transition-transform hover:scale-105 duration-300">
-                    <div class="bg-pink-500 p-4 rounded-full mr-4"><i class="fas fa-building fa-2x"></i></div>
-                    <div>
-                        <p class="text-gray-300 text-sm font-semibold uppercase">Departments</p>
-                        <p class="text-3xl font-bold" x-text="counts.departments"></p>
-                    </div>
-                </div>
-                 <!-- Sections Card -->
-                <div class="bg-white/10 p-6 rounded-lg shadow-lg text-white flex items-center transform transition-transform hover:scale-105 duration-300">
-                    <div class="bg-teal-500 p-4 rounded-full mr-4"><i class="fas fa-sitemap fa-2x"></i></div>
-                    <div>
-                        <p class="text-gray-300 text-sm font-semibold uppercase">Sections</p>
-                        <p class="text-3xl font-bold">4</p>
-                    </div>
-                </div>
-            </div>
+            <!-- Login Button -->
+            <button type="submit" id="loginBtn" class="login-button">Login</button>
+        </form>
 
-            <!-- Main Grid for Charts and Forms -->
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <!-- Hall Breakdown Chart -->
-                <div class="lg:col-span-2 bg-white/10 p-6 rounded-lg shadow-lg text-white">
-                    <h3 class="text-xl font-semibold mb-4 border-b border-white/20 pb-2">Hall Breakdown</h3>
-                    <div class="space-y-4">
-                        <template x-for="hallType in hallChartData" :key="hallType.name">
-                            <div class="flex items-center">
-                                <div class="w-28 text-sm text-gray-300" x-text="hallType.name"></div>
-                                <div class="flex-1 bg-gray-700 rounded-full h-6">
-                                    <div :class="hallType.color" class="h-6 rounded-full text-white text-xs flex items-center justify-center transition-all duration-500" :style="`width: ${hallType.percentage}%`">
-                                        <span x-text="hallType.count" x-show="hallType.percentage > 5"></span>
-                                    </div>
-                                </div>
-                                <div class="w-16 text-right text-sm font-semibold" x-text="`${hallType.percentage.toFixed(0)}%`"></div>
-                            </div>
-                        </template>
-                    </div>
-                </div>
+        <!-- Message Display Area (for success/error feedback) -->
+        <div id="messageArea" class="message"></div>
 
-                <!-- Semester Time Period -->
-                <div class="bg-white/10 p-6 rounded-lg shadow-lg text-white">
-                    <h3 class="text-xl font-semibold mb-4 border-b border-white/20 pb-2">Semester Time Period</h3>
-                    <form class="space-y-4">
-                        <div>
-                            <label for="startDate" class="block text-gray-300 text-sm font-medium mb-2">Start Date:</label>
-                            <input type="date" id="startDate" name="startDate" value="2025-07-10" class="block w-full p-3 bg-gray-700 border border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-white">
-                        </div>
-                        <div>
-                            <label for="endDate" class="block text-gray-300 text-sm font-medium mb-2">End Date:</label>
-                            <input type="date" id="endDate" name="endDate" value="2025-12-02" class="block w-full p-3 bg-gray-700 border border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-white">
-                        </div>
-                        <button type="submit" class="w-full text-white font-bold py-3 px-6 rounded-md modern-button focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50">
-                            Modify
-                        </button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </main>
-
-    <!-- Footer -->
-    <footer class="bg-gray-800 text-white text-center p-4 mt-auto">
-        <p>&copy; 2025 Pondicherry University. All rights reserved.</p>
-    </footer>
+        <!-- Forgot Password Link -->
+        <a href="#" class="forgot-password">FORGOT PASSWORD ?</a>
+    </div>
 
     <script>
-        const urlsch = AppConfig.apiBaseUrl + AppConfig.endpoints.allschool;
-        const urldept = AppConfig.apiBaseUrl + AppConfig.endpoints.alldept;
-        const urlhalls = AppConfig.apiBaseUrl + AppConfig.endpoints.allHall;
+        // Get references to the DOM elements
+        const loginForm = document.getElementById('loginForm');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const messageArea = document.getElementById('messageArea');
+        const loginButton = document.getElementById('loginBtn');
 
-        document.addEventListener('alpine:init', () => {
-            Alpine.data('dashboardData', () => ({
-                counts: {
-                    schools: '...',
-                    departments: '...',
-                    totalHalls: '...',
-                },
-                hallTypes: {
-                    seminarHalls: 0,
-                    auditoriums: 0,
-                    lectureHalls: 0,
-                    conferenceHalls: 0
-                },
-                
-                get hallChartData() {
-                    const total = this.counts.totalHalls > 0 ? this.counts.totalHalls : 1;
-                    return [
-                        { name: 'Seminar', count: this.hallTypes.seminarHalls, percentage: (this.hallTypes.seminarHalls / total) * 100, color: 'bg-indigo-500' },
-                        { name: 'Auditorium', count: this.hallTypes.auditoriums, percentage: (this.hallTypes.auditoriums / total) * 100, color: 'bg-purple-500' },
-                        { name: 'Lecture', count: this.hallTypes.lectureHalls, percentage: (this.hallTypes.lectureHalls / total) * 100, color: 'bg-pink-500' },
-                        { name: 'Conference', count: this.hallTypes.conferenceHalls, percentage: (this.hallTypes.conferenceHalls / total) * 100, color: 'bg-teal-500' }
-                    ];
-                },
-                
-                async init() {
-                    const headers = getAuthHeaders();
-                    
-                    // If no token is found, redirect to login page immediately
-                    if (!headers) {
-                        console.error('Authentication token not found. Redirecting to login.');
-                        logout();
-                        return;
-                    }
+        // Add an event listener to the form for the submit event
+        loginForm.addEventListener('submit', async (event) => {
+            // Prevent the default form submission behavior (which reloads the page)
+            event.preventDefault();
 
-                    try {
-                        const [schoolRes, departmentRes, hallRes] = await Promise.all([
-                            fetch(urlsch, { headers }),
-                            fetch(urldept, { headers }),
-                            fetch(urlhalls, { headers })
-                        ]);
+            // Get the values from the input fields
+            const email = emailInput.value;
+            const password = passwordInput.value;
 
-                        // Check for auth errors (401/403)
-                        if (schoolRes.status === 401 || departmentRes.status === 401 || hallRes.status === 401) {
-                            console.error('Authentication failed. Token may be invalid or expired.');
-                            this.logout();
-                            return;
-                        }
+            // Basic validation: check if fields are empty
+            if (!email || !password) {
+                displayMessage('Please enter both email and password.', 'error');
+                return;
+            }
 
-                        if (!schoolRes.ok) throw new Error(`Failed to fetch schools: ${schoolRes.statusText}`);
-                        if (!departmentRes.ok) throw new Error(`Failed to fetch departments: ${departmentRes.statusText}`);
-                        if (!hallRes.ok) throw new Error(`Failed to fetch halls: ${hallRes.statusText}`);
+            // Change button text to show loading state
+            loginButton.textContent = 'Logging in...';
+            loginButton.disabled = true;
 
-                        const schools = await schoolRes.json();
-                        const departments = await departmentRes.json();
-                        const halls = await hallRes.json();
+            try {
+                // Use the AppConfig object to build the correct API URL
+                const apiUrl = `https://hall-management.nirmaljyotib.workers.dev/auth/login`;
+
+                // Send a POST request to the API using fetch
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                // Parse the JSON response from the server
+                const result = await response.json();
+
+                // Check if the request was successful
+                if (response.ok) {
+                    // **FIXED**: Access token and role directly from the result object
+                    const token = result.token;
+                    const role = result.role;
+
+                    if (token) {
+                        // Securely save the token to sessionStorage
+                        sessionStorage.setItem('authToken', token);
+                        displayMessage('Login successful! Redirecting...', 'success');
                         
-                        this.counts.schools = Array.isArray(schools) ? schools.length : 0;
-                        this.counts.departments = Array.isArray(departments) ? departments.length : 0;
-                        
-                        const hallList = Array.isArray(halls) ? halls : halls.data || [];
-                        this.counts.totalHalls = hallList.length;
-                        this.hallTypes.seminarHalls = hallList.filter(h => h.type === 'SEMINAR').length;
-                        this.hallTypes.auditoriums = hallList.filter(h => h.type === 'AUDITORIUM').length;
-                        this.hallTypes.lectureHalls = hallList.filter(h => h.type === 'LECTURE').length;
-                        this.hallTypes.conferenceHalls = hallList.filter(h => h.type === 'CONFERENCE').length;
+                        // Redirect based on the role received from the API
+                        setTimeout(() => {
+                            if (role === "ADMIN"){
+                                window.location.replace("../admin.html");
+                            } else if (role === "HOD"){
+                                window.location.replace('../hod.html');
+                            } else {
+                                displayMessage('Login successful, but role is not recognized.', 'error');
+                            }
+                        }, 1000);
 
-                    } catch (error) {
-                        console.error('Error fetching dashboard data:', error);
-                        Object.keys(this.counts).forEach(key => {
-                            this.counts[key] = 'Error';
-                        });
+                    } else {
+                        displayMessage('Login successful, but no token was received.', 'error');
                     }
+                } else {
+                    // Handle errors (e.g., invalid credentials)
+                    const errorMessage = result.message || result.error || 'An unknown error occurred.';
+                    displayMessage(errorMessage, 'error');
                 }
-            }));
+            } catch (error) {
+                // Handle network errors or other exceptions
+                console.error('Login failed:', error);
+                displayMessage('Login failed. Please check your connection.', 'error');
+            } finally {
+                // Re-enable the button and restore its text
+                loginButton.textContent = 'Login';
+                loginButton.disabled = false;
+            }
         });
+
+        // Helper function to display messages to the user
+        function displayMessage(message, type) {
+            messageArea.textContent = message;
+            messageArea.className = `message ${type}`;
+            messageArea.style.display = 'block';
+        }
     </script>
-    
-    <!-- Script to load the centralized layout -->
-    <script src="layout.js"></script> 
 </body>
 </html>

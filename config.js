@@ -38,6 +38,7 @@ const AppConfig = {
      * Page links used for redirects within the application.
      */
     links: {
-        login: 'public/login.html' // Relative path from root pages like hod.html
+        // new login.html is index.html for github publication purpose
+        login: 'index.html' // Relative path from root pages like hod.html
     }
 };
