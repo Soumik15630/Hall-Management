@@ -50,7 +50,7 @@ function logout() {
     // Construct a more reliable path to the login page.
     const loginPath = (typeof AppConfig !== 'undefined') 
         ? `/${AppConfig.links.login}`.replace(/([^:]\/)\/+/g, "$1") // Ensure single slash from root
-        : '/public/login.html';
+        : 'index.html';
         
     window.location.replace(window.location.origin + loginPath);
 }
