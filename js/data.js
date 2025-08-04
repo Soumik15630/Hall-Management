@@ -56,7 +56,9 @@ window.AppData = (function() {
     async function fetchHallData() {
         if (cache.hallData) return JSON.parse(JSON.stringify(cache.hallData));
         
-        const rawHalls = await fetchFromAPI(AppConfig.endpoints.allHall);
+        const rawHalls = await fetchFromAPI(AppConfig.endpoints.allHall, {
+            method: 'GET'
+        });
         
         // Fetch related data for mapping names
         const schools = await fetchFromAPI(AppConfig.endpoints.allschool);
