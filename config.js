@@ -20,26 +20,27 @@ function getAuthHeaders() {
             }
 
 const AppConfig = {
-    // Base URL for your API. All endpoint URLs will be appended to this.
-    apiBaseUrl: 'https://hall-management.nirmaljyotib.workers.dev/',
-
-    // Specific API endpoints
-    endpoints: {
-        login: 'auth/login',
-        hall: 'api/hall',
-        allHall: 'api/hall/all-hall',
-        addHall: 'api/hall/create',
-        allschool: 'api/school/all-schools',
-        addschool: 'api/school/create',
-        alldept: 'api/department/all-department',
-        addDept: 'api/department/create',
-        emp:'api/employee',
-        allemp: 'api/employee/all-employees',
-        addemp: 'api/employee/create'
-        // Add other API endpoints here, e.g., deleteEmployee: '/employee/delete'
-    },
-
-    links: {
-        login: 'index.html'
-    }
-};
+            apiBaseUrl: 'https://hall-management.nirmaljyotib.workers.dev/',
+            endpoints: {
+                login: 'auth/login',
+                hall: 'api/hall',
+                allHall: 'api/hall/all-hall',
+                addHall: 'api/hall/create',
+                school: 'api/school',
+                allschool: 'api/school/all-schools',
+                addschool: 'api/school/create',
+                department: 'api/department',
+                alldept: 'api/department/all-department',
+                addDept: 'api/department/create',
+                emp:'api/employee',
+                allemp: 'api/employee/all-employees',
+                addemp: 'api/employee/create',
+                booking: 'api/booking',
+                bookingRequest: 'api/booking/request',
+                myBookings: 'api/booking/my-requests',
+                pendingApprovals: 'api/booking/pending-approval'
+            },
+            links: {
+                login: 'index.html'
+            }
+        };

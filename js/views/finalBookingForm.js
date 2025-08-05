@@ -415,7 +415,7 @@ window.FinalBookingFormView = (function() {
              return { label: 'Selected', cellClass: 'bg-cyan-500/80 cursor-pointer hover:bg-cyan-400/80' };
         }
         const booking = state.availabilityData.find(b => {
-             const bookingDate = new Date(b.year, b.month - 1, b.day); // Month is 1-based in data
+             const bookingDate = new Date(b.year, b.month, b.day);
              bookingDate.setHours(0,0,0,0);
              return bookingDate.getTime() === slotDate.getTime() && b.time === time;
         });
@@ -469,6 +469,19 @@ window.FinalBookingFormView = (function() {
         } else {
             state.selectedSlots.push(slotIdentifier);
         }
+    }
+
+    function convertTo24Hour(time) {
+        let [hours, minutesPart] = time.split(':');
+        let [minutes, modifier] = minutesPart.split(' ');
+        hours = parseInt(hours, 10);
+        if (modifier === 'PM' && hours < 12) {
+            hours += 12;
+        }
+        if (modifier === 'AM' && hours === 12) {
+            hours = 0;
+        }
+        return `${String(hours).padStart(2, '0')}:${minutes}`;
     }
     
     // --- EVENT HANDLERS ---
@@ -540,7 +553,7 @@ window.FinalBookingFormView = (function() {
              }
         }, { signal });
         
-        document.getElementById('confirm-booking-final-btn')?.addEventListener('click', () => {
+        document.getElementById('confirm-booking-final-btn')?.addEventListener('click', async () => {
             if (state.selectedSlots.length === 0) { 
                 alert('Please select at least one time slot.'); 
                 return; 
@@ -548,50 +561,45 @@ window.FinalBookingFormView = (function() {
             
             const purpose = document.getElementById('booking-purpose-final').value;
             const course = document.getElementById('course-title-final').value;
-            const department = document.getElementById('department-select').value;
             
-            if (!purpose || !course) {
-                alert('Please fill in the Purpose and Course/Event Title fields.');
+            if (!purpose) {
+                alert('Please fill in the Purpose field.');
                 return;
             }
 
-            const today = new Date().toISOString().split('T')[0];
-            const bookingId = `BK-${today.replace(/-/g, '')}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
+            // Create a separate booking request for each selected slot
+            const bookingRequests = state.selectedSlots.map(slot => {
+                const startTime24 = convertTo24Hour(slot.time);
+                const [startHour, startMinute] = startTime24.split(':').map(Number);
 
-            const { fromDate, toDate } = getSelectedDateRange();
-            const sortedSlots = state.selectedSlots.sort((a,b) => a.time.localeCompare(b.time));
-            const firstSlotTime = sortedSlots[0]?.time;
-            const lastSlotTime = sortedSlots[sortedSlots.length - 1]?.time;
-            
-            const bookingRecord = {
-                bookedOn: today,
-                bookingId: bookingId,
-                hallName: state.hall.name,
-                hallCode: state.hall.id,
-                department: department,
-                purpose: purpose,
-                course: course,
-                dateTime: `${fromDate} to ${toDate}\n${firstSlotTime} - ${lastSlotTime}`,
-                status: 'Pending'
-            };
+                const startDate = new Date(slot.date);
+                startDate.setUTCHours(startHour, startMinute, 0, 0);
 
-            const availabilityRecords = state.selectedSlots.map(slot => {
-                const d = new Date(slot.date + 'T00:00:00');
+                const endDate = new Date(startDate);
+                endDate.setUTCHours(startDate.getUTCHours() + 1); // Assuming 1-hour slots
+
                 return {
-                    hallId: state.hall.id,
-                    year: d.getFullYear(),
-                    month: d.getMonth() + 1, // month is 0-indexed in JS Date, but data expects 1-based
-                    day: d.getDate(),
-                    time: slot.time,
-                    status: 'Pending'
+                    hall_id: state.hall.id,
+                    purpose: purpose,
+                    class_code: course || undefined,
+                    booking_type: "INDIVIDUAL",
+                    start_date: startDate.toISOString(),
+                    end_date: endDate.toISOString(),
+                    start_time: startTime24,
+                    end_time: `${String(endDate.getUTCHours()).padStart(2, '0')}:${String(endDate.getUTCMinutes()).padStart(2, '0')}`
                 };
             });
 
-            AppData.addIndividualBooking({ bookingRecord, availabilityRecords });
-            
-            alert(`Booking request submitted successfully!\nID: ${bookingId}`);
-            cleanup(); 
-            window.location.hash = '#my-bookings-view';
+            try {
+                // Use the new function in AppData to send all requests
+                await AppData.addMultipleIndividualBookings(bookingRequests);
+                alert(`Successfully submitted ${bookingRequests.length} booking request(s)!`);
+                cleanup(); 
+                window.location.hash = '#my-bookings-view';
+            } catch (error) {
+                console.error("Booking failed:", error);
+                alert(`Booking failed: ${error.message}`);
+            }
         }, { signal });
     }
 
@@ -605,9 +613,8 @@ window.FinalBookingFormView = (function() {
                 time: s.time
             }));
         } else if (hallId) {
-            const allHalls = await AppData.fetchBookingHalls();
-            const flatHalls = Object.values(allHalls).flat(Infinity);
-            hall = flatHalls.find(h => h.id === hallId);
+            const allHalls = await AppData.fetchHallData();
+            hall = allHalls.find(h => h.id === hallId);
             state.selectedSlots = [];
         }
         

@@ -4,7 +4,7 @@ window.EmployeeView = (function() {
     // --- STATE MANAGEMENT ---
     let state = {
         allEmployees: [],
-        selectedRows: [], // Stores emails of selected employees
+        selectedRows: [], // Stores employee IDs (unique_id)
         multiSelection: false,
         schoolsData: {},
     };
@@ -21,10 +21,10 @@ window.EmployeeView = (function() {
         }
         
         const tableHtml = state.allEmployees.map(emp => {
-            const isSelected = state.selectedRows.includes(emp.email);
+            const isSelected = state.selectedRows.includes(emp.id);
             const statusColor = emp.status === 'Active' ? 'text-green-400' : 'text-yellow-400';
             return `
-            <tr data-employee-email="${emp.email}" class="${isSelected ? 'bg-blue-900/30' : ''} hover:bg-slate-800/50 transition-colors">
+            <tr data-employee-id="${emp.id}" class="${isSelected ? 'bg-blue-900/30' : ''} hover:bg-slate-800/50 transition-colors">
                 <td class="py-4 pl-4 pr-3 text-sm sm:pl-6">
                     <input type="checkbox" class="row-checkbox rounded bg-slate-700 border-slate-500 text-blue-500 focus:ring-blue-500" ${isSelected ? 'checked' : ''}>
                 </td>
@@ -69,16 +69,16 @@ window.EmployeeView = (function() {
         }
     }
 
-    function handleRowSelection(email, isChecked) {
+    function handleRowSelection(employeeId, isChecked) {
         if (!state.multiSelection) {
-            state.selectedRows = isChecked ? [email] : [];
+            state.selectedRows = isChecked ? [employeeId] : [];
         } else {
             if (isChecked) {
-                if (!state.selectedRows.includes(email)) {
-                    state.selectedRows.push(email);
+                if (!state.selectedRows.includes(employeeId)) {
+                    state.selectedRows.push(employeeId);
                 }
             } else {
-                state.selectedRows = state.selectedRows.filter(e => e !== email);
+                state.selectedRows = state.selectedRows.filter(id => id !== employeeId);
             }
         }
         renderEmployeeTable();
@@ -113,25 +113,23 @@ window.EmployeeView = (function() {
         setTimeout(() => {
             backdrop?.classList.add('hidden');
             modals.forEach(modal => modal.classList.add('hidden'));
-        }, 300); // Match transition duration
+        }, 300);
     }
 
     function setupUpdateEmployeeModal() {
-        const email = state.selectedRows[0];
-        const employee = state.allEmployees.find(emp => emp.email === email);
+        const employeeId = state.selectedRows[0];
+        const employee = state.allEmployees.find(emp => emp.id === employeeId);
         if (!employee) {
             console.error("Could not find selected employee to modify.");
             return;
         }
 
-        // --- Populate basic fields ---
         document.getElementById('update-employee-original-email').value = employee.email;
         document.getElementById('update-employee-name').value = employee.name;
         document.getElementById('update-employee-email').value = employee.email;
         document.getElementById('update-employee-phone').value = employee.phone || '';
         document.getElementById('update-employee-designation').value = employee.designation;
 
-        // --- Dynamic Dropdown Elements ---
         const schoolInput = document.getElementById('update-employee-school-input');
         const schoolOptions = document.getElementById('update-employee-school-options');
         const schoolHidden = document.getElementById('update-employee-school');
@@ -139,7 +137,6 @@ window.EmployeeView = (function() {
         const deptOptions = document.getElementById('update-employee-department-options');
         const deptHidden = document.getElementById('update-employee-department');
         
-        // --- Dynamic Dropdown Logic ---
         function populateSchoolOptions(searchTerm = '') {
             const filteredSchools = Object.keys(state.schoolsData).filter(s => s.toLowerCase().includes(searchTerm.toLowerCase()));
             schoolOptions.innerHTML = filteredSchools.map(s => `<div class="p-2 cursor-pointer hover:bg-slate-700" data-value="${s}">${s}</div>`).join('');
@@ -151,7 +148,6 @@ window.EmployeeView = (function() {
             deptOptions.innerHTML = filteredDepts.map(d => `<div class="p-2 cursor-pointer hover:bg-slate-700" data-value="${d}">${d}</div>`).join('');
         }
 
-        // School Dropdown Handlers
         schoolInput.addEventListener('focus', () => { populateSchoolOptions(schoolInput.value); schoolOptions.classList.remove('hidden'); });
         schoolInput.addEventListener('blur', () => setTimeout(() => schoolOptions.classList.add('hidden'), 150));
         schoolInput.addEventListener('input', () => {
@@ -174,16 +170,14 @@ window.EmployeeView = (function() {
             }
         });
 
-        // Department Dropdown Handlers
         deptInput.addEventListener('focus', () => { populateDeptOptions(schoolHidden.value, deptInput.value); deptOptions.classList.remove('hidden'); });
         deptInput.addEventListener('blur', () => setTimeout(() => deptOptions.classList.add('hidden'), 150));
-        deptInput.addEventListener('input', () => populateDeptOptions('', deptInput.value)); // Always search globally
+        deptInput.addEventListener('input', () => populateDeptOptions('', deptInput.value));
         deptOptions.addEventListener('mousedown', (e) => {
             if (e.target.dataset.value) {
                 const deptValue = e.target.dataset.value;
                 deptInput.value = deptValue;
                 deptHidden.value = deptValue;
-                // Auto-context: find and set the school for the selected department
                 for (const school in state.schoolsData) {
                     if (state.schoolsData[school].includes(deptValue)) {
                         schoolInput.value = school;
@@ -194,7 +188,6 @@ window.EmployeeView = (function() {
             }
         });
 
-        // --- Set Initial Values ---
         schoolInput.value = employee.school;
         schoolHidden.value = employee.school;
         deptInput.value = employee.department;
@@ -229,7 +222,7 @@ window.EmployeeView = (function() {
         if(selectAllCheckbox) {
             selectAllCheckbox.addEventListener('change', (e) => {
                 if (state.multiSelection) {
-                    state.selectedRows = e.target.checked ? state.allEmployees.map(emp => emp.email) : [];
+                    state.selectedRows = e.target.checked ? state.allEmployees.map(emp => emp.id) : [];
                     renderEmployeeTable();
                 }
             }, { signal });
@@ -240,8 +233,8 @@ window.EmployeeView = (function() {
             tableBody.addEventListener('change', (e) => {
                 if (e.target.classList.contains('row-checkbox')) {
                     const row = e.target.closest('tr');
-                    const email = row.dataset.employeeEmail;
-                    handleRowSelection(email, e.target.checked);
+                    const employeeId = row.dataset.employeeId;
+                    handleRowSelection(employeeId, e.target.checked);
                 }
             }, { signal });
         }
@@ -260,10 +253,15 @@ window.EmployeeView = (function() {
                 if (deleteBtn.disabled) return;
                 
                 if (confirm(`Are you sure you want to delete ${state.selectedRows.length} employee(s)? This action cannot be undone.`)) {
-                    await AppData.deleteEmployees(state.selectedRows);
-                    state.selectedRows = [];
-                    await initialize(); 
-                    alert('Employee(s) have been deleted successfully.');
+                    try {
+                        await AppData.deleteEmployees(state.selectedRows);
+                        state.selectedRows = [];
+                        await initialize(); 
+                        alert('Employee(s) have been deleted successfully.');
+                    } catch (error) {
+                        console.error("Failed to delete employees:", error);
+                        alert("An error occurred while deleting employees. Please try again.");
+                    }
                 }
             }, { signal });
         }
@@ -278,7 +276,7 @@ window.EmployeeView = (function() {
             updateForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const updatedEmployee = {
-                    originalEmail: document.getElementById('update-employee-original-email').value,
+                    id: state.selectedRows[0], // Pass the ID for the API
                     name: document.getElementById('update-employee-name').value,
                     email: document.getElementById('update-employee-email').value,
                     phone: document.getElementById('update-employee-phone').value,
@@ -287,7 +285,7 @@ window.EmployeeView = (function() {
                     department: document.getElementById('update-employee-department').value,
                 };
                 await AppData.updateEmployee(updatedEmployee);
-                state.selectedRows = [updatedEmployee.email];
+                state.selectedRows = [updatedEmployee.id];
                 closeModal();
                 await initialize();
                 alert('Employee details updated successfully.');
@@ -325,7 +323,6 @@ window.EmployeeView = (function() {
         }
     }
 
-    // Public API
     return {
         initialize,
         cleanup

@@ -21,7 +21,6 @@ window.ArchiveView = (function() {
         
         const tableHtml = state.allHalls.map(hall => {
             const isSelected = state.selectedRows.includes(hall.hallCode);
-            // Archived halls are always status:false, so we show a red indicator
             const statusColor = 'bg-red-900/50 text-red-400';
             const statusText = 'No';
 
@@ -137,11 +136,19 @@ window.ArchiveView = (function() {
                 if (state.selectedRows.length === 0) return;
                 
                 if (confirm(`Are you sure you want to re-activate ${state.selectedRows.length} hall(s)?`)) {
-                    await AppData.reactivateHalls(state.selectedRows);
-                    // Reset selection and re-initialize the view to show fresh data
-                    state.selectedRows = [];
-                    await initialize(); 
-                    alert('Hall(s) have been re-activated successfully.');
+                    try {
+                        const updatePromises = state.selectedRows.map(hallCode => 
+                            AppData.updateHall(hallCode, { availability: true })
+                        );
+                        await Promise.all(updatePromises);
+                        
+                        state.selectedRows = [];
+                        await initialize(); 
+                        alert('Hall(s) have been re-activated successfully.');
+                    } catch (error) {
+                        console.error("Failed to reactivate halls:", error);
+                        alert("An error occurred while reactivating the halls. Please try again.");
+                    }
                 }
             }, { signal });
         }
@@ -149,7 +156,6 @@ window.ArchiveView = (function() {
 
     function cleanup() {
         if(abortController) abortController.abort();
-        // Reset state
         state = {
             allHalls: [],
             selectedRows: [],
@@ -172,7 +178,6 @@ window.ArchiveView = (function() {
         }
     }
 
-    // Public API
     return {
         initialize,
         cleanup

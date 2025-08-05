@@ -10,9 +10,8 @@ window.ConflictsView = (function() {
             return;
         }
         
-        // --- PERFORMANCE FIX: Build HTML string before DOM manipulation ---
         const tableHtml = data.map(booking => `
-            <tr class="bg-red-900/20">
+            <tr class="bg-red-900/20" data-booking-id="${booking.bookingId}">
                 <td class="whitespace-nowrap px-3 py-4 text-sm">
                     <div class="text-slate-300">${booking.bookedOn}</div>
                     <div class="text-blue-400">${booking.bookingId}</div>
@@ -27,7 +26,7 @@ window.ConflictsView = (function() {
                 </td>
                 <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300">${booking.dateTime.replace(/\\n/g, '<br>')}</td>
                 <td class="whitespace-nowrap px-3 py-4 text-sm">
-                        <div class="font-medium text-blue-400">${booking.bookedBy}</div>
+                    <div class="font-medium text-blue-400">${booking.bookedBy}</div>
                     <div class="text-slate-400">${booking.bookedByDept}</div>
                     <div class="text-slate-400">${booking.phone}</div>
                     <div class="text-slate-400">${booking.email}</div>
@@ -48,16 +47,27 @@ window.ConflictsView = (function() {
         tableBody.innerHTML = tableHtml;
     }
 
+    function setupEventHandlers() {
+        const tableBody = document.getElementById('booking-conflicts-body');
+        if (!tableBody) return;
+
+        tableBody.addEventListener('click', (e) => {
+            const button = e.target.closest('button[data-action]');
+            if (!button) return;
+            alert('This feature is not yet connected to the backend.');
+        });
+    }
+
     async function initialize() {
         try {
             const data = await AppData.fetchBookingConflictsData();
             renderBookingConflictsTable(data);
+            setupEventHandlers();
         } catch (error) {
             console.error('Error loading booking conflicts:', error);
         }
     }
 
-    // Public API
     return {
         initialize
     };

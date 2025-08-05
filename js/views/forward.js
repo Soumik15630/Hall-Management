@@ -10,7 +10,6 @@ window.ForwardView = (function() {
             return;
         }
         
-        // --- PERFORMANCE FIX: Build HTML string before DOM manipulation ---
         const tableHtml = data.map(booking => `
             <tr class="hover:bg-slate-800/50 transition-colors">
                 <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300">${booking.bookedOn}</td>
@@ -24,7 +23,7 @@ window.ForwardView = (function() {
                 </td>
                 <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300">${booking.dateTime.replace('\\n', '<br>')}</td>
                 <td class="whitespace-nowrap px-3 py-4 text-sm">
-                        <div class="font-medium text-white">${booking.bookedBy}</div>
+                    <div class="font-medium text-white">${booking.bookedBy}</div>
                     <div class="text-slate-400">${booking.bookedByDept}</div>
                 </td>
                 <td class="whitespace-nowrap px-3 py-4 text-sm font-semibold text-yellow-400">${booking.status}</td>
@@ -40,16 +39,27 @@ window.ForwardView = (function() {
         tableBody.innerHTML = tableHtml;
     }
 
+    function setupEventHandlers() {
+        const tableBody = document.getElementById('forward-bookings-body');
+        if (!tableBody) return;
+
+        tableBody.addEventListener('click', (e) => {
+            const button = e.target.closest('button[data-action]');
+            if (!button) return;
+            alert('This feature is not yet connected to the backend.');
+        });
+    }
+
     async function initialize() {
         try {
             const data = await AppData.fetchForwardBookingsData();
             renderForwardBookingsTable(data);
+            setupEventHandlers();
         } catch (error) {
             console.error('Error loading forward bookings:', error);
         }
     }
 
-    // Public API
     return {
         initialize
     };

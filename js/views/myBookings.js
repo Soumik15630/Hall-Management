@@ -1,7 +1,13 @@
 // My Bookings View Module
 window.MyBookingsView = (function() {
-    
-    function renderMyBookingsTable(data) {
+    let state = {
+        bookings: [],
+        selectedRows: [] // Stores booking IDs
+    };
+    let abortController;
+
+    function renderMyBookingsTable() {
+        const data = state.bookings;
         const tableBody = document.getElementById('my-bookings-body');
         if (!tableBody) return;
 
@@ -10,12 +16,14 @@ window.MyBookingsView = (function() {
             return;
         }
         
-        // --- PERFORMANCE FIX: Build HTML string before DOM manipulation ---
         const tableHtml = data.map(booking => {
-            const statusClass = booking.status === 'Approved' ? 'text-green-400' : 'text-red-400';
+            const isSelected = state.selectedRows.includes(booking.bookingId);
+            const statusClass = booking.status === 'Approved' ? 'text-green-400' : (booking.status === 'Rejected' ? 'text-red-400' : 'text-yellow-400');
             return `
-                <tr class="hover:bg-slate-800/50 transition-colors">
-                    <td class="py-4 pl-4 pr-3 text-sm sm:pl-6"><input type="checkbox" class="rounded bg-slate-700 border-slate-500 text-blue-500 focus:ring-blue-500"></td>
+                <tr data-booking-id="${booking.bookingId}" class="${isSelected ? 'bg-blue-900/30' : ''} hover:bg-slate-800/50 transition-colors">
+                    <td class="py-4 pl-4 pr-3 text-sm sm:pl-6">
+                        <input type="checkbox" class="row-checkbox rounded bg-slate-700 border-slate-500 text-blue-500 focus:ring-blue-500" ${isSelected ? 'checked' : ''}>
+                    </td>
                     <td class="whitespace-nowrap px-3 py-4 text-sm">
                         <div class="text-slate-300">${booking.bookedOn}</div>
                         <div class="text-blue-400">${booking.bookingId}</div>
@@ -36,19 +44,81 @@ window.MyBookingsView = (function() {
         }).join('');
 
         tableBody.innerHTML = tableHtml;
+        updateCancelButtonState();
+    }
+
+    function updateCancelButtonState() {
+        const cancelBtn = document.getElementById('cancel-bookings-btn');
+        if (cancelBtn) {
+            cancelBtn.disabled = state.selectedRows.length === 0;
+        }
+    }
+
+    function handleRowSelection(bookingId, isChecked) {
+        if (isChecked) {
+            if (!state.selectedRows.includes(bookingId)) {
+                state.selectedRows.push(bookingId);
+            }
+        } else {
+            state.selectedRows = state.selectedRows.filter(id => id !== bookingId);
+        }
+        renderMyBookingsTable();
+    }
+
+    function setupEventHandlers() {
+        if (abortController) abortController.abort();
+        abortController = new AbortController();
+        const { signal } = abortController;
+
+        const tableBody = document.getElementById('my-bookings-body');
+        if (tableBody) {
+            tableBody.addEventListener('change', e => {
+                if (e.target.classList.contains('row-checkbox')) {
+                    const row = e.target.closest('tr');
+                    const bookingId = row.dataset.bookingId;
+                    handleRowSelection(bookingId, e.target.checked);
+                }
+            }, { signal });
+        }
+
+        const cancelBtn = document.getElementById('cancel-bookings-btn');
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', async () => {
+                if (state.selectedRows.length === 0) return;
+
+                if (confirm(`Are you sure you want to cancel ${state.selectedRows.length} booking(s)?`)) {
+                    try {
+                        await AppData.cancelBookings(state.selectedRows);
+                        alert('Selected booking(s) cancelled successfully.');
+                        state.selectedRows = [];
+                        await initialize(); // Refresh view
+                    } catch (error) {
+                        console.error('Failed to cancel bookings:', error);
+                        alert('An error occurred while cancelling bookings. Please try again.');
+                    }
+                }
+            }, { signal });
+        }
     }
 
     async function initialize() {
         try {
             const data = await AppData.fetchMyBookingsData();
-            renderMyBookingsTable(data);
+            state.bookings = data;
+            renderMyBookingsTable();
+            setupEventHandlers();
         } catch (error) {
             console.error('Error loading my bookings:', error);
         }
     }
 
-    // Public API
+    function cleanup() {
+        if (abortController) abortController.abort();
+        state = { bookings: [], selectedRows: [] };
+    }
+
     return {
-        initialize
+        initialize,
+        cleanup
     };
 })();
