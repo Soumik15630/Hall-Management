@@ -13,11 +13,85 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" href="css/styles.css">
+    <style>
+        /* Override FullCalendar styles to match theme */
+        :root {
+            --fc-border-color: rgba(100, 116, 139, 0.5);
+            --fc-daygrid-event-dot-width: 8px;
+            --fc-list-event-dot-width: 10px;
+            --fc-event-bg-color: #3b82f6;
+            --fc-event-border-color: #2563eb;
+            --fc-event-text-color: #ffffff;
+            --fc-page-bg-color: transparent;
+            --fc-neutral-bg-color: rgba(30, 41, 59, 0.5);
+            --fc-list-day-text-color: #ffffff;
+            --fc-list-day-side-text-color: #9ca3af;
+        }
+        .fc .fc-toolbar-title {
+            color: #ffffff;
+        }
+        .fc .fc-button-primary {
+            background-color: #374151;
+            border-color: #4b5563;
+        }
+        .fc .fc-button-primary:hover {
+            background-color: #4b5563;
+        }
+        .fc .fc-daygrid-day-number, .fc .fc-col-header-cell-cushion {
+            color: #d1d5db;
+        }
+        .fc-theme-standard .fc-list-day-cushion {
+            background-color: rgba(15, 23, 42, 0.7);
+        }
+
+        /* --- Custom Cursor Styles --- */
+        body {
+            cursor: none;
+        }
+        .custom-cursor {
+            transition: opacity 0.3s ease;
+        }
+        .custom-cursor.hidden {
+            opacity: 0;
+        }
+        .custom-cursor > div { /* Target both children */
+            position: fixed;
+            pointer-events: none;
+            z-index: 9999;
+            border-radius: 50%;
+            mix-blend-mode: difference;
+            transform: translate(-50%, -50%);
+        }
+        .cursor-dot {
+            width: 8px;
+            height: 8px;
+            background-color: white;
+        }
+        .cursor-outline {
+            width: 40px;
+            height: 40px;
+            background-color: rgba(255,255,255,0);
+            border: 2px solid rgba(255, 255, 255, 0.5);
+        }
+        /* Let the browser handle the cursor for these elements */
+        a, button, input[type="checkbox"], input[type="radio"], select, .timetable-slot.available, .timetable-slot.selected, [data-action] {
+            cursor: pointer;
+        }
+        input[type="text"], input[type="email"], input[type="date"], input[type="number"], textarea {
+            cursor: text;
+        }
+
+    </style>
 </head>
-<body class="min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col bg-slate-900 text-slate-200">
+
+    <div class="custom-cursor">
+        <div class="cursor-dot"></div>
+        <div class="cursor-outline"></div>
+    </div>
 
     <div id="top-bars-container" class="sticky top-0 z-30 transition-transform duration-300">
         <header class="bg-slate-900/80 backdrop-blur-sm shadow-lg">
@@ -636,5 +710,50 @@
     <script src="js/views/hallBookingDetails.js"></script>
     <script src="js/views/finalBookingForm.js"></script>
     <script src="js/main.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const customCursor = document.querySelector('.custom-cursor');
+            const cursorDot = document.querySelector('.cursor-dot');
+            const cursorOutline = document.querySelector('.cursor-outline');
+
+            let mouseX = 0;
+            let mouseY = 0;
+            let outlineX = 0;
+            let outlineY = 0;
+
+            window.addEventListener('mousemove', function (e) {
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+            });
+
+            const animateCursor = () => {
+                // Animate dot
+                cursorDot.style.left = `${mouseX}px`;
+                cursorDot.style.top = `${mouseY}px`;
+
+                // Animate outline with a slight delay for a trailing effect
+                const speed = 0.1;
+                outlineX += (mouseX - outlineX) * speed;
+                outlineY += (mouseY - outlineY) * speed;
+                cursorOutline.style.left = `${outlineX}px`;
+                cursorOutline.style.top = `${outlineY}px`;
+
+                requestAnimationFrame(animateCursor);
+            };
+            
+            requestAnimationFrame(animateCursor);
+
+            const interactiveElements = 'a, button, input, select, textarea, [data-action], .fc-button';
+
+            document.body.addEventListener('mousemove', (e) => {
+                // Toggle visibility based on the element under the mouse
+                if (e.target.closest(interactiveElements)) {
+                    customCursor.classList.add('hidden');
+                } else {
+                    customCursor.classList.remove('hidden');
+                }
+            });
+        });
+    </script>
 </body>
 </html>

@@ -7,6 +7,10 @@ window.HallBookingDetailsView = (function() {
         currentDate: new Date(),
         availabilityData: [],
         selectedSlots: [], 
+        // NEW: State for drag-to-select functionality
+        isDragging: false,
+        dragSelectionMode: 'add',
+        dragDate: null, // YYYY-MM-DD representation of the date being dragged on
     };
     let abortController;
     
@@ -155,28 +159,27 @@ window.HallBookingDetailsView = (function() {
         updateBookingButtonState();
     }
     
-    function handleSlotClick(e) {
-        const cell = e.target.closest('[data-time]');
-        if (!cell || cell.classList.contains('bg-red-600/80') || cell.classList.contains('bg-yellow-500/80') || cell.classList.contains('bg-gray-700/50')) {
-            return;
-        }
+    // NEW: Modified function to handle toggling a single slot
+    function toggleSlot(slot) {
+        const slotDate = new Date(slot.year, slot.month, slot.day);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (slotDate < today) return; // Cannot select past dates
 
-        const slot = {
-            year: parseInt(cell.dataset.year),
-            month: parseInt(cell.dataset.month),
-            day: parseInt(cell.dataset.day),
-            time: cell.dataset.time,
-        };
+        const status = getSlotStatus(slot.year, slot.month, slot.day, slot.time);
+        if (status === 'Booked' || status === 'Pending') return;
         
         const index = state.selectedSlots.findIndex(s => s.year === slot.year && s.month === slot.month && s.day === slot.day && s.time === slot.time);
 
-        if (index > -1) {
-            state.selectedSlots.splice(index, 1);
-        } else {
-            state.selectedSlots.push(slot);
+        if (state.dragSelectionMode === 'add') {
+            if (index === -1) {
+                state.selectedSlots.push(slot);
+            }
+        } else { // 'remove' mode
+            if (index > -1) {
+                state.selectedSlots.splice(index, 1);
+            }
         }
-        renderBookingGrid();
-        saveStateToSession();
     }
 
     function changeMonth(offset) {
@@ -185,14 +188,82 @@ window.HallBookingDetailsView = (function() {
         saveStateToSession();
     }
 
+    // NEW: Handlers for drag-select
+    function handleDragStart(e) {
+        const cell = e.target.closest('[data-time]');
+        if (!cell) return;
+        e.preventDefault();
+
+        state.isDragging = true;
+        const slot = {
+            year: parseInt(cell.dataset.year),
+            month: parseInt(cell.dataset.month),
+            day: parseInt(cell.dataset.day),
+            time: cell.dataset.time,
+        };
+
+        const status = getSlotStatus(slot.year, slot.month, slot.day, slot.time);
+        if (status === 'Booked' || status === 'Pending' || status === 'Past') {
+            state.isDragging = false;
+            return;
+        }
+
+        const dateString = `${slot.year}-${slot.month}-${slot.day}`;
+        if (state.dragDate !== dateString) {
+            state.selectedSlots = []; // Clear selection when starting drag on a new date
+            state.dragDate = dateString;
+        }
+        
+        state.dragSelectionMode = (status === 'Selected') ? 'remove' : 'add';
+        
+        toggleSlot(slot);
+        renderBookingGrid(); // Re-render to show immediate feedback
+    }
+
+    function handleDragOver(e) {
+        if (!state.isDragging) return;
+        
+        const cell = e.target.closest('[data-time]');
+        if (cell) {
+             const slot = {
+                year: parseInt(cell.dataset.year),
+                month: parseInt(cell.dataset.month),
+                day: parseInt(cell.dataset.day),
+                time: cell.dataset.time,
+            };
+            const dateString = `${slot.year}-${slot.month}-${slot.day}`;
+            // Only continue drag on the same date
+            if (state.dragDate === dateString) {
+                toggleSlot(slot);
+                renderBookingGrid();
+            }
+        }
+    }
+
+    function handleDragStop() {
+        if (state.isDragging) {
+            state.isDragging = false;
+            state.dragDate = null;
+            saveStateToSession();
+        }
+    }
+
     function setupEventHandlers() {
         if (abortController) { abortController.abort(); }
         abortController = new AbortController();
         const { signal } = abortController;
+
+        const gridContainer = document.getElementById('booking-calendar-grid');
         
         document.getElementById('prev-month-btn')?.addEventListener('click', () => changeMonth(-1), { signal });
         document.getElementById('next-month-btn')?.addEventListener('click', () => changeMonth(1), { signal });
-        document.getElementById('booking-calendar-grid')?.addEventListener('click', handleSlotClick, { signal });
+
+        // NEW: Replace single click listener with drag-and-drop listeners
+        if (gridContainer) {
+            gridContainer.addEventListener('mousedown', handleDragStart, { signal });
+            gridContainer.addEventListener('mouseenter', handleDragOver, { signal, capture: true });
+        }
+        window.addEventListener('mouseup', handleDragStop, { signal, once: false });
         
         document.getElementById('confirm-booking-btn')?.addEventListener('click', () => {
             sessionStorage.setItem(FINAL_BOOKING_HALL, JSON.stringify(state.currentHall));
@@ -210,6 +281,8 @@ window.HallBookingDetailsView = (function() {
         if (abortController) {
             abortController.abort();
         }
+        // NEW: Remove window listener on cleanup
+        window.removeEventListener('mouseup', handleDragStop);
     }
 
     async function initialize(hallId) {
@@ -219,6 +292,9 @@ window.HallBookingDetailsView = (function() {
             currentDate: new Date(),
             availabilityData: [],
             selectedSlots: [],
+            isDragging: false,
+            dragSelectionMode: 'add',
+            dragDate: null,
         };
         
         loadStateFromSession();

@@ -1,647 +1,425 @@
-// HallBooking/js/views/finalBookingForm.js
+// final/js/views/finalBookingForm.js
 
 window.FinalBookingFormView = (function() {
     
-    const SESSION_STORAGE_KEY_FORM = 'finalBookingFormState';
+    // --- STATE MANAGEMENT ---
     let state = {
         hall: null,
         availabilityData: [],
-        selectedSlots: [], // Single source of truth: [{ date: 'YYYY-MM-DD', time: 'HH:MM AM/PM' }]
+        selectedSlots: [], // Single source of truth: [{ date: 'YYYY-MM-DD', time: 'HH:MM' }]
         currentDate: new Date(),
-        calendarView: 'month',
-        allSchools: {},
+        bookingType: 'INDIVIDUAL',
+        purpose: '',
+        classCode: '',
+        selectedDays: [], // For semester booking
+        
+        // Drag-to-select state
+        isDragging: false,
+        dragSelectionMode: 'add',
+        dragDate: null,
     };
     let abortController;
 
-    // --- STATE PERSISTENCE ---
-    function saveStateToSession() {
-        if (!state.hall) return;
-        const key = SESSION_STORAGE_KEY_FORM + `_${state.hall.id}`;
-        const stateToSave = {
-            selectedSlots: state.selectedSlots,
-            currentDate: state.currentDate.toISOString(),
-            calendarView: state.calendarView,
-        };
-        sessionStorage.setItem(key, JSON.stringify(stateToSave));
-    }
-
-    function loadStateFromSession() {
-        if (!state.hall) return;
-        const key = SESSION_STORAGE_KEY_FORM + `_${state.hall.id}`;
-        const savedState = sessionStorage.getItem(key);
-        if (savedState) {
-            const parsed = JSON.parse(savedState);
-            state.selectedSlots = parsed.selectedSlots || [];
-            state.currentDate = new Date(parsed.currentDate);
-            state.calendarView = parsed.calendarView || 'month';
-        }
-    }
-
     // --- RENDERING ---
     function render() {
-        const container = document.getElementById('final-booking-form-content');
-        if (!container || !state.hall) return;
+        // This view now renders into a container with the ID 'view-content' inside your main HTML.
+        const container = document.getElementById('view-content'); 
+        if (!container) {
+            console.error('Main view container not found. Please ensure an element with id="view-content" exists.');
+            return;
+        }
 
-        const { fromDate, toDate } = getSelectedDateRange();
-        
-        const inputClasses = "mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-white focus:ring-blue-500 focus:border-blue-500";
-        const readonlyInputClasses = "mt-1 block w-full bg-slate-800 border-slate-700 rounded-md shadow-sm py-2 px-3 text-slate-400 cursor-not-allowed";
-
+        // Main HTML structure
         container.innerHTML = `
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                    <label class="block text-sm font-medium text-slate-300">Hall Type</label>
-                    <input type="text" value="${state.hall.type}" readonly class="${readonlyInputClasses}">
-                </div>
-                 <div>
-                    <label class="block text-sm font-medium text-slate-300">Hall Name</label>
-                    <input type="text" value="${state.hall.name}" readonly class="${readonlyInputClasses}">
-                </div>
-                <div>
-                    <label for="school-select-input" class="block text-sm font-medium text-slate-300">School</label>
-                    <div class="relative">
-                        <input type="text" id="school-select-input" class="${inputClasses}" placeholder="Search for a school...">
-                        <div id="school-select-options" class="absolute z-10 w-full bg-slate-800 border border-slate-600 rounded-lg mt-1 hidden max-h-60 overflow-y-auto"></div>
-                    </div>
-                    <input type="hidden" id="school-select">
-                </div>
-                 <div>
-                    <label for="department-select-input" class="block text-sm font-medium text-slate-300">Department</label>
-                     <div class="relative">
-                        <input type="text" id="department-select-input" class="${inputClasses}" placeholder="Search for a department...">
-                        <div id="department-select-options" class="absolute z-10 w-full bg-slate-800 border border-slate-600 rounded-lg mt-1 hidden max-h-60 overflow-y-auto"></div>
-                    </div>
-                    <input type="hidden" id="department-select">
-                </div>
-                <div>
-                    <label for="booking-purpose-final" class="block text-sm font-medium text-slate-300">Purpose</label>
-                    <input type="text" id="booking-purpose-final" placeholder="e.g., Ph.D. Defense" class="${inputClasses}">
-                </div>
-                <div>
-                    <label for="course-title-final" class="block text-sm font-medium text-slate-300">Course / Event Title</label>
-                    <input type="text" id="course-title-final" placeholder="e.g., Viva Voce for Mr. Alex" class="${inputClasses}">
-                </div>
-            </div>
-            
-            <div id="interactive-calendar-container" class="pt-4"></div>
+            <div id="final-booking-form-container" class="container mx-auto max-w-7xl">
+                <div class="bg-[rgba(0,0,0,0.15)] p-4 sm:p-8 rounded-lg shadow-xl">
+                    <h2 class="text-3xl font-bold text-center text-white mb-8">HALL BOOKING: ${state.hall ? state.hall.name : 'Loading...'}</h2>
+                    
+                    <section id="calendar-section" class="bg-white p-4 sm:p-6 rounded-lg shadow-md mb-8">
+                        ${renderCalendar()}
+                    </section>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-                <div>
-                    <label class="block text-sm font-medium text-slate-300">From:</label>
-                    <input id="from-date-input" type="date" value="${fromDate}" class="${inputClasses}">
-                </div>
-                 <div>
-                    <label class="block text-sm font-medium text-slate-300">To:</label>
-                    <input id="to-date-input" type="date" value="${toDate}" class="${inputClasses}">
-                </div>
-            </div>
+                    <form id="bookingForm" class="space-y-8">
+                        <section class="bg-white p-4 sm:p-6 rounded-lg shadow-md">
+                            <h3 class="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">Booking Details</h3>
+                            
+                            <div class="mb-6">
+                                <label class="block text-gray-600 text-sm font-medium mb-2">BOOKING TYPE</label>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <button type="button" id="booking-type-individual" class="booking-type-btn w-full py-3 px-4 text-center rounded-md text-sm font-semibold transition-all duration-200">Individual</button>
+                                    <button type="button" id="booking-type-semester" class="booking-type-btn w-full py-3 px-4 text-center rounded-md text-sm font-semibold transition-all duration-200">Semester</button>
+                                </div>
+                            </div>
 
-             <div class="pt-4">
-                <label class="block text-sm font-medium text-slate-300 mb-2">Choose Slot(s):</label>
-                <div class="flex rounded-lg border border-slate-600 overflow-hidden mb-4">
-                    <button id="forenoon-btn" class="flex-1 p-2 text-sm font-semibold bg-slate-700 text-slate-300 hover:bg-slate-600 transition-colors">Forenoon</button>
-                    <button id="afternoon-btn" class="flex-1 p-2 text-sm font-semibold bg-slate-700 text-slate-300 hover:bg-slate-600 transition-colors">Afternoon</button>
-                </div>
-                <div id="time-slots-checkboxes" class="p-4 border border-slate-600 rounded-md grid grid-cols-2 md:grid-cols-4 gap-4">
-                    ${renderTimeCheckboxes()}
-                </div>
-            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                                <div>
+                                    <label for="start_date" class="block text-gray-600 text-sm font-medium mb-2">FROM DATE</label>
+                                    <input type="date" id="start_date" class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" required>
+                                </div>
+                                <div>
+                                    <label for="end_date" class="block text-gray-600 text-sm font-medium mb-2">TO DATE</label>
+                                    <input type="date" id="end_date" class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" required>
+                                </div>
+                            </div>
 
-            <div class="pt-4">
-                <label class="block text-sm font-medium text-slate-300 mb-2">Selected Slots (${state.selectedSlots.length})</label>
-                <div id="selected-slots-pills" class="selected-slots-container flex flex-wrap gap-2">
-                    ${renderSelectedSlotsPills()}
-                </div>
-            </div>
+                            <div id="semester-days-container" class="mb-6 hidden">
+                                <label class="block text-gray-600 text-sm font-medium mb-2">SELECT DAYS OF THE WEEK</label>
+                                 <div class="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2">
+                                    <button type="button" data-day="SUNDAY" class="day-btn border p-2 rounded">Sun</button>
+                                    <button type="button" data-day="MONDAY" class="day-btn border p-2 rounded">Mon</button>
+                                    <button type="button" data-day="TUESDAY" class="day-btn border p-2 rounded">Tue</button>
+                                    <button type="button" data-day="WEDNESDAY" class="day-btn border p-2 rounded">Wed</button>
+                                    <button type="button" data-day="THURSDAY" class="day-btn border p-2 rounded">Thu</button>
+                                    <button type="button" data-day="FRIDAY" class="day-btn border p-2 rounded">Fri</button>
+                                    <button type="button" data-day="SATURDAY" class="day-btn border p-2 rounded">Sat</button>
+                                 </div>
+                            </div>
+                        </section>
 
-            <div class="flex justify-end gap-4 pt-4">
-                <button onclick="window.history.back()" class="px-6 py-2 text-sm font-semibold text-white bg-slate-600 hover:bg-slate-700 rounded-lg transition">Back</button>
-                <button id="confirm-booking-final-btn" class="px-6 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition">Confirm Booking</button>
+                        <section class="bg-white p-4 sm:p-6 rounded-lg shadow-md">
+                            <h3 class="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">Purpose of Booking</h3>
+                            <div>
+                                <label for="purpose" class="block text-gray-600 text-sm font-medium mb-2">PURPOSE / EVENT NAME</label>
+                                <textarea id="purpose" placeholder="e.g., Department Seminar, Guest Lecture on AI" rows="3" class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" required></textarea>
+                            </div>
+                            <div class="mt-6">
+                                <label for="class_code" class="block text-gray-600 text-sm font-medium mb-2">CLASS CODE (OPTIONAL)</label>
+                                <input type="text" id="class_code" placeholder="e.g., CS-501" class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                            </div>
+                        </section>
+
+                        <div class="flex justify-end space-x-4 pt-6">
+                            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-md shadow-lg transition-colors duration-300">SUBMIT REQUEST</button>
+                            <button type="button" id="reset-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-8 rounded-md shadow-lg transition-colors duration-300">CLEAR</button>
+                        </div>
+                    </form>
+                </div>
             </div>
         `;
-
-        populateDynamicSelects();
+        
         updateUI();
         setupEventHandlers();
     }
-    
-    function populateDynamicSelects() {
-        const schoolSelectInput = document.getElementById('school-select-input');
-        const schoolSelectOptions = document.getElementById('school-select-options');
-        const schoolSelectHidden = document.getElementById('school-select');
-        const deptSelectInput = document.getElementById('department-select-input');
-        const deptSelectOptions = document.getElementById('department-select-options');
-        const deptSelectHidden = document.getElementById('department-select');
 
-        function populateSchoolOptions(searchTerm = '') {
-            const filteredSchools = Object.keys(state.allSchools).filter(school => school.toLowerCase().includes(searchTerm.toLowerCase()));
-            schoolSelectOptions.innerHTML = filteredSchools.map(school => `<div class="p-2 cursor-pointer hover:bg-slate-700" data-value="${school}">${school}</div>`).join('');
-        }
-
-        function populateDeptOptions(school, searchTerm = '') {
-            let departments = [];
-            if (school && state.allSchools[school] && searchTerm === '') {
-                departments = state.allSchools[school];
-            } else {
-                departments = [...new Set(Object.values(state.allSchools).flat())];
-            }
-            const filteredDepts = departments.filter(dept => dept.toLowerCase().includes(searchTerm.toLowerCase()));
-            deptSelectOptions.innerHTML = filteredDepts.map(dept => `<div class="p-2 cursor-pointer hover:bg-slate-700" data-value="${dept}">${dept}</div>`).join('');
-        }
-
-        // School Dropdown Logic
-        schoolSelectInput.addEventListener('focus', () => {
-            populateSchoolOptions(schoolSelectInput.value);
-            schoolSelectOptions.classList.remove('hidden');
-        });
-        schoolSelectInput.addEventListener('blur', () => setTimeout(() => schoolSelectOptions.classList.add('hidden'), 150));
-        schoolSelectInput.addEventListener('input', () => {
-            populateSchoolOptions(schoolSelectInput.value);
-            if (schoolSelectInput.value === '') {
-                schoolSelectHidden.value = '';
-                deptSelectInput.value = '';
-                deptSelectHidden.value = '';
-                populateDeptOptions('', '');
-            }
-        });
-        schoolSelectInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                const firstOption = schoolSelectOptions.querySelector('[data-value]');
-                if (firstOption && !schoolSelectOptions.classList.contains('hidden')) {
-                    firstOption.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-                    schoolSelectOptions.classList.add('hidden');
-                }
-            }
-        });
-        schoolSelectOptions.addEventListener('mousedown', (e) => {
-            if (e.target.dataset.value) {
-                const schoolValue = e.target.dataset.value;
-                schoolSelectInput.value = schoolValue;
-                schoolSelectHidden.value = schoolValue;
-                deptSelectInput.value = '';
-                deptSelectHidden.value = '';
-                populateDeptOptions(schoolValue, '');
-            }
-        });
-
-        // Department Dropdown Logic
-        deptSelectInput.addEventListener('focus', () => {
-            populateDeptOptions(schoolSelectHidden.value, deptSelectInput.value);
-            deptSelectOptions.classList.remove('hidden');
-        });
-        deptSelectInput.addEventListener('blur', () => setTimeout(() => deptSelectOptions.classList.add('hidden'), 150));
-        deptSelectInput.addEventListener('input', () => {
-            // When typing, always search globally by passing an empty school
-            populateDeptOptions('', deptSelectInput.value);
-            if (deptSelectInput.value === '') {
-                deptSelectHidden.value = '';
-            }
-        });
-        deptSelectInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                const firstOption = deptSelectOptions.querySelector('[data-value]');
-                if (firstOption && !deptSelectOptions.classList.contains('hidden')) {
-                    firstOption.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-                    deptSelectOptions.classList.add('hidden');
-                }
-            }
-        });
-        deptSelectOptions.addEventListener('mousedown', (e) => {
-            if (e.target.dataset.value) {
-                const deptValue = e.target.dataset.value;
-                deptSelectInput.value = deptValue;
-                deptSelectHidden.value = deptValue;
-
-                for (const school in state.allSchools) {
-                    if (state.allSchools[school].includes(deptValue)) {
-                        schoolSelectInput.value = school;
-                        schoolSelectHidden.value = school;
-                        break;
-                    }
-                }
-            }
-        });
-
-        // Set initial values
-        if (state.hall.school) {
-            schoolSelectInput.value = state.hall.school;
-            schoolSelectHidden.value = state.hall.school;
-        }
-        if (state.hall.department) {
-            deptSelectInput.value = state.hall.department;
-            deptSelectHidden.value = state.hall.department;
-        }
-        populateSchoolOptions();
-        populateDeptOptions(schoolSelectHidden.value);
-    }
-
-    function updateUI() {
-        document.getElementById('interactive-calendar-container').innerHTML = renderCalendar();
-        
-        const pillsContainer = document.getElementById('selected-slots-pills');
-        if (pillsContainer) {
-            pillsContainer.innerHTML = renderSelectedSlotsPills();
-        }
-
-        document.getElementById('time-slots-checkboxes').innerHTML = renderTimeCheckboxes();
-        updateDateInputs();
-        if (window.lucide) lucide.createIcons();
-    }
-    
     function renderCalendar() {
-        const title = getCalendarTitle();
-        let gridHtml;
-        switch(state.calendarView) {
-            case 'day': gridHtml = renderDayView(); break;
-            case 'week': gridHtml = renderWeekView(); break;
-            default: gridHtml = renderMonthView(); break;
+        const monthName = state.currentDate.toLocaleString('default', { month: 'long' });
+        const year = state.currentDate.getFullYear();
+        const timeSlots = ['09:30', '10:30', '11:30', '12:30', '13:30', '14:30', '15:30', '16:30'];
+        
+        const daysInMonth = new Date(year, state.currentDate.getMonth() + 1, 0).getDate();
+        let dayHeaders = '';
+        let slotRows = '';
+
+        for (let i = 1; i <= daysInMonth; i++) {
+            const dateObj = new Date(year, state.currentDate.getMonth(), i);
+            const dayName = dateObj.toLocaleString('default', { weekday: 'short' });
+            const isSunday = dayName === 'Sun' ? 'date-header-day' : '';
+            dayHeaders += `
+                <div class="text-center">
+                    <div class="text-sm font-semibold ${isSunday}">${i}</div>
+                    <div class="text-xs text-gray-500 ${isSunday}">${dayName}</div>
+                </div>`;
         }
+        
+        timeSlots.forEach(time => {
+            let dayCells = '';
+            for (let i = 1; i <= daysInMonth; i++) {
+                const dateString = `${year}-${String(state.currentDate.getMonth() + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+                const classes = getSlotClasses(dateString, time);
+                dayCells += `<button type="button" class="slot ${classes}" data-date="${dateString}" data-time="${time}"></button>`;
+            }
+            slotRows += `<div class="calendar-body">${dayCells}</div>`;
+        });
 
         return `
-            <div class="p-2 border border-slate-600 rounded-lg">
-                <div class="flex items-center justify-between gap-4 mb-2">
-                    <div class="flex items-center gap-2">
-                        <button id="calendar-prev-btn" title="Previous" class="p-1 rounded-md bg-slate-700 hover:bg-slate-600 transition"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
-                        <button id="calendar-next-btn" title="Next" class="p-1 rounded-md bg-slate-700 hover:bg-slate-600 transition"><i data-lucide="chevron-right" class="w-5 h-5"></i></button>
-                        <span class="text-center font-semibold text-white">${title}</span>
+            <h3 class="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">Hall Availability</h3>
+            <div class="flex justify-between items-center mb-4">
+                <button id="prev-month-btn" class="p-2 rounded-full hover:bg-gray-200 transition"><i class="fas fa-chevron-left"></i></button>
+                <h4 class="text-lg font-bold">${monthName} ${year}</h4>
+                <button id="next-month-btn" class="p-2 rounded-full hover:bg-gray-200 transition"><i class="fas fa-chevron-right"></i></button>
+            </div>
+            <div class="overflow-x-auto pb-4">
+                <div class="calendar-grid min-w-[1200px]">
+                    <div class="grid grid-rows-8 gap-1 pr-2">
+                        ${timeSlots.map(time => `<div class="text-xs text-right text-gray-600 h-8 flex items-center justify-end">${formatTimeForDisplay(time)}</div>`).join('')}
                     </div>
-                    <div class="flex items-center bg-slate-700 rounded-lg p-1 space-x-1">
-                        <button data-view="day" class="calendar-view-btn px-3 py-1 text-xs font-semibold rounded-md transition ${state.calendarView === 'day' ? 'bg-blue-600 text-white' : 'text-slate-300'}">Day</button>
-                        <button data-view="week" class="calendar-view-btn px-3 py-1 text-xs font-semibold rounded-md transition ${state.calendarView === 'week' ? 'bg-blue-600 text-white' : 'text-slate-300'}">Week</button>
-                        <button data-view="month" class="calendar-view-btn px-3 py-1 text-xs font-semibold rounded-md transition ${state.calendarView === 'month' ? 'bg-blue-600 text-white' : 'text-slate-300'}">Month</button>
+                    <div class="grid grid-cols-1">
+                        <div class="calendar-header">${dayHeaders}</div>
+                        ${slotRows}
                     </div>
                 </div>
-                <div class="overflow-x-auto">${gridHtml}</div>
+            </div>
+            <div class="flex justify-center items-center flex-wrap gap-x-4 gap-y-2 mt-4 text-sm">
+                <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 slot-available"></span> Available</div>
+                <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 slot-pending"></span> Pending</div>
+                <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 slot-booked"></span> Booked</div>
+                <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 slot-past"></span> Past</div>
+                <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 slot-selected"></span> Selected</div>
             </div>
         `;
     }
-
-    function renderMonthView() {
-        const date = state.currentDate;
-        const year = date.getFullYear();
-        const month = date.getMonth();
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
-        const times = ['09:30 AM', '10:30 AM', '11:30 AM', '12:30 PM', '01:30 PM', '02:30 PM', '03:30 PM', '04:30 PM'];
-
-        let table = '<table class="w-full text-center text-xs calendar-grid"><thead><tr><th class="p-1"></th>';
-        for (let day = 1; day <= daysInMonth; day++) {
-             const d = new Date(year, month, day);
-             const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
-             table += `<th class="p-1 font-mono text-slate-400">${day}<br>${dayName}</th>`;
-        }
-        table += '</tr></thead><tbody>';
-        times.forEach(time => {
-            table += `<tr><td class="p-1 text-slate-400 text-xxs whitespace-nowrap">${time}</td>`;
-            for (let day = 1; day <= daysInMonth; day++) {
-                table += renderSlotCell(new Date(year, month, day), time);
-            }
-            table += '</tr>';
-        });
-        table += '</tbody></table>';
-        return table;
-    }
-
-    function renderWeekView() {
-        const startOfWeek = new Date(state.currentDate);
-        startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); // Start on Sunday
-        const times = ['09:30 AM', '10:30 AM', '11:30 AM', '12:30 PM', '01:30 PM', '02:30 PM', '03:30 PM', '04:30 PM'];
-        
-        let table = '<table class="w-full text-center text-xs calendar-grid"><thead><tr><th class="p-1"></th>';
-        for (let i = 0; i < 7; i++) {
-            const day = new Date(startOfWeek);
-            day.setDate(day.getDate() + i);
-            const dayName = day.toLocaleDateString('en-US', { weekday: 'short' });
-            table += `<th class="p-2 font-mono text-slate-400">${day.getDate()}<br>${dayName}</th>`;
-        }
-        table += '</tr></thead><tbody>';
-        times.forEach(time => {
-            table += `<tr><td class="p-2 text-slate-400 whitespace-nowrap">${time}</td>`;
-            for (let i = 0; i < 7; i++) {
-                const day = new Date(startOfWeek);
-                day.setDate(day.getDate() + i);
-                table += renderSlotCell(day, time, 'h-10');
-            }
-            table += '</tr>';
-        });
-        table += '</tbody></table>';
-        return table;
-    }
-
-    function renderDayView() {
-        const day = state.currentDate;
-        const times = ['09:30 AM', '10:30 AM', '11:30 AM', '12:30 PM', '01:30 PM', '02:30 PM', '03:30 PM', '04:30 PM'];
-        
-        let list = '<ul class="space-y-1 calendar-grid">';
-        times.forEach(time => {
-            const status = getSlotStatus(day, time);
-            list += `
-                <li data-date="${day.toISOString().split('T')[0]}" data-time="${time}" 
-                    class="p-3 rounded-md flex justify-between items-center text-white ${status.cellClass}">
-                    <span>${time}</span>
-                    <span class="text-sm font-semibold">${status.label}</span>
-                </li>
-            `;
-        });
-        list += '</ul>';
-        return list;
-    }
-
-    function renderSlotCell(date, time, heightClass = 'h-6') {
-        const { cellClass } = getSlotStatus(date, time);
-        return `<td class="p-0"><div data-date="${date.toISOString().split('T')[0]}" data-time="${time}" class="w-full ${heightClass} border border-slate-800 ${cellClass}"></div></td>`;
-    }
     
-    function renderTimeCheckboxes() {
-        const timeSlots = [
-            { time: '09:30 AM', period: 'forenoon' }, { time: '10:30 AM', period: 'forenoon' },
-            { time: '11:30 AM', period: 'forenoon' }, { time: '12:30 PM', period: 'forenoon' },
-            { time: '01:30 PM', period: 'afternoon' }, { time: '02:30 PM', period: 'afternoon' },
-            { time: '03:30 PM', period: 'afternoon' }, { time: '04:30 PM', period: 'afternoon' }
-        ];
-        
-        const { fromDate, toDate } = getSelectedDateRange(true);
-        const from = new Date(fromDate + 'T00:00:00');
-        const to = new Date(toDate + 'T00:00:00');
-        const checkboxClasses = "time-slot-checkbox form-checkbox h-4 w-4 bg-slate-800 text-blue-500 border-slate-600 rounded focus:ring-blue-500 mr-2";
-
-        return timeSlots.map(slot => {
-            let isChecked = false;
-            if(fromDate && toDate && from <= to) {
-                 isChecked = true;
-                 for (let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) {
-                    if (!state.selectedSlots.some(s => s.date === d.toISOString().split('T')[0] && s.time === slot.time)) {
-                        isChecked = false;
-                        break;
-                    }
-                }
-            }
-            
-            return `<label class="flex items-center text-slate-300">
-                      <input type="checkbox" data-time="${slot.time}" data-period="${slot.period}" ${isChecked ? 'checked' : ''} class="${checkboxClasses}">
-                      ${slot.time.replace(' AM', 'am').replace(' PM', 'pm')}
-                    </label>`;
-        }).join('');
-    }
-
-    function renderSelectedSlotsPills() {
-        if (state.selectedSlots.length === 0) {
-            return '<p class="text-slate-500 text-sm">No slots selected.</p>';
+    function updateUI() {
+        // This function re-renders the calendar and updates form elements based on the current state.
+        const calendarContainer = document.getElementById('calendar-section');
+        if (calendarContainer) {
+            calendarContainer.innerHTML = renderCalendar();
         }
-        return state.selectedSlots
-            .sort((a,b) => new Date(a.date) - new Date(b.date) || a.time.localeCompare(b.time))
-            .map(slot => {
-                const date = new Date(slot.date + 'T00:00:00');
-                const formattedDate = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-                return `
-                <div class="pill bg-blue-600 text-white text-xs font-semibold px-2 py-1 rounded-full flex items-center gap-1.5">
-                    <span>${formattedDate}, ${slot.time}</span>
-                    <button data-date="${slot.date}" data-time="${slot.time}" class="remove-pill-btn text-blue-200 hover:text-white">
-                        <i data-lucide="x" class="w-3 h-3 pointer-events-none"></i>
-                    </button>
-                </div>
-            `}).join('');
+
+        const startDateInput = document.getElementById('start_date');
+        const endDateInput = document.getElementById('end_date');
+
+        if (state.selectedSlots.length > 0) {
+            const dates = [...new Set(state.selectedSlots.map(s => s.date))].sort();
+            if(startDateInput) startDateInput.value = dates[0];
+            if(endDateInput) endDateInput.value = dates[dates.length - 1];
+        } else {
+            const today = new Date().toISOString().split('T')[0];
+            if(startDateInput) startDateInput.value = today;
+            if(endDateInput) endDateInput.value = today;
+        }
+        
+        document.getElementById('booking-type-individual')?.classList.toggle('active', state.bookingType === 'INDIVIDUAL');
+        document.getElementById('booking-type-semester')?.classList.toggle('active', state.bookingType === 'SEMESTER');
+        document.getElementById('semester-days-container')?.classList.toggle('hidden', state.bookingType !== 'SEMESTER');
+
+        document.querySelectorAll('.day-btn').forEach(btn => {
+            btn.classList.toggle('active', state.selectedDays.includes(btn.dataset.day));
+        });
+
+        const purposeTextarea = document.getElementById('purpose');
+        if(purposeTextarea) purposeTextarea.value = state.purpose;
+        
+        const classCodeInput = document.getElementById('class_code');
+        if(classCodeInput) classCodeInput.value = state.classCode;
     }
 
     // --- LOGIC & HELPERS ---
-    function getSlotStatus(date, time) {
+    function getSlotClasses(dateString, time) {
         const today = new Date(); today.setHours(0, 0, 0, 0);
-        const slotDate = new Date(date); slotDate.setHours(0, 0, 0, 0);
-        const slotId = { date: slotDate.toISOString().split('T')[0], time: time };
-        
-        if (slotDate < today) return { label: 'Past', cellClass: 'bg-gray-700/50 cursor-not-allowed' };
-        if (state.selectedSlots.some(s => s.date === slotId.date && s.time === slotId.time)) {
-             return { label: 'Selected', cellClass: 'bg-cyan-500/80 cursor-pointer hover:bg-cyan-400/80' };
+        const slotDate = new Date(dateString + "T00:00:00");
+
+        if (state.selectedSlots.some(s => s.date === dateString && s.time === time)) {
+            return 'slot-selected';
         }
+        if (slotDate < today) return 'slot-past';
+
         const booking = state.availabilityData.find(b => {
              const bookingDate = new Date(b.year, b.month, b.day);
-             bookingDate.setHours(0,0,0,0);
-             return bookingDate.getTime() === slotDate.getTime() && b.time === time;
+             return bookingDate.getTime() === slotDate.getTime() && b.time.startsWith(time.substring(0,2));
         });
-
         if (booking) {
-             if (booking.status === 'Booked') return { label: 'Booked', cellClass: 'bg-red-600/80 cursor-not-allowed' };
-             if (booking.status === 'Pending') return { label: 'Pending', cellClass: 'bg-yellow-500/80 cursor-not-allowed' };
+            return booking.status === 'Booked' ? 'slot-booked' : 'slot-pending';
         }
-        return { label: 'Available', cellClass: 'bg-green-500/80 cursor-pointer hover:bg-green-400/80' };
+        return 'slot-available';
     }
 
-    function getCalendarTitle() {
-        const date = state.currentDate;
-        switch(state.calendarView) {
-            case 'day': return date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-            case 'week':
-                const start = new Date(date); start.setDate(start.getDate() - start.getDay());
-                const end = new Date(start); end.setDate(end.getDate() + 6);
-                return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
-            default: return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-        }
-    }
-    
-    function getSelectedDateRange(useInputs = false) {
-        let fromDate, toDate;
-        if (useInputs) {
-            fromDate = document.getElementById('from-date-input')?.value;
-            toDate = document.getElementById('to-date-input')?.value;
-        } else if (state.selectedSlots.length > 0) {
-            const dates = state.selectedSlots.map(s => s.date);
-            dates.sort();
-            fromDate = dates[0];
-            toDate = dates[dates.length - 1];
-        }
-        return { fromDate: fromDate || '', toDate: toDate || '' };
-    }
-    
-    function updateDateInputs() {
-        const { fromDate, toDate } = getSelectedDateRange();
-        const fromInput = document.getElementById('from-date-input');
-        const toInput = document.getElementById('to-date-input');
-        if (fromInput) fromInput.value = fromDate;
-        if (toInput) toInput.value = toDate;
-    }
-    
-    function toggleSlot(date, time) {
-        const slotIdentifier = { date, time };
-        const index = state.selectedSlots.findIndex(s => s.date === date && s.time === time);
-        if (index > -1) {
-            state.selectedSlots.splice(index, 1);
-        } else {
-            state.selectedSlots.push(slotIdentifier);
-        }
+    function formatTimeForDisplay(time) {
+        const [hour, minute] = time.split(':');
+        const h = parseInt(hour);
+        const suffix = h >= 12 ? 'pm' : 'am';
+        const displayHour = h % 12 === 0 ? 12 : h % 12;
+        return `${String(displayHour).padStart(2, '0')}:${minute}${suffix}`;
     }
 
-    function convertTo24Hour(time) {
-        let [hours, minutesPart] = time.split(':');
-        let [minutes, modifier] = minutesPart.split(' ');
-        hours = parseInt(hours, 10);
-        if (modifier === 'PM' && hours < 12) {
-            hours += 12;
-        }
-        if (modifier === 'AM' && hours === 12) {
-            hours = 0;
-        }
-        return `${String(hours).padStart(2, '0')}:${minutes}`;
+    function resetForm() {
+        const hall = state.hall;
+        const availabilityData = state.availabilityData;
+        state = {
+            hall: hall,
+            availabilityData: availabilityData,
+            selectedSlots: [],
+            currentDate: new Date(),
+            bookingType: 'INDIVIDUAL',
+            purpose: '',
+            classCode: '',
+            selectedDays: [],
+            isDragging: false,
+            dragSelectionMode: 'add',
+            dragDate: null,
+        };
+        render(); // Re-render the entire view with the cleared state
     }
-    
+
     // --- EVENT HANDLERS ---
     function setupEventHandlers() {
-        const container = document.getElementById('final-booking-form-content');
-        if (!container) return;
-
         if (abortController) abortController.abort();
         abortController = new AbortController();
         const { signal } = abortController;
 
-        container.addEventListener('click', e => {
-            const slotEl = e.target.closest('[data-date][data-time]');
-            if (slotEl && !slotEl.classList.contains('cursor-not-allowed')) {
-                toggleSlot(slotEl.dataset.date, slotEl.dataset.time);
-                updateUI();
-                saveStateToSession();
-                return;
-            }
-            
-            const viewBtn = e.target.closest('.calendar-view-btn');
-            if (viewBtn) { state.calendarView = viewBtn.dataset.view; updateUI(); saveStateToSession(); return; }
+        const container = document.getElementById('final-booking-form-container');
+        if (!container) return;
 
-            const navBtn = e.target.closest('#calendar-prev-btn, #calendar-next-btn');
-            if (navBtn) {
-                const dir = navBtn.id === 'calendar-prev-btn' ? -1 : 1;
-                if (state.calendarView === 'day') state.currentDate.setDate(state.currentDate.getDate() + dir);
-                else if (state.calendarView === 'week') state.currentDate.setDate(state.currentDate.getDate() + (7 * dir));
-                else state.currentDate.setMonth(state.currentDate.getMonth() + dir);
-                updateUI(); saveStateToSession(); return;
-            }
-
-            const periodBtn = e.target.closest('#forenoon-btn, #afternoon-btn');
-            if (periodBtn) {
-                const period = periodBtn.id === 'forenoon-btn' ? 'forenoon' : 'afternoon';
-                const checkboxes = document.querySelectorAll(`.time-slot-checkbox[data-period="${period}"]`);
-                checkboxes.forEach(cb => {
-                    if (!cb.checked) {
-                        cb.click(); // Programmatically click to trigger change event
-                    }
-                });
-            }
-            
-            const removePillBtn = e.target.closest('.remove-pill-btn');
-            if(removePillBtn) {
-                toggleSlot(removePillBtn.dataset.date, removePillBtn.dataset.time);
-                updateUI();
-                saveStateToSession();
-            }
-
-        }, { signal });
+        container.addEventListener('click', handleContainerClick, { signal });
+        container.addEventListener('input', handleContainerInput, { signal });
         
-        container.addEventListener('change', e => {
-             if (e.target.matches('.time-slot-checkbox')) {
-                const time = e.target.dataset.time;
-                const { fromDate, toDate } = getSelectedDateRange(true);
-                if (!fromDate || !toDate) { 
-                    alert('Please select a "From" and "To" date first.'); 
-                    e.target.checked = !e.target.checked;
-                    return;
-                }
-                for (let d = new Date(fromDate); d <= new Date(toDate); d.setDate(d.getDate() + 1)) {
-                    const dateStr = d.toISOString().split('T')[0];
-                    const index = state.selectedSlots.findIndex(s => s.date === dateStr && s.time === time);
-                    if(e.target.checked && index === -1) { state.selectedSlots.push({ date: dateStr, time: time }); }
-                    else if (!e.target.checked && index > -1) { state.selectedSlots.splice(index, 1); }
-                }
-                updateUI(); saveStateToSession();
-             }
-        }, { signal });
-        
-        document.getElementById('confirm-booking-final-btn')?.addEventListener('click', async () => {
-            if (state.selectedSlots.length === 0) { 
-                alert('Please select at least one time slot.'); 
-                return; 
-            }
-            
-            const purpose = document.getElementById('booking-purpose-final').value;
-            const course = document.getElementById('course-title-final').value;
-            
-            if (!purpose) {
-                alert('Please fill in the Purpose field.');
-                return;
-            }
-
-            // Create a separate booking request for each selected slot
-            const bookingRequests = state.selectedSlots.map(slot => {
-                const startTime24 = convertTo24Hour(slot.time);
-                const [startHour, startMinute] = startTime24.split(':').map(Number);
-
-                const startDate = new Date(slot.date);
-                startDate.setUTCHours(startHour, startMinute, 0, 0);
-
-                const endDate = new Date(startDate);
-                endDate.setUTCHours(startDate.getUTCHours() + 1); // Assuming 1-hour slots
-
-                return {
-                    hall_id: state.hall.id,
-                    purpose: purpose,
-                    class_code: course || undefined,
-                    booking_type: "INDIVIDUAL",
-                    start_date: startDate.toISOString(),
-                    end_date: endDate.toISOString(),
-                    start_time: startTime24,
-                    end_time: `${String(endDate.getUTCHours()).padStart(2, '0')}:${String(endDate.getUTCMinutes()).padStart(2, '0')}`
-                };
-            });
-
-            try {
-                // Use the new function in AppData to send all requests
-                await AppData.addMultipleIndividualBookings(bookingRequests);
-                alert(`Successfully submitted ${bookingRequests.length} booking request(s)!`);
-                cleanup(); 
-                window.location.hash = '#my-bookings-view';
-            } catch (error) {
-                console.error("Booking failed:", error);
-                alert(`Booking failed: ${error.message}`);
-            }
-        }, { signal });
+        const calendarSection = container.querySelector('#calendar-section');
+        if (calendarSection) {
+            calendarSection.addEventListener('mousedown', handleDragStart, { signal });
+            calendarSection.addEventListener('mouseenter', handleDragOver, { signal, capture: true });
+        }
+        window.addEventListener('mouseup', handleDragStop, { signal });
     }
 
-    async function initialize(hallId) {
-        let hall = null;
-        const savedHallJSON = sessionStorage.getItem('finalBookingHall');
-        if (savedHallJSON) {
-            hall = JSON.parse(savedHallJSON);
-            state.selectedSlots = JSON.parse(sessionStorage.getItem('finalBookingSlots') || '[]').map(s => ({
-                date: new Date(s.year, s.month, s.day).toISOString().split('T')[0],
-                time: s.time
-            }));
-        } else if (hallId) {
-            const allHalls = await AppData.fetchHallData();
-            hall = allHalls.find(h => h.id === hallId);
-            state.selectedSlots = [];
+    function handleContainerClick(e) {
+        const target = e.target.closest('button');
+        if (!target) return;
+
+        if (target.id === 'prev-month-btn') {
+            state.currentDate.setMonth(state.currentDate.getMonth() - 1);
+            updateUI();
+        } else if (target.id === 'next-month-btn') {
+            state.currentDate.setMonth(state.currentDate.getMonth() + 1);
+            updateUI();
+        } else if (target.id === 'booking-type-individual') {
+            state.bookingType = 'INDIVIDUAL';
+            updateUI();
+        } else if (target.id === 'booking-type-semester') {
+            state.bookingType = 'SEMESTER';
+            updateUI();
+        } else if (target.matches('.day-btn')) {
+            const day = target.dataset.day;
+            const index = state.selectedDays.indexOf(day);
+            if (index > -1) {
+                state.selectedDays.splice(index, 1);
+            } else {
+                state.selectedDays.push(day);
+            }
+            target.classList.toggle('active');
+        } else if (target.id === 'reset-btn') {
+            resetForm();
+        } else if (target.closest('form')?.id === 'bookingForm' && target.type === 'submit') {
+            e.preventDefault();
+            submitBooking();
+        }
+    }
+
+    function handleContainerInput(e) {
+        const target = e.target;
+        if (target.id === 'purpose') state.purpose = target.value;
+        else if (target.id === 'class_code') state.classCode = target.value;
+    }
+
+    function handleDragStart(e) {
+        const slotEl = e.target.closest('.slot');
+        if (!slotEl) return;
+        e.preventDefault();
+
+        state.isDragging = true;
+        const classes = slotEl.className;
+        if (classes.includes('slot-booked') || classes.includes('slot-pending') || classes.includes('slot-past')) {
+            state.isDragging = false;
+            return;
         }
         
-        if (hall) {
-            state.hall = hall;
-            const [availability, schools] = await Promise.all([
-                AppData.fetchHallAvailability(),
-                AppData.getSchools()
-            ]);
-            state.availabilityData = availability;
-            state.allSchools = schools;
+        state.dragSelectionMode = classes.includes('slot-selected') ? 'remove' : 'add';
+        state.dragDate = slotEl.dataset.date;
+        
+        // When starting a drag, we only modify selections for that specific day.
+        // This clears any previous selections on the same day to start fresh.
+        state.selectedSlots = state.selectedSlots.filter(s => s.date !== state.dragDate);
 
-            loadStateFromSession();
-            render();
-        } else {
-            const contentDiv = document.getElementById('final-booking-form-content');
-            if(contentDiv) contentDiv.innerHTML = `<div class="text-center py-10"><h2 class="text-xl font-bold text-red-400">Booking Session Expired or Hall Not Found</h2><p class="text-slate-400 mt-2">Please go back and start the booking process again.</p></div>`;
+        applyDragSelection(slotEl);
+        updateUI(); // Re-render to show immediate feedback
+    }
+
+    function handleDragOver(e) {
+        if (!state.isDragging) return;
+        const slotEl = e.target.closest('.slot');
+        if (slotEl && slotEl.dataset.date === state.dragDate) {
+            applyDragSelection(slotEl);
+        }
+    }
+
+    function handleDragStop() {
+        if (state.isDragging) {
+            state.isDragging = false;
+            state.dragDate = null;
+            updateUI(); // Final update after dragging stops
+        }
+    }
+
+    function applyDragSelection(slotEl) {
+        const date = slotEl.dataset.date;
+        const time = slotEl.dataset.time;
+        const index = state.selectedSlots.findIndex(s => s.date === date && s.time === time);
+
+        if (state.dragSelectionMode === 'add' && index === -1) {
+            state.selectedSlots.push({ date, time });
+        } else if (state.dragSelectionMode === 'remove' && index > -1) {
+            state.selectedSlots.splice(index, 1);
+        }
+        
+        // This logic is now handled by the full re-render in updateUI,
+        // but we can leave a direct class toggle for slightly faster visual feedback during drag.
+        const isSelected = state.selectedSlots.some(s => s.date === date && s.time === time);
+        slotEl.className = 'slot ' + getSlotClasses(date, time);
+    }
+
+    async function submitBooking() {
+        if (state.selectedSlots.length === 0) {
+            alert('Please select at least one time slot from the calendar.');
+            return;
+        }
+        if (!state.purpose.trim()) {
+            alert('Please provide a purpose for the booking.');
+            return;
+        }
+
+        const bookingRequests = state.selectedSlots.map(slot => {
+            const startDate = new Date(`${slot.date}T${slot.time}:00`);
+            const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // Add 1 hour
+
+            return {
+                hall_id: state.hall.id,
+                purpose: state.purpose.trim(),
+                class_code: state.classCode.trim() || undefined,
+                booking_type: state.bookingType,
+                start_date: startDate.toISOString(),
+                end_date: endDate.toISOString(),
+                start_time: slot.time,
+                end_time: `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`
+            };
+        });
+
+        console.log('Submitting Payloads:', bookingRequests);
+        
+        try {
+            // This assumes your AppData module can handle such requests
+            await AppData.addMultipleIndividualBookings(bookingRequests);
+            alert(`Successfully submitted ${bookingRequests.length} booking request(s)!`);
+            resetForm();
+        } catch (error) {
+            console.error("Booking failed:", error);
+            alert(`Booking failed: ${error.message}`);
+        }
+    }
+
+    // --- INITIALIZATION ---
+    async function initialize(hallId) {
+        try {
+            // Use your existing AppData module to fetch data
+            const allHalls = await AppData.fetchBookingHalls();
+            const flattenedHalls = Object.values(allHalls).flatMap(group => Array.isArray(group) ? group : Object.values(group).flat(Infinity));
+            state.hall = flattenedHalls.find(h => h.id === hallId);
+            
+            if (state.hall) {
+                state.availabilityData = await AppData.fetchHallAvailability();
+                render();
+            } else {
+                const container = document.getElementById('view-content');
+                if(container) container.innerHTML = `<div class="text-center py-10"><h2 class="text-xl font-bold text-red-400">Hall Not Found</h2></div>`;
+            }
+        } catch(error) {
+            console.error("Initialization failed:", error);
+            const container = document.getElementById('view-content');
+            if(container) container.innerHTML = `<div class="text-center py-10"><h2 class="text-xl font-bold text-red-400">Failed to load booking data.</h2></div>`;
         }
     }
     
     function cleanup() {
-        if(abortController) abortController.abort();
-        if(state.hall) sessionStorage.removeItem(SESSION_STORAGE_KEY_FORM + `_${state.hall.id}`);
-        sessionStorage.removeItem('finalBookingSlots');
-        sessionStorage.removeItem('finalBookingAvailability');
-        sessionStorage.removeItem('finalBookingHall');
-        state = { hall: null, availabilityData: [], selectedSlots: [], currentDate: new Date(), calendarView: 'month', allSchools: {} };
+        if (abortController) abortController.abort();
+        window.removeEventListener('mouseup', handleDragStop);
     }
 
     return { initialize, cleanup };
