@@ -234,21 +234,29 @@ window.AppData = (function() {
         }));
     }
 
+    // MODIFICATION: This function now fetches all bookings and filters them.
     async function fetchHallAvailability(hallId) {
         if (!hallId) return [];
-        const bookings = await fetchFromAPI(`${AppConfig.endpoints.booking}/hall/${hallId}`);
-        return bookings.map(b => {
-            const d = new Date(b.start_time);
+        
+        // Use the existing, reliable endpoint for all user bookings.
+        const allBookings = await fetchFromAPI(AppConfig.endpoints.myBookings);
+
+        // Filter the bookings for the specific hall.
+        const hallBookings = allBookings.filter(b => b.hall_id === hallId);
+
+        return hallBookings.map(b => {
+            const d = new Date(b.start_date); // Use start_date for consistency
             return {
-                hallId: hallId,
+                hallId: b.hall_id,
                 year: d.getFullYear(),
                 month: d.getMonth(), // JS Date month is 0-11
                 day: d.getDate(),
-                time: d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
-                status: 'Booked'
+                time: d.toTimeString().substring(0, 5), // Format as HH:MM
+                status: formatTitleCase(b.status)
             }
         });
     }
+
 
     async function addIndividualBooking(bookingDetails) {
         return await fetchFromAPI(AppConfig.endpoints.bookingRequest, {
