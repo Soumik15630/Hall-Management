@@ -9,6 +9,103 @@ window.ArchiveView = (function() {
     };
     let abortController;
 
+    // --- API & DATA HANDLING ---
+    /**
+     * Helper function to make authenticated API calls.
+     * @param {string} endpoint - The API endpoint to call.
+     * @param {object} options - Fetch options (method, body, etc.).
+     * @returns {Promise<any>} - The JSON response data.
+     */
+    async function fetchFromAPI(endpoint, options = {}, isJson = true) {
+        const headers = getAuthHeaders();
+        if (!headers) {
+            logout();
+            throw new Error("User not authenticated");
+        }
+        const fullUrl = AppConfig.apiBaseUrl + endpoint;
+        const config = { ...options, headers };
+        const response = await fetch(fullUrl, config);
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`API Error on ${endpoint}: ${response.status} - ${errorText}`);
+        }
+        if (isJson) {
+            const text = await response.text();
+            if (!text) return null;
+            const result = JSON.parse(text);
+            return result.data || result;
+        }
+        return response;
+    }
+
+    async function fetchRawSchools() {
+        return await fetchFromAPI(AppConfig.endpoints.allschool);
+    }
+
+    async function fetchRawDepartments() {
+        return await fetchFromAPI(AppConfig.endpoints.alldept);
+    }
+    
+    /**
+     * Fetches all halls and formats them with school and department info.
+     * @returns {Promise<Array>} A promise that resolves to an array of formatted hall objects.
+     */
+    async function fetchAllFormattedHalls() {
+        const [rawHalls, schools, departments] = await Promise.all([
+            fetchFromAPI(AppConfig.endpoints.allHall),
+            fetchRawSchools(),
+            fetchRawDepartments()
+        ]);
+        
+        const schoolMap = new Map(schools.map(s => [s.unique_id, s]));
+        const departmentMap = new Map(departments.map(d => [d.unique_id, d]));
+
+        return rawHalls.map(hall => {
+             let incharge = { name: 'N/A', role: 'N/A' };
+             const dept = departmentMap.get(hall.department_id);
+             const school = schoolMap.get(hall.school_id);
+
+             if (dept) incharge = { name: dept.incharge_name, role: 'HOD' };
+             else if (school) incharge = { name: school.incharge_name, role: 'Dean' };
+
+            return {
+                id: hall.unique_id,
+                hallCode: hall.unique_id,
+                hallName: hall.name,
+                school: school ? school.school_name : 'N/A',
+                department: dept ? dept.department_name : 'N/A',
+                features: Array.isArray(hall.features) ? hall.features.join(', ') : '',
+                inchargeName: incharge.name,
+                inchargeRole: incharge.role,
+                status: hall.availability,
+                date: new Date(hall.created_at).toLocaleDateString(),
+                ...hall
+            };
+        });
+    }
+
+    /**
+     * Fetches all halls and filters for the ones that are archived (not available).
+     * @returns {Promise<Array>} A promise that resolves to an array of archived hall objects.
+     */
+    async function fetchArchivedHallData() {
+        const allHalls = await fetchAllFormattedHalls();
+        return allHalls.filter(hall => !hall.status);
+    }
+    
+    /**
+     * Updates a hall's data, typically to change its availability status.
+     * @param {string} hallId - The ID of the hall to update.
+     * @param {object} payload - The data to update.
+     */
+    async function updateHall(hallId, payload) {
+        return await fetchFromAPI(`${AppConfig.endpoints.hall}/${hallId}`, { 
+            method: 'PUT', 
+            body: JSON.stringify(payload) 
+        });
+    }
+
     // --- RENDERING ---
     function renderArchivedHallTable() {
         const tableBody = document.getElementById('archived-hall-details-body');
@@ -21,9 +118,6 @@ window.ArchiveView = (function() {
         
         const tableHtml = state.allHalls.map(hall => {
             const isSelected = state.selectedRows.includes(hall.hallCode);
-            const statusColor = 'bg-red-900/50 text-red-400';
-            const statusText = 'No';
-
             return `
             <tr data-hall-code="${hall.hallCode}" class="${isSelected ? 'bg-blue-900/30' : ''} hover:bg-slate-800/50 transition-colors">
                 <td class="py-4 pl-4 pr-3 text-sm sm:pl-6">
@@ -44,31 +138,24 @@ window.ArchiveView = (function() {
                     <div class="text-slate-400">${hall.inchargeRole}</div>
                 </td>
                 <td class="whitespace-nowrap px-3 py-4 text-sm">
-                    <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColor}">${statusText}</span>
+                    <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-red-900/50 text-red-400">No</span>
                 </td>
             </tr>
         `}).join('');
 
         tableBody.innerHTML = tableHtml;
         updateActionButtonsState();
-        if (window.lucide) lucide.createIcons();
     }
     
     // --- UI & STATE UPDATES ---
     function updateActionButtonsState() {
         const selectedCount = state.selectedRows.length;
-        const reactivateBtn = document.getElementById('reactivate-btn');
+        document.getElementById('reactivate-btn').disabled = selectedCount === 0;
+        
         const selectAllCheckbox = document.getElementById('select-all-archive-checkbox');
-        
-        if(reactivateBtn) reactivateBtn.disabled = selectedCount === 0;
-        
         if (selectAllCheckbox) {
             selectAllCheckbox.disabled = !state.multiSelection;
-            if (!state.multiSelection) {
-                selectAllCheckbox.checked = false;
-            } else {
-                 selectAllCheckbox.checked = selectedCount > 0 && selectedCount === state.allHalls.length;
-            }
+            selectAllCheckbox.checked = state.multiSelection && selectedCount > 0 && selectedCount === state.allHalls.length;
         }
     }
 
@@ -76,11 +163,9 @@ window.ArchiveView = (function() {
         if (!state.multiSelection) {
             state.selectedRows = isChecked ? [hallCode] : [];
         } else {
-            if (isChecked) {
-                if (!state.selectedRows.includes(hallCode)) {
-                    state.selectedRows.push(hallCode);
-                }
-            } else {
+            if (isChecked && !state.selectedRows.includes(hallCode)) {
+                state.selectedRows.push(hallCode);
+            } else if (!isChecked) {
                 state.selectedRows = state.selectedRows.filter(code => code !== hallCode);
             }
         }
@@ -93,88 +178,64 @@ window.ArchiveView = (function() {
         abortController = new AbortController();
         const { signal } = abortController;
 
-        const view = document.getElementById('archive-view');
-        if (!view) return;
-
-        const multiSelectToggle = document.getElementById('archive-multiselect-toggle');
-        if(multiSelectToggle) {
-            multiSelectToggle.addEventListener('change', (e) => {
-                state.multiSelection = e.target.checked;
-                if (!state.multiSelection && state.selectedRows.length > 1) {
-                    state.selectedRows = [state.selectedRows[0]];
-                } else if (!state.multiSelection) {
-                    state.selectedRows = [];
-                }
+        document.getElementById('archive-multiselect-toggle')?.addEventListener('change', (e) => {
+            state.multiSelection = e.target.checked;
+            if (!state.multiSelection) state.selectedRows = [];
+            renderArchivedHallTable();
+        }, { signal });
+        
+        document.getElementById('select-all-archive-checkbox')?.addEventListener('change', (e) => {
+            if (state.multiSelection) {
+                state.selectedRows = e.target.checked ? state.allHalls.map(h => h.hallCode) : [];
                 renderArchivedHallTable();
-            }, { signal });
-        }
+            }
+        }, { signal });
         
-        const selectAllCheckbox = document.getElementById('select-all-archive-checkbox');
-        if(selectAllCheckbox) {
-            selectAllCheckbox.addEventListener('change', (e) => {
-                if (state.multiSelection) {
-                    state.selectedRows = e.target.checked ? state.allHalls.map(h => h.hallCode) : [];
-                    renderArchivedHallTable();
-                }
-            }, { signal });
-        }
-        
-        const tableBody = document.getElementById('archived-hall-details-body');
-        if(tableBody) {
-            tableBody.addEventListener('change', (e) => {
-                if (e.target.classList.contains('row-checkbox')) {
-                    const row = e.target.closest('tr');
-                    const hallCode = row.dataset.hallCode;
-                    handleRowSelection(hallCode, e.target.checked);
-                }
-            }, { signal });
-        }
+        document.getElementById('archived-hall-details-body')?.addEventListener('change', (e) => {
+            if (e.target.classList.contains('row-checkbox')) {
+                const hallCode = e.target.closest('tr').dataset.hallCode;
+                handleRowSelection(hallCode, e.target.checked);
+            }
+        }, { signal });
 
-        const reactivateBtn = document.getElementById('reactivate-btn');
-        if(reactivateBtn) {
-            reactivateBtn.addEventListener('click', async () => {
-                if (state.selectedRows.length === 0) return;
-                
-                if (confirm(`Are you sure you want to re-activate ${state.selectedRows.length} hall(s)?`)) {
-                    try {
-                        const updatePromises = state.selectedRows.map(hallCode => 
-                            AppData.updateHall(hallCode, { availability: true })
-                        );
-                        await Promise.all(updatePromises);
-                        
-                        state.selectedRows = [];
-                        await initialize(); 
-                        alert('Hall(s) have been re-activated successfully.');
-                    } catch (error) {
-                        console.error("Failed to reactivate halls:", error);
-                        alert("An error occurred while reactivating the halls. Please try again.");
-                    }
+        document.getElementById('reactivate-btn')?.addEventListener('click', async () => {
+            if (state.selectedRows.length === 0) return;
+            
+            if (confirm(`Are you sure you want to re-activate ${state.selectedRows.length} hall(s)?`)) {
+                try {
+                    const updatePromises = state.selectedRows.map(hallCode => 
+                        updateHall(hallCode, { availability: true })
+                    );
+                    await Promise.all(updatePromises);
+                    
+                    alert('Hall(s) have been re-activated successfully.');
+                    state.selectedRows = [];
+                    await initialize(); // Refresh the view
+                } catch (error) {
+                    console.error("Failed to reactivate halls:", error);
+                    alert(`An error occurred while reactivating halls: ${error.message}`);
                 }
-            }, { signal });
-        }
+            }
+        }, { signal });
     }
 
     function cleanup() {
         if(abortController) abortController.abort();
-        state = {
-            allHalls: [],
-            selectedRows: [],
-            multiSelection: false,
-        };
+        state = { allHalls: [], selectedRows: [], multiSelection: false };
         const multiSelectToggle = document.getElementById('archive-multiselect-toggle');
         if(multiSelectToggle) multiSelectToggle.checked = false;
     }
 
     async function initialize() {
         try {
-            const data = await AppData.fetchArchivedHallData();
+            const data = await fetchArchivedHallData();
             state.allHalls = data;
             renderArchivedHallTable();
             setupEventHandlers();
         } catch (error) {
             console.error('Error loading archived hall details:', error);
             const tableBody = document.getElementById('archived-hall-details-body');
-            if(tableBody) tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-red-400">Failed to load archived data.</td></tr>`;
+            if(tableBody) tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-red-400">Failed to load archived data. ${error.message}</td></tr>`;
         }
     }
 

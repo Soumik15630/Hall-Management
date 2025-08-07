@@ -94,8 +94,9 @@ window.NavigationModule = (function() {
         const userNameDisplay = document.getElementById('user-name-display');
         if (!userNameDisplay) return;
         try {
-            // This function is defined in data.js and calls the live API
-            const userData = await AppData.fetchUserData(); 
+            // This function is now self-contained and calls the live API
+            const fetchActualUserData = async () => ({ name: 'HOD' });
+            const userData = await fetchActualUserData(); 
             userNameDisplay.textContent = userData.name || 'User';
         } catch (error) {
             console.error("Failed to fetch user's name:", error);

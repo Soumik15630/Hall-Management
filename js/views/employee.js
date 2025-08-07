@@ -1,14 +1,120 @@
 // Employee View Module
 window.EmployeeView = (function() {
     
+    // --- START: Simple API Cache ---
+    window.apiCache = window.apiCache || {
+        _data: {},
+        _promises: {},
+        fetch: async function(key, fetcherFn) {
+            if (this._data[key]) return this._data[key];
+            if (!this._promises[key]) {
+                this._promises[key] = fetcherFn().then(data => {
+                    this._data[key] = data;
+                    delete this._promises[key];
+                    return data;
+                }).catch(err => {
+                    delete this._promises[key];
+                    throw err;
+                });
+            }
+            return this._promises[key];
+        }
+    };
+    // --- END: Simple API Cache ---
+
     // --- STATE MANAGEMENT ---
     let state = {
         allEmployees: [],
-        selectedRows: [], // Stores employee IDs (unique_id)
+        allSchools: [],
+        allDepartments: [],
+        selectedRows: [],
         multiSelection: false,
-        schoolsData: {},
+        modalState: {
+            employeeId: null,
+            belongsTo: 'ADMINISTRATION',
+            schoolId: null,
+            departmentId: null,
+            section: null,
+            schoolSearchTerm: '',
+            departmentSearchTerm: ''
+        }
     };
     let abortController;
+    let confirmationCallback = null;
+
+    // --- API & DATA HANDLING ---
+    async function fetchFromAPI(endpoint, options = {}, isJson = true) {
+        const headers = getAuthHeaders();
+        if (!headers) {
+            logout();
+            throw new Error("User not authenticated");
+        }
+        const fullUrl = AppConfig.apiBaseUrl + endpoint;
+        const config = { ...options, headers };
+        const response = await fetch(fullUrl, config);
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`API Error on ${endpoint}: ${response.status} - ${errorText}`);
+        }
+        if (isJson) {
+            const text = await response.text();
+            if (!text) return null;
+            const result = JSON.parse(text);
+            return result.data || result;
+        }
+        return response;
+    }
+
+    // Use the cache for fetching schools and departments
+    async function fetchRawSchools() {
+        return await window.apiCache.fetch('schools', () => fetchFromAPI(AppConfig.endpoints.allschool));
+    }
+
+    async function fetchRawDepartments() {
+        return await window.apiCache.fetch('departments', () => fetchFromAPI(AppConfig.endpoints.alldept));
+    }
+
+    async function fetchEmployeeData() {
+        // CORRECTED: Fetch all three data sources as the employee API response is not self-contained.
+        const [rawEmployees, schools, departments] = await Promise.all([
+            fetchFromAPI(AppConfig.endpoints.allemp),
+            fetchRawSchools(),
+            fetchRawDepartments()
+        ]);
+        
+        // Create maps for quick lookups
+        const schoolMap = new Map(schools.map(s => [s.unique_id, s.school_name]));
+        const departmentMap = new Map(departments.map(d => [d.unique_id, d.department_name]));
+
+        // Map the school and department names to each employee
+        return rawEmployees.map(emp => ({
+            id: emp.unique_id,
+            name: emp.employee_name,
+            email: emp.employee_email,
+            phone: emp.employee_mobile,
+            designation: emp.designation,
+            department: departmentMap.get(emp.department_id) || 'N/A',
+            school: schoolMap.get(emp.school_id) || 'N/A',
+            status: emp.status || 'Active',
+            // Store raw data for modification modals
+            raw_belongs_to: emp.belongs_to,
+            raw_school_id: emp.school_id,
+            raw_department_id: emp.department_id,
+            raw_section: emp.section
+        }));
+    }
+
+    async function updateEmployee(employeeData) {
+         return await fetchFromAPI(`${AppConfig.endpoints.emp}/${employeeData.id}`, { method: 'PUT', body: JSON.stringify(employeeData) });
+    }
+
+    async function deleteEmployees(employeeIds) {
+        const deletePromises = employeeIds.map(id => 
+            fetchFromAPI(`${AppConfig.endpoints.emp}/${id}`, { method: 'DELETE' }, false)
+        );
+        return await Promise.all(deletePromises);
+    }
+
 
     // --- RENDERING ---
     function renderEmployeeTable() {
@@ -22,7 +128,7 @@ window.EmployeeView = (function() {
         
         const tableHtml = state.allEmployees.map(emp => {
             const isSelected = state.selectedRows.includes(emp.id);
-            const statusColor = emp.status === 'Active' ? 'text-green-400' : 'text-yellow-400';
+            const statusColor = emp.status === 'ACTIVE' ? 'text-green-400' : 'text-red-400';
             return `
             <tr data-employee-id="${emp.id}" class="${isSelected ? 'bg-blue-900/30' : ''} hover:bg-slate-800/50 transition-colors">
                 <td class="py-4 pl-4 pr-3 text-sm sm:pl-6">
@@ -46,7 +152,6 @@ window.EmployeeView = (function() {
 
         tableBody.innerHTML = tableHtml;
         updateActionButtonsState();
-        if (window.lucide) lucide.createIcons();
     }
 
     // --- UI & STATE UPDATES ---
@@ -61,11 +166,7 @@ window.EmployeeView = (function() {
         
         if (selectAllCheckbox) {
             selectAllCheckbox.disabled = !state.multiSelection;
-            if (!state.multiSelection) {
-                selectAllCheckbox.checked = false;
-            } else {
-                 selectAllCheckbox.checked = selectedCount > 0 && selectedCount === state.allEmployees.length;
-            }
+            selectAllCheckbox.checked = state.multiSelection && selectedCount > 0 && selectedCount === state.allEmployees.length;
         }
     }
 
@@ -73,11 +174,9 @@ window.EmployeeView = (function() {
         if (!state.multiSelection) {
             state.selectedRows = isChecked ? [employeeId] : [];
         } else {
-            if (isChecked) {
-                if (!state.selectedRows.includes(employeeId)) {
-                    state.selectedRows.push(employeeId);
-                }
-            } else {
+            if (isChecked && !state.selectedRows.includes(employeeId)) {
+                state.selectedRows.push(employeeId);
+            } else if (!isChecked) {
                 state.selectedRows = state.selectedRows.filter(id => id !== employeeId);
             }
         }
@@ -89,218 +188,146 @@ window.EmployeeView = (function() {
         const modal = document.getElementById(modalId);
         const backdrop = document.getElementById('modal-backdrop');
         if (!modal || !backdrop) return;
-
-        backdrop.classList.remove('hidden');
-        modal.classList.remove('hidden');
-        
-        setTimeout(() => {
-            backdrop.classList.remove('opacity-0');
-            modal.classList.remove('opacity-0');
-            modal.querySelector('.modal-content')?.classList.remove('scale-95');
-        }, 10);
+        backdrop.classList.remove('hidden', 'opacity-0');
+        modal.classList.remove('hidden', 'opacity-0');
+        modal.querySelector('.modal-content')?.classList.remove('scale-95');
     }
 
     function closeModal() {
         const backdrop = document.getElementById('modal-backdrop');
         const modals = document.querySelectorAll('.modal');
-        
         backdrop?.classList.add('opacity-0');
         modals.forEach(modal => {
             modal.classList.add('opacity-0');
             modal.querySelector('.modal-content')?.classList.add('scale-95');
         });
-
         setTimeout(() => {
             backdrop?.classList.add('hidden');
             modals.forEach(modal => modal.classList.add('hidden'));
         }, 300);
+        confirmationCallback = null;
+    }
+
+    function showConfirmation(title, message, onConfirm) {
+        document.getElementById('confirmation-title').textContent = title;
+        document.getElementById('confirmation-message').textContent = message;
+        confirmationCallback = onConfirm;
+        openModal('confirmation-modal');
     }
 
     function setupUpdateEmployeeModal() {
-        const employeeId = state.selectedRows[0];
-        const employee = state.allEmployees.find(emp => emp.id === employeeId);
-        if (!employee) {
-            console.error("Could not find selected employee to modify.");
-            return;
-        }
+        const employee = state.allEmployees.find(emp => emp.id === state.selectedRows[0]);
+        if (!employee) return;
 
-        document.getElementById('update-employee-original-email').value = employee.email;
+        state.modalState = {
+            employeeId: employee.id,
+            belongsTo: employee.raw_belongs_to || 'ADMINISTRATION',
+            schoolId: employee.raw_school_id,
+            departmentId: employee.raw_department_id,
+            section: employee.raw_section,
+            schoolSearchTerm: employee.school,
+            departmentSearchTerm: employee.department
+        };
+
         document.getElementById('update-employee-name').value = employee.name;
         document.getElementById('update-employee-email').value = employee.email;
         document.getElementById('update-employee-phone').value = employee.phone || '';
         document.getElementById('update-employee-designation').value = employee.designation;
-
-        const schoolInput = document.getElementById('update-employee-school-input');
-        const schoolOptions = document.getElementById('update-employee-school-options');
-        const schoolHidden = document.getElementById('update-employee-school');
-        const deptInput = document.getElementById('update-employee-department-input');
-        const deptOptions = document.getElementById('update-employee-department-options');
-        const deptHidden = document.getElementById('update-employee-department');
         
-        function populateSchoolOptions(searchTerm = '') {
-            const filteredSchools = Object.keys(state.schoolsData).filter(s => s.toLowerCase().includes(searchTerm.toLowerCase()));
-            schoolOptions.innerHTML = filteredSchools.map(s => `<div class="p-2 cursor-pointer hover:bg-slate-700" data-value="${s}">${s}</div>`).join('');
-        }
+        const belongsToSelect = document.getElementById('update-employee-belongs-to');
+        belongsToSelect.value = state.modalState.belongsTo;
+        belongsToSelect.dispatchEvent(new Event('change'));
 
-        function populateDeptOptions(school, searchTerm = '') {
-            let departments = school ? (state.schoolsData[school] || []) : [...new Set(Object.values(state.schoolsData).flat())];
-            const filteredDepts = departments.filter(d => d.toLowerCase().includes(searchTerm.toLowerCase()));
-            deptOptions.innerHTML = filteredDepts.map(d => `<div class="p-2 cursor-pointer hover:bg-slate-700" data-value="${d}">${d}</div>`).join('');
-        }
-
-        schoolInput.addEventListener('focus', () => { populateSchoolOptions(schoolInput.value); schoolOptions.classList.remove('hidden'); });
-        schoolInput.addEventListener('blur', () => setTimeout(() => schoolOptions.classList.add('hidden'), 150));
-        schoolInput.addEventListener('input', () => {
-            populateSchoolOptions(schoolInput.value);
-            if (schoolInput.value === '') {
-                schoolHidden.value = '';
-                deptInput.value = '';
-                deptHidden.value = '';
-                populateDeptOptions('', '');
-            }
-        });
-        schoolOptions.addEventListener('mousedown', (e) => {
-            if (e.target.dataset.value) {
-                const schoolValue = e.target.dataset.value;
-                schoolInput.value = schoolValue;
-                schoolHidden.value = schoolValue;
-                deptInput.value = '';
-                deptHidden.value = '';
-                populateDeptOptions(schoolValue, '');
-            }
-        });
-
-        deptInput.addEventListener('focus', () => { populateDeptOptions(schoolHidden.value, deptInput.value); deptOptions.classList.remove('hidden'); });
-        deptInput.addEventListener('blur', () => setTimeout(() => deptOptions.classList.add('hidden'), 150));
-        deptInput.addEventListener('input', () => populateDeptOptions('', deptInput.value));
-        deptOptions.addEventListener('mousedown', (e) => {
-            if (e.target.dataset.value) {
-                const deptValue = e.target.dataset.value;
-                deptInput.value = deptValue;
-                deptHidden.value = deptValue;
-                for (const school in state.schoolsData) {
-                    if (state.schoolsData[school].includes(deptValue)) {
-                        schoolInput.value = school;
-                        schoolHidden.value = school;
-                        break;
-                    }
-                }
-            }
-        });
-
-        schoolInput.value = employee.school;
-        schoolHidden.value = employee.school;
-        deptInput.value = employee.department;
-        deptHidden.value = employee.department;
-        
         openModal('update-employee-modal');
     }
-
+    
     // --- EVENT HANDLERS ---
+    async function handleUpdateSubmit(e) {
+        e.preventDefault();
+        const form = e.target;
+        const payload = {
+            id: state.modalState.employeeId,
+            employee_name: form.querySelector('#update-employee-name').value,
+            employee_email: form.querySelector('#update-employee-email').value,
+            employee_mobile: form.querySelector('#update-employee-phone').value,
+            designation: form.querySelector('#update-employee-designation').value,
+            belongs_to: state.modalState.belongsTo,
+            school_id: state.modalState.schoolId,
+            department_id: state.modalState.departmentId,
+            section: state.modalState.section
+        };
+        
+        try {
+            await updateEmployee(payload);
+            alert('Employee updated successfully!');
+            closeModal();
+            await initialize();
+        } catch (error) {
+            alert(`Update failed: ${error.message}`);
+        }
+    }
+
+    async function handleDeleteConfirm() {
+        try {
+            await deleteEmployees(state.selectedRows);
+            alert('Employee(s) deleted successfully.');
+            state.selectedRows = [];
+            await initialize();
+        } catch (error) {
+            alert(`Deletion failed: ${error.message}`);
+        }
+    }
+
     function setupEventHandlers() {
         if (abortController) abortController.abort();
         abortController = new AbortController();
         const { signal } = abortController;
 
-        const view = document.getElementById('employee-details-view');
-        if (!view) return;
-
-        const multiSelectToggle = document.getElementById('employee-multiselect-toggle');
-        if(multiSelectToggle) {
-            multiSelectToggle.addEventListener('change', (e) => {
-                state.multiSelection = e.target.checked;
-                if (!state.multiSelection && state.selectedRows.length > 1) {
-                    state.selectedRows = [state.selectedRows[0]];
-                } else if (!state.multiSelection) {
-                    state.selectedRows = [];
-                }
+        document.getElementById('employee-multiselect-toggle')?.addEventListener('change', (e) => {
+            state.multiSelection = e.target.checked;
+            if (!state.multiSelection) state.selectedRows = [];
+            renderEmployeeTable();
+        }, { signal });
+        
+        document.getElementById('select-all-employee-checkbox')?.addEventListener('change', (e) => {
+            if (state.multiSelection) {
+                state.selectedRows = e.target.checked ? state.allEmployees.map(emp => emp.id) : [];
                 renderEmployeeTable();
-            }, { signal });
-        }
+            }
+        }, { signal });
         
-        const selectAllCheckbox = document.getElementById('select-all-employee-checkbox');
-        if(selectAllCheckbox) {
-            selectAllCheckbox.addEventListener('change', (e) => {
-                if (state.multiSelection) {
-                    state.selectedRows = e.target.checked ? state.allEmployees.map(emp => emp.id) : [];
-                    renderEmployeeTable();
-                }
-            }, { signal });
-        }
-        
-        const tableBody = document.getElementById('employee-details-body');
-        if(tableBody) {
-            tableBody.addEventListener('change', (e) => {
-                if (e.target.classList.contains('row-checkbox')) {
-                    const row = e.target.closest('tr');
-                    const employeeId = row.dataset.employeeId;
-                    handleRowSelection(employeeId, e.target.checked);
-                }
-            }, { signal });
-        }
+        document.getElementById('employee-details-body')?.addEventListener('change', (e) => {
+            if (e.target.classList.contains('row-checkbox')) {
+                const row = e.target.closest('tr');
+                handleRowSelection(row.dataset.employeeId, e.target.checked);
+            }
+        }, { signal });
 
-        const modifyBtn = document.getElementById('modify-employee-btn');
-        if(modifyBtn) {
-            modifyBtn.addEventListener('click', () => {
-                if (modifyBtn.disabled) return;
-                setupUpdateEmployeeModal();
-            }, { signal });
-        }
+        document.getElementById('modify-employee-btn')?.addEventListener('click', () => {
+            if (state.selectedRows.length === 1) setupUpdateEmployeeModal();
+        }, { signal });
 
-        const deleteBtn = document.getElementById('delete-employee-btn');
-        if(deleteBtn) {
-            deleteBtn.addEventListener('click', async () => {
-                if (deleteBtn.disabled) return;
-                
-                if (confirm(`Are you sure you want to delete ${state.selectedRows.length} employee(s)? This action cannot be undone.`)) {
-                    try {
-                        await AppData.deleteEmployees(state.selectedRows);
-                        state.selectedRows = [];
-                        await initialize(); 
-                        alert('Employee(s) have been deleted successfully.');
-                    } catch (error) {
-                        console.error("Failed to delete employees:", error);
-                        alert("An error occurred while deleting employees. Please try again.");
-                    }
-                }
-            }, { signal });
-        }
+        document.getElementById('delete-employee-btn')?.addEventListener('click', () => {
+            if (state.selectedRows.length > 0) {
+                showConfirmation('Confirm Deletion', `Are you sure you want to delete ${state.selectedRows.length} employee(s)?`, handleDeleteConfirm);
+            }
+        }, { signal });
 
-        document.querySelectorAll('.modal-close-btn').forEach(btn => {
+        document.querySelectorAll('.modal-close-btn, #confirmation-cancel-btn').forEach(btn => {
             btn.addEventListener('click', closeModal, { signal });
         });
         document.getElementById('modal-backdrop')?.addEventListener('click', closeModal, { signal });
+        document.getElementById('confirmation-confirm-btn')?.addEventListener('click', () => {
+            if (confirmationCallback) confirmationCallback();
+            closeModal();
+        }, { signal });
 
-        const updateForm = document.getElementById('update-employee-form');
-        if(updateForm) {
-            updateForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const updatedEmployee = {
-                    id: state.selectedRows[0], // Pass the ID for the API
-                    name: document.getElementById('update-employee-name').value,
-                    email: document.getElementById('update-employee-email').value,
-                    phone: document.getElementById('update-employee-phone').value,
-                    designation: document.getElementById('update-employee-designation').value,
-                    school: document.getElementById('update-employee-school').value,
-                    department: document.getElementById('update-employee-department').value,
-                };
-                await AppData.updateEmployee(updatedEmployee);
-                state.selectedRows = [updatedEmployee.id];
-                closeModal();
-                await initialize();
-                alert('Employee details updated successfully.');
-            }, { signal });
-        }
+        document.getElementById('update-employee-form')?.addEventListener('submit', handleUpdateSubmit, { signal });
     }
     
     function cleanup() {
         if(abortController) abortController.abort();
-        state = {
-            allEmployees: [],
-            selectedRows: [],
-            multiSelection: false,
-            schoolsData: {},
-        };
+        state = { allEmployees: [], allSchools: [], allDepartments: [], selectedRows: [], multiSelection: false, modalState: {} };
         const multiSelectToggle = document.getElementById('employee-multiselect-toggle');
         if(multiSelectToggle) multiSelectToggle.checked = false;
         closeModal();
@@ -308,12 +335,14 @@ window.EmployeeView = (function() {
 
     async function initialize() {
         try {
-            const [data, schools] = await Promise.all([
-                AppData.fetchEmployeeData(),
-                AppData.getSchools()
-            ]);
+            // Fetch all necessary data on initialization
+            const data = await fetchEmployeeData();
             state.allEmployees = data;
-            state.schoolsData = schools;
+            
+            // Also store raw school/dept data if needed for modals
+            state.allSchools = await fetchRawSchools();
+            state.allDepartments = await fetchRawDepartments();
+
             renderEmployeeTable();
             setupEventHandlers();
         } catch (error) {

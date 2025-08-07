@@ -1,46 +1,73 @@
 // View Bookings View Module
 window.ViewBookingsView = (function() {
-    
+    let abortController;
+
+    // --- API & DATA HANDLING ---
+    async function fetchFromAPI(endpoint, options = {}, isJson = true) {
+        const headers = getAuthHeaders();
+        if (!headers) {
+            logout();
+            throw new Error("User not authenticated");
+        }
+        const fullUrl = AppConfig.apiBaseUrl + endpoint;
+        const config = { ...options, headers };
+        const response = await fetch(fullUrl, config);
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`API Error on ${endpoint}: ${response.status} - ${errorText}`);
+        }
+        if (isJson) {
+            const text = await response.text();
+            if (!text) return null;
+            const result = JSON.parse(text);
+            return result.data || result;
+        }
+        return response;
+    }
+
+    async function fetchViewBookingsData() {
+        // Assuming 'myBookings' endpoint returns all relevant bookings for the user's role.
+        // For an admin, this would be all bookings.
+        return await fetchFromAPI(AppConfig.endpoints.myBookings);
+    }
+
+    // --- RENDERING ---
     function renderViewBookingsTable(data) {
         const tableBody = document.getElementById('view-bookings-body');
-        if (!tableBody) return;
+        if (!tableBody) {
+            // If the table body isn't on the page yet, stop.
+            console.error("Table body 'view-bookings-body' not found.");
+            return;
+        }
+
+        // Clear loading spinner
+        tableBody.innerHTML = ''; 
 
         if (!data || data.length === 0) {
             tableBody.innerHTML = `<tr><td colspan="6" class="text-center py-10 text-slate-400">No bookings found.</td></tr>`;
             return;
         }
         
-        // --- PERFORMANCE FIX: Build HTML string before DOM manipulation ---
         const tableHtml = data.map(booking => {
-            let statusClass = '';
-            switch(booking.status) {
-                case 'Approved': statusClass = 'text-green-400'; break;
-                case 'Rejected': statusClass = 'text-red-400'; break;
-                default: statusClass = 'text-yellow-400'; break;
-            }
-            const semesterHtml = booking.isSemester ? '<div class="text-red-400 text-xs mt-1">Semester Booking</div>' : '';
+            const statusClass = booking.status === 'Approved' ? 'text-green-400' : (booking.status === 'Rejected' ? 'text-red-400' : 'text-yellow-400');
             return `
                  <tr class="hover:bg-slate-800/50 transition-colors">
                     <td class="whitespace-nowrap px-3 py-4 text-sm">
-                        <div class="text-slate-300">${booking.bookedOn}</div>
-                        <div class="text-blue-400">${booking.bookingId}</div>
+                        <div class="text-slate-300">${new Date(booking.created_at).toLocaleDateString()}</div>
+                        <div class="text-blue-400">${booking.unique_id}</div>
                     </td>
                     <td class="whitespace-nowrap px-3 py-4 text-sm">
-                        <div class="font-medium text-white">${booking.hallName}</div>
-                        <div class="text-blue-400">${booking.hallCode}</div>
-                        <div class="text-slate-400">${booking.department}</div>
+                        <div class="font-medium text-white">${booking.hall_name}</div>
+                        <div class="text-slate-400">${booking.hall_id}</div>
                     </td>
                     <td class="whitespace-nowrap px-3 py-4 text-sm">
                         <div class="font-medium text-white">${booking.purpose}</div>
-                        <div class="text-slate-400">${booking.course.replace('\\n', '<br>')}</div>
-                        ${semesterHtml}
+                        <div class="text-slate-400">${booking.class_code || ''}</div>
                     </td>
-                    <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300">${booking.dateTime.replace(/\\n/g, '<br>')}</td>
+                    <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300">${new Date(booking.start_date).toLocaleString()} - ${new Date(booking.end_date).toLocaleTimeString()}</td>
                     <td class="whitespace-nowrap px-3 py-4 text-sm">
-                        <div class="font-medium text-blue-400">${booking.bookedBy}</div>
-                        <div class="text-slate-400">${booking.bookedByDept}</div>
-                        <div class="text-slate-400">${booking.phone}</div>
-                        <div class="text-slate-400">${booking.email}</div>
+                        <div class="font-medium text-blue-400">${booking.user_name}</div>
+                        <div class="text-slate-400">${booking.user_department || ''}</div>
                     </td>
                     <td class="whitespace-nowrap px-3 py-4 text-sm font-semibold ${statusClass}">${booking.status}</td>
                 </tr>
@@ -50,17 +77,35 @@ window.ViewBookingsView = (function() {
         tableBody.innerHTML = tableHtml;
     }
 
+    // --- INITIALIZATION ---
     async function initialize() {
+        if (abortController) abortController.abort();
+        abortController = new AbortController();
+        
+        // Show loading spinner while fetching
+        const tableBody = document.getElementById('view-bookings-body');
+        if (tableBody) {
+            tableBody.innerHTML = `<tr><td colspan="6" class="text-center py-10"><div class="spinner"></div></td></tr>`;
+        }
+
         try {
-            const data = await AppData.fetchViewBookingsData();
+            const data = await fetchViewBookingsData();
             renderViewBookingsTable(data);
         } catch (error) {
             console.error('Error loading view bookings:', error);
+            if(tableBody) {
+                tableBody.innerHTML = `<tr><td colspan="6" class="text-center py-10 text-red-400">Failed to load bookings. Please try again.</td></tr>`;
+            }
         }
+    }
+
+    function cleanup() {
+        if (abortController) abortController.abort();
     }
 
     // Public API
     return {
-        initialize
+        initialize,
+        cleanup
     };
 })();

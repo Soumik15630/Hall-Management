@@ -552,6 +552,18 @@
 
     <div id="modal-backdrop" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 hidden opacity-0 transition-opacity duration-300"></div>
 
+    <!-- Generic Confirmation Modal -->
+    <div id="confirmation-modal" class="modal fixed inset-0 z-50 flex items-center justify-center p-4 hidden opacity-0 transition-opacity duration-300">
+        <div class="modal-content relative bg-slate-800 rounded-lg shadow-xl max-w-sm w-full p-6 transform transition-all duration-300 scale-95">
+            <h3 id="confirmation-title" class="text-lg font-bold text-white mb-2">Confirm Action</h3>
+            <p id="confirmation-message" class="text-slate-300 mb-6">Are you sure you want to proceed?</p>
+            <div class="flex justify-end gap-4">
+                <button id="confirmation-cancel-btn" class="px-4 py-2 text-sm font-semibold text-slate-300 bg-slate-600 hover:bg-slate-700 rounded-lg transition">Cancel</button>
+                <button id="confirmation-confirm-btn" class="px-4 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition">Confirm</button>
+            </div>
+        </div>
+    </div>
+
     <div id="update-status-modal" class="modal fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
         <div class="modal-content relative bg-slate-800 rounded-lg shadow-xl max-w-md w-full p-6 transform transition-all">
             <h3 class="text-lg font-bold text-white mb-4">Update Hall Status</h3>
@@ -608,45 +620,70 @@
         </div>
     </div>
 
+    <!-- BUG FIX: Rebuilt Update Employee Modal -->
     <div id="update-employee-modal" class="modal fixed inset-0 z-50 flex items-center justify-center p-4 hidden opacity-0 transition-opacity duration-300">
         <div class="modal-content relative bg-slate-800 rounded-lg shadow-xl max-w-2xl w-full p-8 transform transition-all duration-300 scale-95">
             <h2 class="text-3xl font-bold text-center text-blue-400 mb-6">Update Employee</h2>
             <div class="border-t border-blue-800/50 mb-6"></div>
-            <form id="update-employee-form" class="space-y-4">
-                <input type="hidden" id="update-employee-original-email">
+            <form id="update-employee-form" class="space-y-4 max-h-[70vh] overflow-y-auto pr-4">
+                <input type="hidden" id="update-employee-id">
                 <div>
                     <label for="update-employee-name" class="block text-sm font-medium text-slate-300">Employee Name:</label>
-                    <input type="text" id="update-employee-name" class="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-white focus:ring-blue-500 focus:border-blue-500">
+                    <input type="text" id="update-employee-name" class="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-white focus:ring-blue-500 focus:border-blue-500" required>
                 </div>
                 <div>
                     <label for="update-employee-email" class="block text-sm font-medium text-slate-300">Email:</label>
-                    <input type="email" id="update-employee-email" class="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-white focus:ring-blue-500 focus:border-blue-500">
+                    <input type="email" id="update-employee-email" class="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-white focus:ring-blue-500 focus:border-blue-500" required>
                 </div>
                 <div>
                     <label for="update-employee-phone" class="block text-sm font-medium text-slate-300">Employee Contact:</label>
-                    <input type="text" id="update-employee-phone" class="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-white focus:ring-blue-500 focus:border-blue-500">
+                    <input type="text" id="update-employee-phone" class="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-white focus:ring-blue-500 focus:border-blue-500" required>
                 </div>
                 <div>
                     <label for="update-employee-designation" class="block text-sm font-medium text-slate-300">Designation:</label>
-                    <input type="text" id="update-employee-designation" class="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-white focus:ring-blue-500 focus:border-blue-500">
+                    <input type="text" id="update-employee-designation" class="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-white focus:ring-blue-500 focus:border-blue-500" required>
                 </div>
-                
+                 <div>
+                    <label class="block text-sm font-medium text-slate-300">Status:</label>
+                    <div class="mt-2 flex gap-x-6">
+                         <label class="flex items-center"><input type="radio" name="update-employee-status" value="ACTIVE" class="h-4 w-4 text-indigo-600 border-gray-500 focus:ring-indigo-500"><span class="ml-2 text-slate-300">Active</span></label>
+                         <label class="flex items-center"><input type="radio" name="update-employee-status" value="INACTIVE" class="h-4 w-4 text-indigo-600 border-gray-500 focus:ring-indigo-500"><span class="ml-2 text-slate-300">Inactive</span></label>
+                    </div>
+                </div>
                 <div>
+                    <label for="update-employee-belongs-to" class="block text-sm font-medium text-slate-300">Belongs to:</label>
+                    <select id="update-employee-belongs-to" class="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-white focus:ring-blue-500 focus:border-blue-500">
+                        <option value="ADMINISTRATION">Administration</option>
+                        <option value="SCHOOL">School</option>
+                        <option value="DEPARTMENT">Department</option>
+                    </select>
+                </div>
+
+                <div id="update-employee-section-container">
+                    <label for="update-employee-section-select" class="block text-sm font-medium text-slate-300">Section:</label>
+                    <select id="update-employee-section-select" class="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-white focus:ring-blue-500 focus:border-blue-500">
+                        <option value="" disabled>Select a section</option>
+                        <option value="ENGINEERING_WING">Engineering Wing</option>
+                        <option value="EXAMINATION_WING">Examination Wing</option>
+                        <option value="LIBRARY">Library</option>
+                        <option value="GUEST_HOUSE">Guest House</option>
+                    </select>
+                </div>
+
+                <div id="update-employee-school-container">
                     <label for="update-employee-school-input" class="block text-sm font-medium text-slate-300">School:</label>
                     <div class="relative mt-1">
                         <input type="text" id="update-employee-school-input" class="w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-white focus:ring-blue-500 focus:border-blue-500" placeholder="Search for a school...">
                         <div id="update-employee-school-options" class="absolute z-20 w-full bg-slate-900 border border-slate-600 rounded-lg mt-1 hidden max-h-60 overflow-y-auto"></div>
                     </div>
-                    <input type="hidden" id="update-employee-school">
                 </div>
 
-                 <div>
+                 <div id="update-employee-department-container">
                     <label for="update-employee-department-input" class="block text-sm font-medium text-slate-300">Department:</label>
                     <div class="relative mt-1">
                         <input type="text" id="update-employee-department-input" class="w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-white focus:ring-blue-500 focus:border-blue-500" placeholder="Search for a department...">
                         <div id="update-employee-department-options" class="absolute z-10 w-full bg-slate-900 border border-slate-600 rounded-lg mt-1 hidden max-h-60 overflow-y-auto"></div>
                     </div>
-                    <input type="hidden" id="update-employee-department">
                 </div>
 
                 <div class="flex justify-center pt-6">
@@ -693,7 +730,7 @@
         };
     </script>
     <script src="js/auth.js"></script>
-    <script src="js/data.js"></script>
+    <!-- <script src="js/data.js"></script> -->
     <script src="js/calendar.js"></script>
     <script src="js/nav.js"></script>
     <script src="js/views/dashboard.js"></script>

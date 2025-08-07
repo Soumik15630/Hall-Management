@@ -6,6 +6,44 @@ window.MyBookingsView = (function() {
     };
     let abortController;
 
+    // --- API & DATA HANDLING ---
+    async function fetchFromAPI(endpoint, options = {}, isJson = true) {
+        const headers = getAuthHeaders();
+        if (!headers) {
+            logout();
+            throw new Error("User not authenticated");
+        }
+        const fullUrl = AppConfig.apiBaseUrl + endpoint;
+        const config = { ...options, headers };
+        const response = await fetch(fullUrl, config);
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`API Error on ${endpoint}: ${response.status} - ${errorText}`);
+        }
+        if (isJson) {
+            const text = await response.text();
+            if (!text) return null;
+            const result = JSON.parse(text);
+            return result.data || result;
+        }
+        return response;
+    }
+
+    async function fetchMyBookingsData() {
+        return await fetchFromAPI(AppConfig.endpoints.myBookings);
+    }
+
+    async function cancelBookings(bookingIds) {
+        // This function assumes a DELETE endpoint for individual bookings exists.
+        // e.g., DELETE /api/booking/{bookingId}
+        const cancelPromises = bookingIds.map(id => 
+            fetchFromAPI(`${AppConfig.endpoints.booking}/${id}`, { method: 'DELETE' }, false)
+        );
+        return await Promise.all(cancelPromises);
+    }
+
+
+    // --- RENDERING ---
     function renderMyBookingsTable() {
         const data = state.bookings;
         const tableBody = document.getElementById('my-bookings-body');
@@ -19,25 +57,25 @@ window.MyBookingsView = (function() {
         const tableHtml = data.map(booking => {
             const isSelected = state.selectedRows.includes(booking.bookingId);
             const statusClass = booking.status === 'Approved' ? 'text-green-400' : (booking.status === 'Rejected' ? 'text-red-400' : 'text-yellow-400');
+            // Assuming the API provides all necessary fields directly
             return `
                 <tr data-booking-id="${booking.bookingId}" class="${isSelected ? 'bg-blue-900/30' : ''} hover:bg-slate-800/50 transition-colors">
                     <td class="py-4 pl-4 pr-3 text-sm sm:pl-6">
                         <input type="checkbox" class="row-checkbox rounded bg-slate-700 border-slate-500 text-blue-500 focus:ring-blue-500" ${isSelected ? 'checked' : ''}>
                     </td>
                     <td class="whitespace-nowrap px-3 py-4 text-sm">
-                        <div class="text-slate-300">${booking.bookedOn}</div>
-                        <div class="text-blue-400">${booking.bookingId}</div>
+                        <div class="text-slate-300">${new Date(booking.created_at).toLocaleDateString()}</div>
+                        <div class="text-blue-400">${booking.unique_id}</div>
                     </td>
                     <td class="whitespace-nowrap px-3 py-4 text-sm">
-                        <div class="font-medium text-white">${booking.hallName}</div>
-                        <div class="text-slate-400">${booking.hallCode}</div>
-                        <div class="text-slate-400">${booking.department}</div>
+                        <div class="font-medium text-white">${booking.hall_name}</div>
+                        <div class="text-slate-400">${booking.hall_id}</div>
                     </td>
                     <td class="whitespace-nowrap px-3 py-4 text-sm">
                         <div class="font-medium text-white">${booking.purpose}</div>
-                        <div class="text-slate-400">${booking.course}</div>
+                        <div class="text-slate-400">${booking.class_code || ''}</div>
                     </td>
-                    <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300">${booking.dateTime.replace('\\n', '<br>')}</td>
+                    <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300">${new Date(booking.start_date).toLocaleString()} - ${new Date(booking.end_date).toLocaleTimeString()}</td>
                     <td class="whitespace-nowrap px-3 py-4 text-sm font-semibold ${statusClass}">${booking.status}</td>
                 </tr>
             `;
@@ -88,7 +126,8 @@ window.MyBookingsView = (function() {
 
                 if (confirm(`Are you sure you want to cancel ${state.selectedRows.length} booking(s)?`)) {
                     try {
-                        await AppData.cancelBookings(state.selectedRows);
+                        // Calling the local cancelBookings function
+                        await cancelBookings(state.selectedRows);
                         alert('Selected booking(s) cancelled successfully.');
                         state.selectedRows = [];
                         await initialize(); // Refresh view
@@ -103,12 +142,15 @@ window.MyBookingsView = (function() {
 
     async function initialize() {
         try {
-            const data = await AppData.fetchMyBookingsData();
+            // Calling the local fetch function
+            const data = await fetchMyBookingsData();
             state.bookings = data;
             renderMyBookingsTable();
             setupEventHandlers();
         } catch (error) {
             console.error('Error loading my bookings:', error);
+            const tableBody = document.getElementById('my-bookings-body');
+            if(tableBody) tableBody.innerHTML = `<tr><td colspan="6" class="text-center py-10 text-red-400">Failed to load bookings.</td></tr>`;
         }
     }
 

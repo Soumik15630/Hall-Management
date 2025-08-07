@@ -1,7 +1,56 @@
 // Approve Bookings View Module
 window.ApproveBookingsView = (function() {
     let abortController;
-    
+
+    // --- API & DATA HANDLING ---
+    /**
+     * Helper function to make authenticated API calls.
+     * @param {string} endpoint - The API endpoint to call.
+     * @param {object} options - Fetch options (method, body, etc.).
+     * @returns {Promise<any>} - The JSON response data.
+     */
+    async function fetchFromAPI(endpoint, options = {}, isJson = true) {
+        const headers = getAuthHeaders();
+        if (!headers) {
+            logout();
+            throw new Error("User not authenticated");
+        }
+        const fullUrl = AppConfig.apiBaseUrl + endpoint;
+        const config = { ...options, headers };
+        const response = await fetch(fullUrl, config);
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`API Error on ${endpoint}: ${response.status} - ${errorText}`);
+        }
+        if (isJson) {
+            const text = await response.text();
+            if (!text) return null;
+            const result = JSON.parse(text);
+            return result.data || result;
+        }
+        return response;
+    }
+
+    /**
+     * Fetches bookings that are pending approval.
+     */
+    async function fetchApprovalData() {
+        return await fetchFromAPI(AppConfig.endpoints.pendingApprovals);
+    }
+
+    /**
+     * Updates the status of a booking (approve or reject).
+     * @param {string} bookingId - The ID of the booking to update.
+     * @param {string} status - The new status ('APPROVED' or 'REJECTED').
+     */
+    async function updateBookingStatus(bookingId, status) {
+        const action = status === 'APPROVED' ? 'approve' : 'reject';
+        // This assumes an endpoint structure like /api/booking/{id}/approve or /api/booking/{id}/reject
+        return await fetchFromAPI(`${AppConfig.endpoints.booking}/${bookingId}/${action}`, { method: 'PUT' }, false);
+    }
+
+    // --- RENDERING ---
     function renderApproveBookingsTable(data) {
         const tableBody = document.getElementById('approve-bookings-body');
         if (!tableBody) return;
@@ -12,20 +61,20 @@ window.ApproveBookingsView = (function() {
         }
         
         const tableHtml = data.map(booking => `
-            <tr class="hover:bg-slate-800/50 transition-colors" data-booking-id="${booking.bookingId}">
-                <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300">${booking.bookedOn}</td>
+            <tr class="hover:bg-slate-800/50 transition-colors" data-booking-id="${booking.unique_id}">
+                <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300">${new Date(booking.created_at).toLocaleDateString()}</td>
                 <td class="whitespace-nowrap px-3 py-4 text-sm">
-                    <div class="font-medium text-white">${booking.hallName}</div>
-                    <div class="text-slate-400">${booking.hallCode}</div>
+                    <div class="font-medium text-white">${booking.hall_name}</div>
+                    <div class="text-slate-400">${booking.hall_id}</div>
                 </td>
                 <td class="whitespace-nowrap px-3 py-4 text-sm">
                     <div class="font-medium text-white">${booking.purpose}</div>
-                    <div class="text-slate-400">${booking.course}</div>
+                    <div class="text-slate-400">${booking.class_code || ''}</div>
                 </td>
-                <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300">${booking.dateTime.replace('\\n', '<br>')}</td>
+                <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300">${new Date(booking.start_date).toLocaleString()} - ${new Date(booking.end_date).toLocaleTimeString()}</td>
                 <td class="whitespace-nowrap px-3 py-4 text-sm">
-                    <div class="font-medium text-white">${booking.bookedBy}</div>
-                    <div class="text-slate-400">${booking.bookedByDept}</div>
+                    <div class="font-medium text-white">${booking.user_name}</div>
+                    <div class="text-slate-400">${booking.user_department}</div>
                 </td>
                 <td class="whitespace-nowrap px-3 py-4 text-sm font-semibold text-yellow-400">${booking.status}</td>
                 <td class="whitespace-nowrap px-3 py-4 text-sm">
@@ -40,15 +89,16 @@ window.ApproveBookingsView = (function() {
         tableBody.innerHTML = tableHtml;
     }
 
+    // --- EVENT HANDLING ---
     async function handleBookingAction(bookingId, action) {
         const status = action === 'approve' ? 'APPROVED' : 'REJECTED';
         try {
-            await AppData.updateBookingStatus(bookingId, status);
+            await updateBookingStatus(bookingId, status);
             alert(`Booking ${bookingId} has been ${status.toLowerCase()}.`);
             await initialize(); // Refresh the list
         } catch (error) {
             console.error(`Failed to ${action} booking:`, error);
-            alert(`Error: Could not ${action} the booking. Please try again.`);
+            alert(`Error: Could not ${action} the booking. ${error.message}`);
         }
     }
 
@@ -78,11 +128,13 @@ window.ApproveBookingsView = (function() {
 
     async function initialize() {
         try {
-            const data = await AppData.fetchApprovalData();
+            const data = await fetchApprovalData();
             renderApproveBookingsTable(data);
             setupEventHandlers();
         } catch (error) {
             console.error('Error loading approval data:', error);
+            const tableBody = document.getElementById('approve-bookings-body');
+            if(tableBody) tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-red-400">Failed to load approval data. ${error.message}</td></tr>`;
         }
     }
     

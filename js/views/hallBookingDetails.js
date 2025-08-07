@@ -7,10 +7,9 @@ window.HallBookingDetailsView = (function() {
         currentDate: new Date(),
         availabilityData: [],
         selectedSlots: [], 
-        // NEW: State for drag-to-select functionality
         isDragging: false,
         dragSelectionMode: 'add',
-        dragDate: null, // YYYY-MM-DD representation of the date being dragged on
+        dragDate: null,
     };
     let abortController;
     
@@ -19,32 +18,118 @@ window.HallBookingDetailsView = (function() {
     const FINAL_BOOKING_AVAILABILITY = 'finalBookingAvailability';
     const FINAL_BOOKING_HALL = 'finalBookingHall';
 
+    // --- API & DATA HANDLING ---
+    async function fetchFromAPI(endpoint, options = {}, isJson = true) {
+        const headers = getAuthHeaders();
+        if (!headers) {
+            logout();
+            throw new Error("User not authenticated");
+        }
+        const fullUrl = AppConfig.apiBaseUrl + endpoint;
+        const config = { ...options, headers };
+        const response = await fetch(fullUrl, config);
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`API Error on ${endpoint}: ${response.status} - ${errorText}`);
+        }
+        if (isJson) {
+            const text = await response.text();
+            if (!text) return null;
+            const result = JSON.parse(text);
+            return result.data || result;
+        }
+        return response;
+    }
+
+    function formatTitleCase(str) {
+        if (!str) return 'N/A';
+        return str.replace(/_/g, ' ').replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
+    }
+
+    async function fetchRawSchools() {
+        return await fetchFromAPI(AppConfig.endpoints.allschool);
+    }
+
+    async function fetchRawDepartments() {
+        return await fetchFromAPI(AppConfig.endpoints.alldept);
+    }
+
+    async function fetchBookingHalls() {
+        const [rawHalls, schools, departments] = await Promise.all([
+            fetchFromAPI(AppConfig.endpoints.allHall),
+            fetchRawSchools(),
+            fetchRawDepartments()
+        ]);
+        
+        const schoolMap = new Map(schools.map(s => [s.unique_id, s]));
+        const departmentMap = new Map(departments.map(d => [d.unique_id, d]));
+
+        const allHalls = rawHalls.map(hall => {
+             const dept = departmentMap.get(hall.department_id);
+             const school = schoolMap.get(hall.school_id);
+             const incharge = dept 
+                ? { name: dept.incharge_name, designation: 'HOD', email: dept.incharge_email, intercom: dept.incharge_contact_number }
+                : (school ? { name: school.incharge_name, designation: 'Dean', email: school.incharge_email, intercom: school.incharge_contact_number } : {});
+
+            return {
+                id: hall.unique_id,
+                name: hall.name,
+                location: `${school ? school.school_name : 'N/A'}${dept ? ' - ' + dept.department_name : ''}`,
+                capacity: hall.capacity,
+                floor: formatTitleCase(hall.floor),
+                zone: formatTitleCase(hall.zone),
+                features: Array.isArray(hall.features) ? hall.features.map(formatTitleCase) : [],
+                incharge: incharge,
+                ...hall
+            };
+        });
+
+        // Grouping is not strictly needed here but kept for consistency if format changes
+        const groupedHalls = { 'Seminar': [], 'Auditorium': [], 'Lecture Hall': [], 'Conference Hall': [] };
+        allHalls.forEach(hall => {
+            const typeKey = formatTitleCase(hall.type).replace(' Hall', '');
+            if (groupedHalls.hasOwnProperty(typeKey)) {
+                groupedHalls[typeKey].push(hall);
+            } else {
+                 if(!groupedHalls['Other']) groupedHalls['Other'] = [];
+                 groupedHalls['Other'].push(hall);
+            }
+        });
+        return allHalls; // Return flattened array for easier searching
+    }
+    
+    // Placeholder function as in the original data.js
+    async function fetchHallAvailability(hallId) {
+        // In a real app, this would make an API call like:
+        // return await fetchFromAPI(`${AppConfig.endpoints.availability}/${hallId}`);
+        return Promise.resolve([]);
+    }
+
+    // --- STATE PERSISTENCE ---
     function saveStateToSession() {
         if (!state.currentHallId) return;
         const key = STORAGE_KEY_PREFIX + state.currentHallId;
-        const stateToSave = {
+        sessionStorage.setItem(key, JSON.stringify({
             selectedSlots: state.selectedSlots,
             currentDate: state.currentDate.toISOString()
-        };
-        sessionStorage.setItem(key, JSON.stringify(stateToSave));
+        }));
     }
 
     function loadStateFromSession() {
         if (!state.currentHallId) return;
-        const key = STORAGE_KEY_PREFIX + state.currentHallId;
-        const savedState = sessionStorage.getItem(key);
+        const savedState = sessionStorage.getItem(STORAGE_KEY_PREFIX + state.currentHallId);
         if (savedState) {
-            const parsedState = JSON.parse(savedState);
-            state.selectedSlots = parsedState.selectedSlots || [];
-            state.currentDate = new Date(parsedState.currentDate);
+            const parsed = JSON.parse(savedState);
+            state.selectedSlots = parsed.selectedSlots || [];
+            state.currentDate = new Date(parsed.currentDate);
         }
     }
 
+    // --- RENDERING ---
     function renderHallDetails(hall) {
         const detailsContainer = document.getElementById('booking-hall-details');
         const featuresContainer = document.getElementById('booking-hall-features');
         const inchargeContainer = document.getElementById('booking-hall-incharge');
-
         if (!detailsContainer || !featuresContainer || !inchargeContainer || !hall) return;
 
         detailsContainer.innerHTML = `
@@ -55,16 +140,12 @@ window.HallBookingDetailsView = (function() {
             <p class="text-sm text-slate-400">Floor: ${hall.floor || 'N/A'}</p>
             <p class="text-sm text-slate-400">Zone: ${hall.zone || 'N/A'}</p>
         `;
-
-        const featuresList = hall.features && hall.features.length > 0
+        const featuresList = hall.features.length > 0
             ? hall.features.map(f => `<li class="flex items-center text-slate-300"><i data-lucide="check" class="w-4 h-4 mr-2 text-green-400"></i>${f}</li>`).join('')
             : '<li class="text-slate-400">No features listed.</li>';
-        featuresContainer.innerHTML = `
-            <h3 class="text-lg font-bold text-green-300 mb-2">Features</h3>
-            <ul class="space-y-1">${featuresList}</ul>
-        `;
-
-        const incharge = hall.incharge || {};
+        featuresContainer.innerHTML = `<h3 class="text-lg font-bold text-green-300 mb-2">Features</h3><ul class="space-y-1">${featuresList}</ul>`;
+        
+        const { incharge = {} } = hall;
         inchargeContainer.innerHTML = `
             <h3 class="text-lg font-bold text-yellow-300 mb-2">In-Charge Details</h3>
             <p class="text-sm text-slate-300"><span class="font-semibold text-white">Name:</span> ${incharge.name || 'N/A'}</p>
@@ -72,36 +153,14 @@ window.HallBookingDetailsView = (function() {
             <p class="text-sm text-slate-300"><span class="font-semibold text-white">Email:</span> ${incharge.email || 'N/A'}</p>
             <p class="text-sm text-slate-300"><span class="font-semibold text-white">Intercom:</span> ${incharge.intercom || 'N/A'}</p>
         `;
-
-        if (window.lucide) {
-            lucide.createIcons();
-        }
+        if (window.lucide) lucide.createIcons();
     }
 
     function getSlotStatus(year, month, day, time) {
-        const isSelected = state.selectedSlots.some(s => s.year === year && s.month === month && s.day === day && s.time === time);
-        if (isSelected) return 'Selected';
-        
-        const booking = state.availabilityData.find(b =>
-            b.hallId === state.currentHallId && b.year === year && b.month === month && b.day === day && b.time === time
-        );
+        const time24 = time.replace(' AM', '').replace(' PM', ''); // Simplified conversion
+        if (state.selectedSlots.some(s => s.year === year && s.month === month && s.day === day && s.time === time)) return 'Selected';
+        const booking = state.availabilityData.find(b => b.hallId === state.currentHallId && b.year === year && b.month === month && b.day === day && b.time === time24);
         return booking ? booking.status : 'Available';
-    }
-
-    function updateBookingButtonState() {
-        const bookBtn = document.getElementById('confirm-booking-btn');
-        if (!bookBtn) return;
-        const count = state.selectedSlots.length;
-
-        if (count > 0) {
-            bookBtn.textContent = `Book (${count} Slot${count > 1 ? 's' : ''} Selected)`;
-        } else {
-            bookBtn.textContent = 'Book';
-        }
-        
-        // The button is now always enabled.
-        bookBtn.disabled = false;
-        bookBtn.classList.remove('opacity-50', 'cursor-not-allowed');
     }
 
     function renderBookingGrid() {
@@ -112,45 +171,31 @@ window.HallBookingDetailsView = (function() {
         const year = state.currentDate.getFullYear();
         const month = state.currentDate.getMonth();
         monthYearTitle.textContent = state.currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-
         const daysInMonth = new Date(year, month + 1, 0).getDate();
         const times = ['09:30 AM', '10:30 AM', '11:30 AM', '12:30 PM', '01:30 PM', '02:30 PM', '03:30 PM', '04:30 PM'];
         
         let gridHtml = '<table class="min-w-full text-center text-xs"><thead><tr><th class="p-1"></th>';
         for (let day = 1; day <= daysInMonth; day++) {
-            const date = new Date(year, month, day);
-            const dayOfWeek = date.getDay();
-            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-            const weekendClass = isWeekend ? 'weekend-header' : '';
-            const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
-            gridHtml += `<th class="p-1 text-slate-300 ${weekendClass}">${day}<br>${dayName}</th>`;
+            const dayName = new Date(year, month, day).toLocaleDateString('en-US', { weekday: 'short' });
+            gridHtml += `<th class="p-1 text-slate-300">${day}<br>${dayName}</th>`;
         }
         gridHtml += '</tr></thead><tbody>';
 
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
+        const today = new Date(); today.setHours(0, 0, 0, 0);
         times.forEach(time => {
             gridHtml += `<tr><td class="p-1 text-slate-300 font-semibold align-middle">${time}</td>`;
             for (let day = 1; day <= daysInMonth; day++) {
-                const currentSlotDate = new Date(year, month, day);
-                const dayOfWeek = currentSlotDate.getDay();
-                const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-                const weekendClass = isWeekend ? 'weekend-cell' : '';
-
-                let status = (currentSlotDate < today) ? 'Past' : getSlotStatus(year, month, day, time);
+                const slotDate = new Date(year, month, day);
+                let status = (slotDate < today) ? 'Past' : getSlotStatus(year, month, day, time);
                 let cellClass = '';
-                let dataAttrs = `data-year="${year}" data-month="${month}" data-day="${day}" data-time="${time}"`;
-
                 switch (status) {
-                    case 'Past':    cellClass = 'bg-gray-700/50 cursor-not-allowed'; break;
-                    case 'Booked':  cellClass = 'bg-red-600/80 cursor-not-allowed'; break;
+                    case 'Past': cellClass = 'bg-gray-700/50 cursor-not-allowed'; break;
+                    case 'Booked': cellClass = 'bg-red-600/80 cursor-not-allowed'; break;
                     case 'Pending': cellClass = 'bg-yellow-500/80 cursor-not-allowed'; break;
-                    case 'Selected':cellClass = 'bg-cyan-500/80 cursor-pointer hover:bg-cyan-400/80'; break;
-                    default:        cellClass = 'bg-green-500/80 cursor-pointer hover:bg-green-400/80'; break;
+                    case 'Selected': cellClass = 'bg-cyan-500/80 cursor-pointer'; break;
+                    default: cellClass = 'bg-green-500/80 cursor-pointer'; break;
                 }
-                
-                gridHtml += `<td class="p-0 ${weekendClass}"><div class="w-full h-6 border border-slate-700 ${cellClass}" ${dataAttrs}></div></td>`;
+                gridHtml += `<td class="p-0"><div class="w-full h-6 border border-slate-700 ${cellClass}" data-year="${year}" data-month="${month}" data-day="${day}" data-time="${time}"></div></td>`;
             }
             gridHtml += '</tr>';
         });
@@ -158,166 +203,105 @@ window.HallBookingDetailsView = (function() {
         gridContainer.innerHTML = gridHtml;
         updateBookingButtonState();
     }
-    
-    // NEW: Modified function to handle toggling a single slot
-    function toggleSlot(slot) {
-        const slotDate = new Date(slot.year, slot.month, slot.day);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        if (slotDate < today) return; // Cannot select past dates
 
+    function updateBookingButtonState() {
+        const bookBtn = document.getElementById('confirm-booking-btn');
+        if (!bookBtn) return;
+        const count = state.selectedSlots.length;
+        bookBtn.textContent = count > 0 ? `Book (${count} Slot${count > 1 ? 's' : ''})` : 'Book';
+        bookBtn.disabled = false;
+    }
+
+    // --- EVENT HANDLING ---
+    function toggleSlot(slot) {
         const status = getSlotStatus(slot.year, slot.month, slot.day, slot.time);
-        if (status === 'Booked' || status === 'Pending') return;
+        if (['Booked', 'Pending', 'Past'].includes(status)) return;
         
         const index = state.selectedSlots.findIndex(s => s.year === slot.year && s.month === slot.month && s.day === slot.day && s.time === slot.time);
-
-        if (state.dragSelectionMode === 'add') {
-            if (index === -1) {
-                state.selectedSlots.push(slot);
-            }
-        } else { // 'remove' mode
-            if (index > -1) {
-                state.selectedSlots.splice(index, 1);
-            }
+        if (state.dragSelectionMode === 'add' && index === -1) {
+            state.selectedSlots.push(slot);
+        } else if (state.dragSelectionMode === 'remove' && index > -1) {
+            state.selectedSlots.splice(index, 1);
         }
     }
 
-    function changeMonth(offset) {
-        state.currentDate.setMonth(state.currentDate.getMonth() + offset);
-        renderBookingGrid();
-        saveStateToSession();
-    }
-
-    // NEW: Handlers for drag-select
     function handleDragStart(e) {
         const cell = e.target.closest('[data-time]');
         if (!cell) return;
         e.preventDefault();
-
         state.isDragging = true;
-        const slot = {
-            year: parseInt(cell.dataset.year),
-            month: parseInt(cell.dataset.month),
-            day: parseInt(cell.dataset.day),
-            time: cell.dataset.time,
-        };
-
+        const slot = { year: +cell.dataset.year, month: +cell.dataset.month, day: +cell.dataset.day, time: cell.dataset.time };
         const status = getSlotStatus(slot.year, slot.month, slot.day, slot.time);
-        if (status === 'Booked' || status === 'Pending' || status === 'Past') {
-            state.isDragging = false;
-            return;
-        }
-
-        const dateString = `${slot.year}-${slot.month}-${slot.day}`;
-        if (state.dragDate !== dateString) {
-            state.selectedSlots = []; // Clear selection when starting drag on a new date
-            state.dragDate = dateString;
-        }
-        
+        if (['Booked', 'Pending', 'Past'].includes(status)) { state.isDragging = false; return; }
         state.dragSelectionMode = (status === 'Selected') ? 'remove' : 'add';
-        
         toggleSlot(slot);
-        renderBookingGrid(); // Re-render to show immediate feedback
+        renderBookingGrid();
     }
 
     function handleDragOver(e) {
         if (!state.isDragging) return;
-        
         const cell = e.target.closest('[data-time]');
         if (cell) {
-             const slot = {
-                year: parseInt(cell.dataset.year),
-                month: parseInt(cell.dataset.month),
-                day: parseInt(cell.dataset.day),
-                time: cell.dataset.time,
-            };
-            const dateString = `${slot.year}-${slot.month}-${slot.day}`;
-            // Only continue drag on the same date
-            if (state.dragDate === dateString) {
-                toggleSlot(slot);
-                renderBookingGrid();
-            }
+            const slot = { year: +cell.dataset.year, month: +cell.dataset.month, day: +cell.dataset.day, time: cell.dataset.time };
+            toggleSlot(slot);
+            renderBookingGrid();
         }
     }
 
     function handleDragStop() {
         if (state.isDragging) {
             state.isDragging = false;
-            state.dragDate = null;
             saveStateToSession();
         }
     }
 
     function setupEventHandlers() {
-        if (abortController) { abortController.abort(); }
+        if (abortController) abortController.abort();
         abortController = new AbortController();
         const { signal } = abortController;
 
-        const gridContainer = document.getElementById('booking-calendar-grid');
+        document.getElementById('prev-month-btn')?.addEventListener('click', () => { state.currentDate.setMonth(state.currentDate.getMonth() - 1); renderBookingGrid(); }, { signal });
+        document.getElementById('next-month-btn')?.addEventListener('click', () => { state.currentDate.setMonth(state.currentDate.getMonth() + 1); renderBookingGrid(); }, { signal });
         
-        document.getElementById('prev-month-btn')?.addEventListener('click', () => changeMonth(-1), { signal });
-        document.getElementById('next-month-btn')?.addEventListener('click', () => changeMonth(1), { signal });
-
-        // NEW: Replace single click listener with drag-and-drop listeners
+        const gridContainer = document.getElementById('booking-calendar-grid');
         if (gridContainer) {
             gridContainer.addEventListener('mousedown', handleDragStart, { signal });
             gridContainer.addEventListener('mouseenter', handleDragOver, { signal, capture: true });
         }
-        window.addEventListener('mouseup', handleDragStop, { signal, once: false });
+        window.addEventListener('mouseup', handleDragStop, { signal });
         
         document.getElementById('confirm-booking-btn')?.addEventListener('click', () => {
             sessionStorage.setItem(FINAL_BOOKING_HALL, JSON.stringify(state.currentHall));
             sessionStorage.setItem(FINAL_BOOKING_SLOTS, JSON.stringify(state.selectedSlots));
-            const relevantAvailability = state.availabilityData.filter(d => d.hallId === state.currentHallId);
-            sessionStorage.setItem(FINAL_BOOKING_AVAILABILITY, JSON.stringify(relevantAvailability));
-            
+            sessionStorage.setItem(FINAL_BOOKING_AVAILABILITY, JSON.stringify(state.availabilityData.filter(d => d.hallId === state.currentHallId)));
             sessionStorage.removeItem(STORAGE_KEY_PREFIX + state.currentHallId);
-
-            window.location.hash = `#final-booking-form-view`;
+            window.location.hash = `#final-booking-form-view?id=${state.currentHallId}`;
         }, { signal });
     }
 
     function cleanup() {
-        if (abortController) {
-            abortController.abort();
-        }
-        // NEW: Remove window listener on cleanup
+        if (abortController) abortController.abort();
         window.removeEventListener('mouseup', handleDragStop);
     }
 
     async function initialize(hallId) {
-        state = {
-            currentHall: null,
-            currentHallId: hallId,
-            currentDate: new Date(),
-            availabilityData: [],
-            selectedSlots: [],
-            isDragging: false,
-            dragSelectionMode: 'add',
-            dragDate: null,
-        };
-        
+        state = { currentHallId: hallId, currentDate: new Date(), availabilityData: [], selectedSlots: [], isDragging: false, dragSelectionMode: 'add' };
         loadStateFromSession();
-
         try {
-            const [allHalls, availability] = await Promise.all([AppData.fetchBookingHalls(), AppData.fetchHallAvailability()]);
+            const [allHalls, availability] = await Promise.all([fetchBookingHalls(), fetchHallAvailability(hallId)]);
             state.availabilityData = availability;
-            const flattenedHalls = Object.values(allHalls).flatMap(group => Array.isArray(group) ? group : Object.values(group)).flat(Infinity);
-            const hall = flattenedHalls.find(h => h.id === hallId);
-            
+            const hall = allHalls.find(h => h.id === hallId);
             if (hall) {
                 state.currentHall = hall;
                 renderHallDetails(hall);
                 renderBookingGrid();
                 setupEventHandlers();
             } else {
-                const container = document.getElementById('hall-booking-details-view').querySelector('.bg-slate-800\\/50');
-                if (container) {
-                    container.innerHTML = `<p class="text-center text-red-400 py-20">Error: Hall details could not be loaded. Please go back and try again.</p>`;
-                }
+                document.getElementById('hall-booking-details-view').innerHTML = `<p class="text-center text-red-400 py-20">Error: Hall not found.</p>`;
             }
         } catch (error) {
-            console.error('Error initializing hall booking details view:', error);
+            console.error('Error initializing view:', error);
+            document.getElementById('hall-booking-details-view').innerHTML = `<p class="text-center text-red-400 py-20">Failed to load details.</p>`;
         }
     }
 
