@@ -8,8 +8,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Fonts - Montserrat -->
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- **FIXED**: Load the main configuration file -->
-    <script src="../config.js"></script>
     <style>
         /* Custom styles for the body, login card, inputs, and buttons */
         body {
@@ -115,7 +113,7 @@
 </head>
 <body>
     <!-- Pondicherry University Logo -->
-    <img src="public/download.png" alt="Pondicherry University Logo" class="logo">
+    <img src="download.png" alt="Pondicherry University Logo" class="logo">
 
     <!-- Login Card Container -->
     <div class="login-card">
@@ -170,8 +168,8 @@
             loginButton.disabled = true;
 
             try {
-                // Use the AppConfig object to build the correct API URL
-                const apiUrl = `https://hall-management.nirmaljyotib.workers.dev/auth/login`;
+                // API endpoint URL
+                const apiUrl = 'https://hall-management.nirmaljyotib.workers.dev/auth/login';
 
                 // Send a POST request to the API using fetch
                 const response = await fetch(apiUrl, {
@@ -179,40 +177,40 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ email, password })
+                    body: JSON.stringify({ email, password }),
                 });
 
                 // Parse the JSON response from the server
-                const result = await response.json();
+                const data = await response.json();
 
                 // Check if the request was successful
                 if (response.ok) {
-                    // **FIXED**: Access token and role directly from the result object
-                    const token = result.token;
-                    const role = result.role;
-
+                    // Assuming the token is in data.token
+                    const token = data.token;
                     if (token) {
-                        // Securely save the token to sessionStorage
+                        // Securely save the token to localStorage
                         sessionStorage.setItem('authToken', token);
                         displayMessage('Login successful! Redirecting...', 'success');
-                        
-                        // Redirect based on the role received from the API
                         setTimeout(() => {
-                            if (role === "ADMIN"){
-                                window.location.replace("admin.html");
-                            } else if (role === "HOD"){
-                                window.location.replace('hod.html');
-                            } else {
-                                displayMessage('Login successful, but role is not recognized.', 'error');
+                            if (data.role=="ADMIN"){
+                            window.location.replace("admin.html");
+                            }
+                            else if (data.role=="HOD"){
+                            window.location.replace('hod.html')
+                            }
+                            else if (data.role=="FACULTY"){
+                                window.location.replace("faculty.html")
                             }
                         }, 1000);
 
+
                     } else {
-                        displayMessage('Login successful, but no token was received.', 'error');
+                        displayMessage('Login successful, but no token received.', 'error');
                     }
                 } else {
                     // Handle errors (e.g., invalid credentials)
-                    const errorMessage = result.message || result.error || 'An unknown error occurred.';
+                    // The error message is expected in data.message or data.error
+                    const errorMessage = data.message || data.error || 'An unknown error occurred.';
                     displayMessage(errorMessage, 'error');
                 }
             } catch (error) {
@@ -229,7 +227,9 @@
         // Helper function to display messages to the user
         function displayMessage(message, type) {
             messageArea.textContent = message;
+            // Set the class to 'message success' or 'message error'
             messageArea.className = `message ${type}`;
+            // Make the message area visible
             messageArea.style.display = 'block';
         }
     </script>

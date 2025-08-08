@@ -1,7 +1,7 @@
-// This script fetches the shared layout and injects it into the page.
+
 
 function loadNavbar() {
-    return fetch('layout.html')
+    return fetch('layoutfac.html')
         .then(response => {
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
