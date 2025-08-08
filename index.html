@@ -1,237 +1,489 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pondicherry University Login</title>
-    <!-- Tailwind CSS CDN -->
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pondicherry University Hall Booking System</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Fonts - Montserrat -->
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <!-- Load the main configuration file -->
+    <script src="../config.js"></script>
     <style>
-        /* Custom styles for the body, login card, inputs, and buttons */
-        body {
-            font-family: 'Montserrat', sans-serif;
-            background-color: #E0F2F7; /* Light blue background */
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh; /* Full viewport height */
-            margin: 0;
-            padding: 20px; /* Padding for mobile responsiveness */
-            box-sizing: border-box;
-        }
-        .login-card {
-            background-color: #FFFFFF;
-            border-radius: 1.5rem; /* Rounded corners */
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* Soft shadow */
-            padding: 2.5rem; /* Spacious padding */
-            width: 100%;
-            max-width: 400px; /* Max width for desktop */
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            margin-top: 2rem; /* Space between logo and card */
-        }
-        .input-field {
-            width: 100%;
-            padding: 0.75rem 1rem;
-            margin-bottom: 1.25rem; /* Space between input fields */
-            border: 2px solid #0066ff; /* Blue border */
-            border-radius: 0.75rem; /* Rounded input fields */
-            font-size: 1rem;
-            color: #374151; /* Dark text color */
-            outline: none; /* Remove default outline */
-            transition: border-color 0.2s; /* Smooth transition for border color */
-            text-align: center; /* Center align text in input fields */
-        }
-        .input-field:focus {
-            border-color: #3B82F6; /* Blue border on focus */
-        }
-        .login-button {
-            width: 100%;
-            padding: 0.85rem 1.5rem; /* Button size */
-            background-color: #3B82F6; /* Blue button color */
-            color: #FFFFFF; /* White text */
-            font-weight: 600; /* Semi-bold text */
-            border-radius: 0.75rem; /* Rounded button */
-            cursor: pointer; /* Pointer cursor on hover */
-            transition: background-color 0.2s; /* Smooth transition for background */
-            border: none; /* Remove default border */
-            font-size: 1rem;
-        }
-        .login-button:hover {
-            background-color: #2563EB; /* Darker blue on hover */
-        }
-        .forgot-password {
-            color: #3B82F6; /* Blue text */
-            font-size: 0.9rem;
-            margin-top: 1.5rem; /* Space above link */
-            text-decoration: none; /* Remove underline */
-            font-weight: 500; /* Medium weight */
-            transition: color 0.2s; /* Smooth transition for color */
-        }
-        .forgot-password:hover {
-            color: #2563EB; /* Darker blue on hover */
-            text-decoration: underline; /* Underline on hover */
-        }
-        .logo {
-            max-width: 150px; /* Adjust logo size */
-            height: auto;
-            margin-bottom: 1rem; /* Space below the logo */
-        }
-        .login-title {
-            font-size: 1.75rem; /* Larger title */
-            font-weight: 700; /* Bold title */
-            color: #2563EB; /* Dark blue text */
-            margin-bottom: 2rem; /* Space below title */
-            text-transform: uppercase; /* Uppercase text */
-        }
-        /* Message styling for success and error feedback */
-        .message {
-            margin-top: 1rem;
-            font-weight: 500;
-            padding: 0.75rem 1rem;
-            border-radius: 0.5rem;
-            text-align: center;
-            width: 100%;
-            /* Hide by default, shown by JS */
-            display: none;
-        }
-        .message.success {
-            background-color: #D1FAE5; /* Light green */
-            color: #065F46; /* Dark green text */
-            border: 1px solid #34D399; /* Green border */
-        }
-        .message.error {
-            background-color: #FEE2E2; /* Light red */
-            color: #991B1B; /* Dark red text */
-            border: 1px solid #F87171; /* Red border */
-        }
+      body {
+        font-family: "Inter", sans-serif;
+      }
+      /* Focus state for form inputs */
+      .form-input:focus {
+        outline: 2px solid transparent;
+        outline-offset: 2px;
+        border-color: #6366f1; /* indigo-500 */
+        box-shadow: 0 0 0 2px #a5b4fc; /* indigo-200 */
+      }
+      /* Styles for the background slideshow */
+      .slideshow-image {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0;
+        transition: opacity 1.5s ease-in-out;
+        z-index: -1;
+      }
+      .slideshow-image.active {
+        opacity: 1;
+      }
+      /* Styles for feedback messages */
+      .message {
+        margin-top: 1rem;
+        font-weight: 500;
+        padding: 0.75rem 1rem;
+        border-radius: 0.5rem;
+        text-align: center;
+        width: 100%;
+        display: none; /* Hidden by default */
+      }
+      .message.success {
+        background-color: #d1fae5; /* Light green */
+        color: #065f46; /* Dark green text */
+        border: 1px solid #34d399; /* Green border */
+      }
+      .message.error {
+        background-color: #fee2e2; /* Light red */
+        color: #991b1b; /* Dark red text */
+        border: 1px solid #f87171; /* Red border */
+      }
     </style>
+<<<<<<< HEAD
 </head>
 <body>
     <!-- Pondicherry University Logo -->
     <img src="download.png" alt="Pondicherry University Logo" class="logo">
+=======
+  </head>
+  <body class="bg-gray-900">
+    <!-- Background Slideshow Container -->
+    <div id="slideshow-container" class="fixed inset-0">
+      <div class="absolute inset-0 bg-black opacity-50 z-0"></div>
+      <img
+        src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d9/S_campusj.jpg/1200px-S_campusj.jpg?20200716130016"
+        class="slideshow-image active"
+        alt="University SJ Background"
+      />
+      <img
+        src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/Pondicherry_University_2.jpg/1200px-Pondicherry_University_2.jpg?20240801073328"
+        class="slideshow-image"
+        alt="University Building Background"
+      />
+      <img
+        src="https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=2070&auto=format&fit=crop"
+        class="slideshow-image"
+        alt="Graduation Ceremony Background"
+      />
+    </div>
+>>>>>>> afa9a0a73ba373ca01239815de9375220d5703fd
 
-    <!-- Login Card Container -->
-    <div class="login-card">
-        <h2 class="login-title">Login</h2>
-        
-        <!-- Login Form -->
-        <form id="loginForm" style="width: 100%;">
-            <!-- Email Input Field -->
-            <label for="email" class="sr-only">Email</label>
-            <input type="email" id="email" placeholder="EMAIL" class="input-field" required>
+    <!-- Main Content Area -->
+    <div class="min-h-screen flex items-center justify-center p-4 md:p-8">
+      <div class="w-full max-w-7xl grid grid-cols-1 md:grid-cols-2 gap-8">
+        <!-- Left Column: Information Panel -->
+        <div
+          class="flex flex-col justify-center p-8 lg:p-12 text-white rounded-2xl shadow-2xl bg-black/30 backdrop-blur-md border border-white/10"
+        >
+          <div class="relative z-10">
+            <div class="mb-8 text-center">
+              <div
+                class="inline-flex items-center justify-center bg-white p-3 rounded-full mb-4"
+              >
+                <img
+                  class="w-56"
+                  src="https://www.pondiuni.edu.in/wp-content/uploads/2020/05/PU_Logo-BG-White.png"
+                  alt="PU_Logo-BG-White"
+                />
+              </div>
+              <h1 class="text-4xl font-bold">Pondicherry University</h1>
+              <p class="text-2xl font-light mt-1">Hall Booking System</p>
+            </div>
+            <div class="space-y-6">
+              <p class="text-lg text-center md:text-left">
+                Welcome to the official hall booking system of Pondicherry
+                University.
+              </p>
+              <ul class="space-y-3 text-base">
+                <li class="flex items-center">
+                  <svg
+                    class="w-5 h-5 mr-3 text-green-300"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M5 13l4 4L19 7"
+                    ></path>
+                  </svg>
+                  Secure and efficient hall reservations
+                </li>
+                <li class="flex items-center">
+                  <svg
+                    class="w-5 h-5 mr-3 text-green-300"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M5 13l4 4L19 7"
+                    ></path>
+                  </svg>
+                  Real-time availability tracking
+                </li>
+                <li class="flex items-center">
+                  <svg
+                    class="w-5 h-5 mr-3 text-green-300"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M5 13l4 4L19 7"
+                    ></path>
+                  </svg>
+                  Streamlined booking process
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
 
-            <!-- Password Input Field -->
-            <label for="password" class="sr-only">Password</label>
-            <input type="password" id="password" placeholder="PASSWORD" class="input-field" required>
+        <!-- Right Column: Login Form -->
+        <div class="flex items-center justify-center">
+          <div
+            class="w-full max-w-md p-8 space-y-8 bg-gray-900/70 backdrop-blur-md rounded-2xl shadow-2xl border border-white/10"
+          >
+            <div>
+              <h2 class="text-center text-3xl font-bold text-white">
+                Welcome Back
+              </h2>
+              <p class="mt-2 text-center text-sm text-gray-300">
+                Sign in to your account.
+              </p>
+            </div>
 
-            <!-- Login Button -->
-            <button type="submit" id="loginBtn" class="login-button">Login</button>
-        </form>
+            <!-- Login Form with Integrated Logic -->
+            <form id="loginForm" class="mt-8 space-y-6">
+              <div class="rounded-md shadow-sm -space-y-px">
+                <!-- Email Input -->
+                <div>
+                  <label
+                    for="email"
+                    class="block text-sm font-medium text-gray-300 mb-1"
+                    >Email Address</label
+                  >
+                  <div class="relative">
+                    <div
+                      class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
+                    >
+                      <svg
+                        class="w-5 h-5 text-gray-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                        ></path>
+                      </svg>
+                    </div>
+                    <input
+                      id="email"
+                      name="email"
+                      type="email"
+                      autocomplete="email"
+                      required
+                      class="form-input block w-full pl-10 pr-3 py-2 border border-gray-700 bg-gray-800 rounded-md placeholder-gray-400 text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      placeholder="Enter your email"
+                    />
+                  </div>
+                </div>
+                <!-- Password Input -->
+                <div class="pt-6">
+                  <label
+                    for="password"
+                    class="block text-sm font-medium text-gray-300 mb-1"
+                    >Password</label
+                  >
+                  <div class="relative">
+                    <div
+                      class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
+                    >
+                      <svg
+                        class="w-5 h-5 text-gray-500"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                        ></path>
+                      </svg>
+                    </div>
+                    <input
+                      id="password"
+                      name="password"
+                      type="password"
+                      autocomplete="current-password"
+                      required
+                      class="form-input block w-full pl-10 pr-10 py-2 border border-gray-700 bg-gray-800 rounded-md placeholder-gray-400 text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      placeholder="••••••••••••••"
+                    />
+                    <div
+                      id="togglePassword"
+                      class="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer"
+                    >
+                      <svg
+                        id="eyeIcon"
+                        class="w-5 h-5 text-gray-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                        ></path>
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                        ></path>
+                      </svg>
+                      <svg
+                        id="eyeOffIcon"
+                        class="w-5 h-5 text-gray-400 hidden"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7 .946-3.118 3.55-5.57 6.818-6.575M2 2l20 20M12 5c.317 0 .63.018.938.05A14.95 14.95 0 0119.542 7c1.274 4.057-5.064 7-9.542 7a10.05 10.05 0 01-1.875-.175M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                        ></path>
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-        <!-- Message Display Area (for success/error feedback) -->
-        <div id="messageArea" class="message"></div>
+              <div class="flex items-center justify-between text-sm">
+                <a
+                  href="#"
+                  class="font-medium text-indigo-400 hover:text-indigo-300"
+                >
+                  Forgot your password?
+                </a>
+              </div>
 
-        <!-- Forgot Password Link -->
-        <a href="#" class="forgot-password">FORGOT PASSWORD ?</a>
+              <!-- Message Display Area -->
+              <div id="messageArea" class="message"></div>
+
+              <!-- Login Button -->
+              <div>
+                <button
+                  id="loginBtn"
+                  type="submit"
+                  class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  Sign in
+                </button>
+              </div>
+            </form>
+
+            <div class="text-sm text-center">
+              <p class="mt-4 text-gray-400">
+                Don't have an account?
+                <a
+                  href="#"
+                  class="font-medium text-indigo-400 hover:text-indigo-300"
+                >
+                  Sign up
+                </a>
+              </p>
+              <br />
+              <div>
+                <p class="text-gray-400">
+                  &copy; 2025 Department of Computer Science
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <script>
-        // Get references to the DOM elements
-        const loginForm = document.getElementById('loginForm');
-        const emailInput = document.getElementById('email');
-        const passwordInput = document.getElementById('password');
-        const messageArea = document.getElementById('messageArea');
-        const loginButton = document.getElementById('loginBtn');
+      // --- UI Enhancements ---
 
-        // Add an event listener to the form for the submit event
-        loginForm.addEventListener('submit', async (event) => {
-            // Prevent the default form submission behavior (which reloads the page)
-            event.preventDefault();
+      // Password visibility toggle
+      const togglePassword = document.querySelector("#togglePassword");
+      const passwordInput = document.querySelector("#password");
+      const eyeIcon = document.querySelector("#eyeIcon");
+      const eyeOffIcon = document.querySelector("#eyeOffIcon");
 
-            // Get the values from the input fields
-            const email = emailInput.value;
-            const password = passwordInput.value;
+      togglePassword.addEventListener("click", function (e) {
+        const type =
+          passwordInput.getAttribute("type") === "password"
+            ? "text"
+            : "password";
+        passwordInput.setAttribute("type", type);
+        eyeIcon.classList.toggle("hidden");
+        eyeOffIcon.classList.toggle("hidden");
+      });
 
-            // Basic validation: check if fields are empty
-            if (!email || !password) {
-                displayMessage('Please enter both email and password.', 'error');
-                return;
-            }
+      // Background Slideshow
+      const slideshowImages = document.querySelectorAll(
+        "#slideshow-container .slideshow-image"
+      );
+      let currentImageIndex = 0;
 
-            // Change button text to show loading state
-            loginButton.textContent = 'Logging in...';
-            loginButton.disabled = true;
+      function changeImage() {
+        slideshowImages[currentImageIndex].classList.remove("active");
+        currentImageIndex = (currentImageIndex + 1) % slideshowImages.length;
+        slideshowImages[currentImageIndex].classList.add("active");
+      }
+      setInterval(changeImage, 5000);
 
-            try {
-                // API endpoint URL
-                const apiUrl = 'https://hall-management.nirmaljyotib.workers.dev/auth/login';
+      // --- Backend Login Logic ---
 
-                // Send a POST request to the API using fetch
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ email, password }),
-                });
+      // Get references to the DOM elements for the form
+      const loginForm = document.getElementById("loginForm");
+      const emailInput = document.getElementById("email");
+      // passwordInput is already defined above
+      const messageArea = document.getElementById("messageArea");
+      const loginButton = document.getElementById("loginBtn");
 
-                // Parse the JSON response from the server
-                const data = await response.json();
+      // Add an event listener to the form for the submit event
+      loginForm.addEventListener("submit", async (event) => {
+        // Prevent the default form submission behavior
+        event.preventDefault();
 
-                // Check if the request was successful
-                if (response.ok) {
-                    // Assuming the token is in data.token
-                    const token = data.token;
-                    if (token) {
-                        // Securely save the token to localStorage
-                        sessionStorage.setItem('authToken', token);
-                        displayMessage('Login successful! Redirecting...', 'success');
-                        setTimeout(() => {
-                            if (data.role=="ADMIN"){
-                            window.location.replace("admin.html");
-                            }
-                            else if (data.role=="HOD"){
-                            window.location.replace('hod.html')
-                            }
-                            else if (data.role=="FACULTY"){
-                                window.location.replace("faculty.html")
-                            }
-                        }, 1000);
+        // Get the values from the input fields
+        const email = emailInput.value;
+        const password = passwordInput.value;
 
-
-                    } else {
-                        displayMessage('Login successful, but no token received.', 'error');
-                    }
-                } else {
-                    // Handle errors (e.g., invalid credentials)
-                    // The error message is expected in data.message or data.error
-                    const errorMessage = data.message || data.error || 'An unknown error occurred.';
-                    displayMessage(errorMessage, 'error');
-                }
-            } catch (error) {
-                // Handle network errors or other exceptions
-                console.error('Login failed:', error);
-                displayMessage('Login failed. Please check your connection.', 'error');
-            } finally {
-                // Re-enable the button and restore its text
-                loginButton.textContent = 'Login';
-                loginButton.disabled = false;
-            }
-        });
-
-        // Helper function to display messages to the user
-        function displayMessage(message, type) {
-            messageArea.textContent = message;
-            // Set the class to 'message success' or 'message error'
-            messageArea.className = `message ${type}`;
-            // Make the message area visible
-            messageArea.style.display = 'block';
+        // Basic validation
+        if (!email || !password) {
+          displayMessage("Please enter both email and password.", "error");
+          return;
         }
+
+        // Change button text to show loading state and disable it
+        loginButton.innerHTML = "Signing in...";
+        loginButton.disabled = true;
+
+        try {
+          // Use the AppConfig object to build the correct API URL
+          const apiUrl = `https://hall-management.nirmaljyotib.workers.dev/auth/login`;
+
+          // Send a POST request to the API
+          const response = await fetch(apiUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ email, password }),
+          });
+
+          // Parse the JSON response
+          const result = await response.json();
+
+          // Check if the request was successful
+          if (response.ok) {
+            const token = result.token;
+            const role = result.role;
+
+            if (token) {
+              // Securely save the token to sessionStorage
+              sessionStorage.setItem("authToken", token);
+              displayMessage("Login successful! Redirecting...", "success");
+
+              // Redirect based on the role
+              setTimeout(() => {
+                if (role === "ADMIN") {
+                  window.location.replace("admin.html");
+                } else if (role === "HOD") {
+                  window.location.replace("hod.html");
+                } else {
+                  // Handle unrecognized roles
+                  displayMessage(
+                    "Login successful, but role is not recognized.",
+                    "error"
+                  );
+                }
+              }, 1500); // Redirect after 1.5 seconds
+            } else {
+              displayMessage(
+                "Login successful, but no token was received.",
+                "error"
+              );
+            }
+          } else {
+            // Handle errors from the server (e.g., invalid credentials)
+            const errorMessage =
+              result.message || result.error || "An unknown error occurred.";
+            displayMessage(errorMessage, "error");
+          }
+        } catch (error) {
+          // Handle network errors or other exceptions
+          console.error("Login failed:", error);
+          displayMessage(
+            "Login failed. Please check your connection and try again.",
+            "error"
+          );
+        } finally {
+          // Re-enable the button and restore its text, unless a redirect is happening
+          if (!sessionStorage.getItem("authToken")) {
+            loginButton.innerHTML = "Sign in";
+            loginButton.disabled = false;
+          }
+        }
+      });
+
+      // Helper function to display messages
+      function displayMessage(message, type) {
+        messageArea.textContent = message;
+        messageArea.className = `message ${type}`;
+        messageArea.style.display = "block";
+      }
     </script>
-</body>
+  </body>
 </html>
