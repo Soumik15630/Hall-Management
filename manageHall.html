@@ -35,18 +35,6 @@
             background-color: #E0E7FF; /* Indigo-100 */
         }
 
-        /* Mobile Menu Styles */
-        .mobile-menu-backdrop {
-            backdrop-filter: blur(8px);
-            background: rgba(0, 0, 0, 0.5);
-        }
-
-        .mobile-menu-panel {
-            background: linear-gradient(135deg, rgba(20, 85, 95, 0.95), rgba(11, 25, 64, 0.95));
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
         /* Hide header on scroll for mobile */
         .header-hidden {
             transform: translateY(-100%);
@@ -61,80 +49,45 @@
                 transition: transform 0.3s ease-in-out;
             }
         }
-
-        /* Mobile Action Buttons */
-        .mobile-action-btn {
-            @apply w-12 h-12 rounded-full flex items-center justify-center text-white shadow-lg transition-all duration-200;
-        }
-
-        .mobile-action-btn:active {
-            transform: scale(0.95);
-        }
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
-<body class="min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col pb-24 md:pb-0">
 
-      <div id="header-placeholder" class="header-nav hide-on-mobile-scroll"></div>
-      <div id="nav-placeholder" class="header-nav hide-on-mobile-scroll"></div>
+    <div id="header-placeholder" class="header-nav hide-on-mobile-scroll"></div>
+    <div id="nav-placeholder" class="header-nav hide-on-mobile-scroll"></div>
 
     <main class="flex-grow p-2 sm:p-6" x-data="manageHalls">
         <div class="container mx-auto">
-            <!-- Desktop Header (hidden on mobile) -->
+            <!-- Desktop Header -->
             <div class="hidden md:flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-                 <h2 class="text-3xl font-bold text-white">Manage Halls</h2>
-                 <div class="flex flex-wrap items-center justify-end gap-3 bg-[rgba(0,0,0,0.2)] p-2 rounded-lg">
-                     <button @click="modifySelectedItem()" :disabled="selectedItems.length !== 1" class="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-edit"></i><span>Modify</span></button>
-                     <button @click="confirmDeletion()" :disabled="selectedItems.length === 0" class="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-trash-alt"></i><span>Delete</span></button>
-                     <button @click="resetFilters" :class="isAnyFilterActive ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-500 hover:bg-gray-600'" class="text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-undo"></i></button>
-                     <div class="flex items-center space-x-2 text-white pl-2">
-                         <span>Multi-Select:</span>
-                         <label class="toggle-switch"><input type="checkbox" x-model="multipleSelectionEnabled"><span class="toggle-slider"></span></label>
-                     </div>
-                 </div>
+                <h2 class="text-3xl font-bold text-white">Manage Halls</h2>
+                <div class="flex flex-wrap items-center justify-end gap-3 bg-[rgba(0,0,0,0.2)] p-2 rounded-lg">
+                    <a href="addHall.html" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-plus"></i><span>Add Hall</span></a>
+                    <button @click="modifySelectedItem()" :disabled="selectedItems.length !== 1" class="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-edit"></i><span>Modify</span></button>
+                    <button @click="confirmDeletion()" :disabled="selectedItems.length === 0" class="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-trash-alt"></i><span>Delete</span></button>
+                    <button @click="resetFilters" :class="isAnyFilterActive ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-500 hover:bg-gray-600'" class="text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-undo"></i></button>
+                    <div class="flex items-center space-x-2 text-white pl-2">
+                        <span>Multi-Select:</span>
+                        <label class="toggle-switch"><input type="checkbox" x-model="multipleSelectionEnabled"><span class="toggle-slider"></span></label>
+                    </div>
+                </div>
             </div>
 
-            <!-- Mobile Header -->
+            <!-- Simplified Mobile Header -->
             <div class="md:hidden mb-4">
-                <div class="flex justify-between items-center mb-3">
+                <div class="flex justify-between items-center">
                     <h2 class="text-2xl font-bold text-white">Manage Halls</h2>
-                    <button @click="mobileMenuOpen = !mobileMenuOpen" class="mobile-action-btn bg-indigo-600 hover:bg-indigo-700">
-                        <i class="fas fa-bars text-lg"></i>
-                    </button>
-                </div>
-                
-                <!-- Mobile Quick Actions -->
-                <div class="flex justify-between items-center gap-2">
-                    <div class="flex items-center gap-2 text-white text-sm">
-                        <span>Multi:</span>
-                        <label class="toggle-switch scale-75"><input type="checkbox" x-model="multipleSelectionEnabled"><span class="toggle-slider"></span></label>
-                    </div>
-                    
                     <div class="flex items-center gap-2">
-                        <button @click="viewMode = 'card'" :class="{'bg-indigo-600': viewMode === 'card', 'bg-gray-600': viewMode !== 'card'}" class="mobile-action-btn">
-                            <i class="fas fa-th-large text-sm"></i>
-                        </button>
-                        <button @click="viewMode = 'table'" :class="{'bg-indigo-600': viewMode === 'table', 'bg-gray-600': viewMode !== 'table'}" class="mobile-action-btn">
-                            <i class="fas fa-list text-sm"></i>
-                        </button>
-                        <button @click="modals.sortOptionsOpen = !modals.sortOptionsOpen" class="mobile-action-btn bg-gray-600 hover:bg-gray-700 relative" @click.away="modals.sortOptionsOpen = false">
-                            <i class="fas fa-sort text-sm"></i>
-                        </button>
+                        <div class="flex items-center gap-1 bg-gray-900/20 p-1 rounded-lg">
+                             <button @click="viewMode = 'card'" :class="{'bg-indigo-600 text-white': viewMode === 'card', 'text-gray-300 hover:bg-white/10': viewMode !== 'card'}" class="px-3 py-1.5 rounded-md transition-colors"><i class="fas fa-th-large"></i></button>
+                             <button @click="viewMode = 'table'" :class="{'bg-indigo-600 text-white': viewMode === 'table', 'text-gray-300 hover:bg-white/10': viewMode !== 'table'}" class="px-3 py-1.5 rounded-md transition-colors"><i class="fas fa-list"></i></button>
+                        </div>
                     </div>
                 </div>
-
-                <!-- Mobile Sort Options -->
-                <div x-show="modals.sortOptionsOpen" x-transition class="absolute right-2 mt-2 w-48 bg-white text-gray-800 rounded-md shadow-lg z-30">
-                    <a @click="applySort('name')" href="#" class="block px-4 py-2 text-sm hover:bg-gray-100" :class="{'font-bold text-indigo-600': sort.key === 'name'}">
-                        Sort by Name
-                        <i x-show="sort.key === 'name' && sort.direction === 'asc'" class="fas fa-arrow-up ml-2"></i>
-                        <i x-show="sort.key === 'name' && sort.direction === 'desc'" class="fas fa-arrow-down ml-2"></i>
-                    </a>
-                    <a @click="applySort('date')" href="#" class="block px-4 py-2 text-sm hover:bg-gray-100" :class="{'font-bold text-indigo-600': sort.key === 'date'}">
-                        Sort by Date Added
-                        <i x-show="sort.key === 'date' && sort.direction === 'asc'" class="fas fa-arrow-up ml-2"></i>
-                        <i x-show="sort.key === 'date' && sort.direction === 'desc'" class="fas fa-arrow-down ml-2"></i>
-                    </a>
+                <div class="flex items-center space-x-2 text-white text-sm mt-3">
+                    <span>Multi-Select:</span>
+                    <label class="toggle-switch scale-90"><input type="checkbox" x-model="multipleSelectionEnabled"><span class="toggle-slider"></span></label>
                 </div>
             </div>
 
@@ -194,93 +147,108 @@
                 </div>
             </div>
 
-            <!-- Mobile Menu Overlay -->
-            <div x-show="mobileMenuOpen" @click="mobileMenuOpen = false" class="md:hidden fixed inset-0 mobile-menu-backdrop z-40" x-transition:enter="transition-opacity ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="transition-opacity ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
-                <div @click.stop class="mobile-menu-panel fixed top-0 right-0 h-full w-80 max-w-[85vw] p-6 shadow-2xl" x-transition:enter="transition-transform ease-out duration-300" x-transition:enter-start="transform translate-x-full" x-transition:enter-end="transform translate-x-0" x-transition:leave="transition-transform ease-in duration-200" x-transition:leave-start="transform translate-x-0" x-transition:leave-end="transform translate-x-full">
-                    
-                    <div class="flex justify-between items-center mb-6">
-                        <h3 class="text-xl font-bold text-white">Menu</h3>
-                        <button @click="mobileMenuOpen = false" class="text-white hover:text-gray-300">
-                            <i class="fas fa-times text-xl"></i>
-                        </button>
-                    </div>
+            <!-- Floating Action Button for Add Hall (Mobile Only) -->
+            <div class="fixed bottom-24 right-4 z-30 md:hidden">
+                <a href="addHall.html" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform transform hover:scale-110 active:scale-95">
+                    <i class="fas fa-plus text-xl"></i>
+                </a>
+            </div>
 
-                    <!-- Action Buttons -->
-                    <div class="space-y-3 mb-6">
-                        <button @click="modifySelectedItem(); mobileMenuOpen = false" :disabled="selectedItems.length !== 1" class="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors" :class="selectedItems.length === 1 ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-600 text-gray-300 cursor-not-allowed'">
-                            <i class="fas fa-edit text-lg"></i>
-                            <span class="font-semibold">Modify Selected</span>
-                        </button>
-                        
-                        <button @click="confirmDeletion(); mobileMenuOpen = false" :disabled="selectedItems.length === 0" class="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors" :class="selectedItems.length > 0 ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-gray-600 text-gray-300 cursor-not-allowed'">
-                            <i class="fas fa-trash-alt text-lg"></i>
-                            <span class="font-semibold">Delete Selected</span>
-                        </button>
+            <!-- Mobile Bottom Action Bar (Mobile Only) -->
+            <div x-transition:enter="transition ease-out duration-300" x-transition:enter-start="transform translateY-full" x-transition:enter-end="transform translateY-0" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="transform translateY-0" x-transition:leave-end="transform translateY-full" class="fixed bottom-0 left-0 right-0 bg-gray-900/80 backdrop-blur-sm p-2 z-40 md:hidden border-t border-white/20 shadow-t-2xl">
+                <div class="flex justify-around items-center max-w-md mx-auto">
+                    <!-- Modify Button -->
+                    <button @click="modifySelectedItem()" :disabled="selectedItems.length !== 1" class="flex flex-col items-center justify-center w-20 h-14 rounded-lg transition-all" :class="selectedItems.length === 1 ? 'text-blue-400 hover:bg-blue-400/20' : 'text-gray-500 cursor-not-allowed'">
+                        <i class="fas fa-edit text-xl"></i>
+                        <span class="text-xs font-semibold mt-1">Modify</span>
+                    </button>
 
-                        <button x-show="selectedItems.length > 0" @click="deselectAll(); mobileMenuOpen = false" class="w-full flex items-center gap-3 px-4 py-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors">
-                            <i class="fas fa-eraser text-lg"></i>
-                            <span class="font-semibold">Deselect All</span>
-                        </button>
+                    <!-- Deselect Button -->
+                    <button x-show="selectedItems.length > 0" @click="deselectAll()" class="flex flex-col items-center justify-center w-20 h-14 rounded-lg transition-all text-yellow-400 hover:bg-yellow-400/20">
+                        <i class="fas fa-times-circle text-xl"></i>
+                        <span class="text-xs font-semibold mt-1" x-text="`Deselect`"></span>
+                    </button>
 
-                        <button @click="resetFilters; mobileMenuOpen = false" :class="isAnyFilterActive ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-600 hover:bg-gray-700'" class="w-full flex items-center gap-3 px-4 py-3 text-white rounded-lg transition-colors">
-                            <i class="fas fa-undo text-lg"></i>
-                            <span class="font-semibold">Reset Filters</span>
-                        </button>
-                    </div>
+                    <!-- Delete Button -->
+                    <button @click="confirmDeletion()" :disabled="selectedItems.length === 0" class="flex flex-col items-center justify-center w-20 h-14 rounded-lg transition-all" :class="selectedItems.length > 0 ? 'text-red-400 hover:bg-red-400/20' : 'text-gray-500 cursor-not-allowed'">
+                        <i class="fas fa-trash-alt text-xl"></i>
+                        <span class="text-xs font-semibold mt-1">Delete</span>
+                    </button>
 
-                    <!-- Filter Options -->
-                    <div class="space-y-3">
-                        <h4 class="text-lg font-semibold text-white border-b border-white/20 pb-2">Filters</h4>
-                        
-                        <button @click="modals.hallDetails = true; mobileMenuOpen = false" class="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg transition-colors text-white" :class="isFilterActive('hallDetails') ? 'bg-indigo-600' : 'bg-white/10 hover:bg-white/20'">
-                            <div class="flex items-center gap-3">
-                                <i class="fas fa-building text-lg"></i>
-                                <span class="font-semibold">Hall Details</span>
-                            </div>
-                            <i x-show="isFilterActive('hallDetails')" class="fas fa-check text-sm"></i>
-                        </button>
-                        
-                        <button @click="modals.belongsTo = true; mobileMenuOpen = false" class="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg transition-colors text-white" :class="isFilterActive('belongsTo') ? 'bg-indigo-600' : 'bg-white/10 hover:bg-white/20'">
-                            <div class="flex items-center gap-3">
-                                <i class="fas fa-sitemap text-lg"></i>
-                                <span class="font-semibold">Belongs To</span>
-                            </div>
-                            <i x-show="isFilterActive('belongsTo')" class="fas fa-check text-sm"></i>
-                        </button>
-                        
-                        <button @click="modals.features = true; mobileMenuOpen = false" class="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg transition-colors text-white" :class="isFilterActive('features') ? 'bg-indigo-600' : 'bg-white/10 hover:bg-white/20'">
-                            <div class="flex items-center gap-3">
-                                <i class="fas fa-star text-lg"></i>
-                                <span class="font-semibold">Features</span>
-                            </div>
-                            <i x-show="isFilterActive('features')" class="fas fa-check text-sm"></i>
-                        </button>
-                        
-                        <button @click="modals.status = true; mobileMenuOpen = false" class="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg transition-colors text-white" :class="isFilterActive('status') ? 'bg-indigo-600' : 'bg-white/10 hover:bg-white/20'">
-                            <div class="flex items-center gap-3">
-                                <i class="fas fa-check-circle text-lg"></i>
-                                <span class="font-semibold">Status</span>
-                            </div>
-                            <i x-show="isFilterActive('status')" class="fas fa-check text-sm"></i>
-                        </button>
-                    </div>
-
-                    <!-- Card View Options for Mobile -->
-                    <div x-show="viewMode === 'card'" class="mt-6 pt-4 border-t border-white/20">
-                        <h4 class="text-sm font-semibold text-white mb-3">Card View</h4>
-                        <div class="flex gap-2">
-                            <button @click="cardViewImage = 'with'" :class="cardViewImage === 'with' ? 'bg-indigo-600' : 'bg-white/10'" class="flex-1 py-2 px-3 text-white text-sm rounded-lg transition-colors">
-                                With Image
-                            </button>
-                            <button @click="cardViewImage = 'without'" :class="cardViewImage === 'without' ? 'bg-indigo-600' : 'bg-white/10'" class="flex-1 py-2 px-3 text-white text-sm rounded-lg transition-colors">
-                                No Image
-                            </button>
+                    <!-- Filter Button -->
+                    <button @click="modals.filterOverlayOpen = true" class="flex flex-col items-center justify-center w-20 h-14 rounded-lg transition-colors" :class="isAnyFilterActive ? 'text-indigo-400 hover:bg-indigo-400/20' : 'text-gray-300 hover:bg-white/10'">
+                        <div class="relative">
+                            <i class="fas fa-filter text-xl"></i>
+                            <span x-show="isAnyFilterActive" class="absolute -top-1 -right-1.5 block h-2.5 w-2.5 rounded-full bg-indigo-400 ring-2 ring-[#101d41]"></span>
                         </div>
+                        <span class="text-xs font-semibold mt-1">Filter</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Mobile Filter & Sort Overlay (Mobile Only) -->
+            <div x-show="modals.filterOverlayOpen" class="fixed inset-0 bg-black/60 z-50 md:hidden" x-cloak>
+                <!-- Backdrop -->
+                <div @click="modals.filterOverlayOpen = false" class="absolute inset-0"></div>
+                <!-- Panel -->
+                <div class="absolute bottom-0 left-0 right-0 max-h-[85vh] bg-gradient-to-t from-[#0B1940] to-[#14555F] rounded-t-2xl shadow-2xl flex flex-col"
+                     x-transition:enter="transition ease-out duration-300" x-transition:enter-start="transform translate-y-full" x-transition:enter-end="transform translate-y-0"
+                     x-transition:leave="transition ease-in duration-200" x-transition:leave-start="transform translate-y-0" x-transition:leave-end="transform translate-y-full">
+            
+                    <!-- Header -->
+                    <div class="flex justify-between items-center p-4 border-b border-white/10 flex-shrink-0">
+                        <h3 class="text-xl font-bold text-white">Filter & Sort</h3>
+                        <button @click="modals.filterOverlayOpen = false" class="text-gray-300 hover:text-white"><i class="fas fa-times text-2xl"></i></button>
+                    </div>
+            
+                    <!-- Content -->
+                    <div class="flex-grow p-4 overflow-y-auto space-y-6">
+                        <!-- Sort Section -->
+                        <div>
+                            <h4 class="font-semibold text-indigo-300 mb-3 text-sm uppercase tracking-wider">Sort By</h4>
+                            <div class="flex gap-2">
+                                <button @click="applySort('date')" class="flex-1 py-2 px-3 text-sm rounded-lg flex items-center justify-center gap-2" :class="sort.key === 'date' ? 'bg-indigo-600 text-white' : 'bg-white/10 text-gray-200'">Date Added <i x-show="sort.key === 'date'" class="fas" :class="sort.direction === 'asc' ? 'fa-arrow-up' : 'fa-arrow-down'"></i></button>
+                                <button @click="applySort('name')" class="flex-1 py-2 px-3 text-sm rounded-lg flex items-center justify-center gap-2" :class="sort.key === 'name' ? 'bg-indigo-600 text-white' : 'bg-white/10 text-gray-200'">Name <i x-show="sort.key === 'name'" class="fas" :class="sort.direction === 'asc' ? 'fa-arrow-up' : 'fa-arrow-down'"></i></button>
+                            </div>
+                        </div>
+
+                        <!-- Hall Details -->
+                        <div class="bg-black/20 p-4 rounded-lg text-white">
+                            <h4 class="font-semibold text-indigo-300 mb-3 text-sm uppercase tracking-wider">Hall Details</h4>
+                            <div class="space-y-4">
+                                <div class="relative" @click.away="modals.hallNameOpen = false">
+                                    <label class="font-semibold text-gray-300 text-xs">Hall Name:</label>
+                                    <input type="text" x-model="filters.nameSearchTerm" @focus="modals.hallNameOpen = true" @input.debounce.300ms="filters.name = ''" placeholder="Type to search hall..." class="w-full p-2 border rounded mt-1 bg-gray-800 border-gray-600 text-white placeholder-gray-400">
+                                    <div x-show="modals.hallNameOpen" class="absolute z-10 mt-1 w-full bg-gray-700 border border-gray-600 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                                        <template x-for="hall in filteredHallNames" :key="hall.unique_id"><div @click="selectHallNameForFilter(hall.name)" class="px-4 py-2 text-sm hover:bg-gray-600 cursor-pointer" x-text="hall.name"></div></template>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="font-semibold text-gray-300 text-xs">Hall Type:</label>
+                                    <div class="grid grid-cols-2 gap-2 mt-2">
+                                        <button @click="toggleFilter('type', 'SEMINAR')" :class="{'bg-indigo-600 text-white': filters.type === 'SEMINAR', 'bg-white/10 hover:bg-white/20': filters.type !== 'SEMINAR'}" class="px-3 py-2 rounded-md transition-colors text-sm">Seminar</button>
+                                        <button @click="toggleFilter('type', 'AUDITORIUM')" :class="{'bg-indigo-600 text-white': filters.type === 'AUDITORIUM', 'bg-white/10 hover:bg-white/20': filters.type !== 'AUDITORIUM'}" class="px-3 py-2 rounded-md transition-colors text-sm">Auditorium</button>
+                                        <button @click="toggleFilter('type', 'LECTURE')" :class="{'bg-indigo-600 text-white': filters.type === 'LECTURE', 'bg-white/10 hover:bg-white/20': filters.type !== 'LECTURE'}" class="px-3 py-2 rounded-md transition-colors text-sm">Lecture</button>
+                                        <button @click="toggleFilter('type', 'CONFERENCE')" :class="{'bg-indigo-600 text-white': filters.type === 'CONFERENCE', 'bg-white/10 hover:bg-white/20': filters.type !== 'CONFERENCE'}" class="px-3 py-2 rounded-md transition-colors text-sm">Conference</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+            
+                    <!-- Footer -->
+                    <div class="p-3 bg-black/20 border-t border-white/10 flex-shrink-0 flex gap-3">
+                         <button @click="resetFilters" class="flex-1 bg-red-600/80 hover:bg-red-600 disabled:bg-gray-500 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg shadow-lg flex items-center justify-center space-x-2 transition-colors" :disabled="!isAnyFilterActive">
+                            <i class="fas fa-undo"></i><span>Reset</span>
+                        </button>
+                        <button @click="modals.filterOverlayOpen = false" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg flex items-center justify-center space-x-2 transition-colors">
+                            <span>Done</span>
+                        </button>
                     </div>
                 </div>
             </div>
 
-            <!-- Modal Dialogs (unchanged) -->
+            <!-- Modal Dialogs for Desktop -->
             <div x-show="modals.hallDetails" @click.away="modals.hallDetails = false" style="display: none;" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                 <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-lg relative max-h-[90vh] overflow-y-auto">
                     <div class="flex justify-between items-center mb-4 border-b pb-2">
@@ -340,36 +308,36 @@
             </div>
             <div x-show="modals.belongsTo" @click.away="modals.belongsTo = false" style="display: none;" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                  <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md relative max-h-[90vh] overflow-y-auto">
-                     <button @click="modals.belongsTo = false" class="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
-                     <h3 class="text-xl font-bold mb-4 border-b pb-2 text-indigo-600">Filter School/Department/Section</h3>
-                     <div class="space-y-4 text-sm">
-                         <div><label class="font-semibold">Type:</label><div class="flex flex-wrap gap-x-4 gap-y-2 mt-2"><label><input type="radio" x-model="filters.ownerType" value="department"> Department</label><label><input type="radio" x-model="filters.ownerType" value="school"> School</label><label><input type="radio" x-model="filters.ownerType" value="administration"> Administration</label></div></div>
-                         <div x-show="filters.ownerType === 'school' || filters.ownerType === 'department'" class="relative" @click.away="closeSchoolFilterDropdown()">
-                             <label class="font-semibold">School Name:</label>
-                             <input type="text" x-model="filters.schoolSearchTerm" @focus="modals.schoolFilterOpen = true" @input.debounce.300ms="filters.schoolId = ''" placeholder="Type to search school..." class="w-full p-2 border rounded mt-1">
-                             <div x-show="modals.schoolFilterOpen" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
-                                 <template x-for="school in filteredSchoolsForFilter" :key="school.value"><div @click="selectSchoolForFilter(school.value)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="school.label"></div></template>
-                             </div>
-                         </div>
-                         <div x-show="filters.ownerType === 'department'" class="relative" @click.away="closeDepartmentFilterDropdown()">
-                             <label class="font-semibold">Department:</label>
-                             <input type="text" x-model="filters.departmentSearchTerm" @focus="modals.departmentFilterOpen = true" @input.debounce.300ms="filters.departmentId = ''" placeholder="Type to search department..." class="w-full p-2 border rounded mt-1">
-                             <div x-show="modals.departmentFilterOpen" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
-                                 <template x-for="dept in filteredDepartmentsForFilter" :key="dept.value"><div @click="selectDepartmentForFilter(dept.value)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="dept.label"></div></template>
-                             </div>
-                         </div>
-                     </div>
-                     <button @click="modals.belongsTo = false" class="w-full mt-6 bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700">Apply Filter</button>
+                      <button @click="modals.belongsTo = false" class="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+                      <h3 class="text-xl font-bold mb-4 border-b pb-2 text-indigo-600">Filter School/Department/Section</h3>
+                      <div class="space-y-4 text-sm">
+                          <div><label class="font-semibold">Type:</label><div class="flex flex-wrap gap-x-4 gap-y-2 mt-2"><label><input type="radio" x-model="filters.ownerType" value="department"> Department</label><label><input type="radio" x-model="filters.ownerType" value="school"> School</label><label><input type="radio" x-model="filters.ownerType" value="administration"> Administration</label></div></div>
+                          <div x-show="filters.ownerType === 'school' || filters.ownerType === 'department'" class="relative" @click.away="closeSchoolFilterDropdown()">
+                              <label class="font-semibold">School Name:</label>
+                              <input type="text" x-model="filters.schoolSearchTerm" @focus="modals.schoolFilterOpen = true" @input.debounce.300ms="filters.schoolId = ''" placeholder="Type to search school..." class="w-full p-2 border rounded mt-1">
+                              <div x-show="modals.schoolFilterOpen" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                                  <template x-for="school in filteredSchoolsForFilter" :key="school.value"><div @click="selectSchoolForFilter(school.value)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="school.label"></div></template>
+                              </div>
+                          </div>
+                          <div x-show="filters.ownerType === 'department'" class="relative" @click.away="closeDepartmentFilterDropdown()">
+                              <label class="font-semibold">Department:</label>
+                              <input type="text" x-model="filters.departmentSearchTerm" @focus="modals.departmentFilterOpen = true" @input.debounce.300ms="filters.departmentId = ''" placeholder="Type to search department..." class="w-full p-2 border rounded mt-1">
+                              <div x-show="modals.departmentFilterOpen" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                                  <template x-for="dept in filteredDepartmentsForFilter" :key="dept.value"><div @click="selectDepartmentForFilter(dept.value)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="dept.label"></div></template>
+                              </div>
+                          </div>
+                      </div>
+                      <button @click="modals.belongsTo = false" class="w-full mt-6 bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700">Apply Filter</button>
                  </div>
             </div>
             <div x-show="modals.features" @click.away="modals.features = false" style="display: none;" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                  <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md relative max-h-[90vh] overflow-y-auto">
-                     <button @click="modals.features = false" class="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
-                     <h3 class="text-xl font-bold mb-4 border-b pb-2 text-indigo-600">Filter Features</h3>
-                     <div class="grid grid-cols-2 gap-4 text-sm">
-                         <template x-for="feature in allFeatures" :key="feature"><label class="flex items-center"><input type="checkbox" :value="feature" x-model="filters.features" class="mr-2"><span x-text="feature"></span></label></template>
-                     </div>
-                     <button @click="modals.features = false" class="w-full mt-6 bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700">Apply Filter</button>
+                      <button @click="modals.features = false" class="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+                      <h3 class="text-xl font-bold mb-4 border-b pb-2 text-indigo-600">Filter Features</h3>
+                      <div class="grid grid-cols-2 gap-4 text-sm">
+                          <template x-for="feature in allFeatures" :key="feature"><label class="flex items-center"><input type="checkbox" :value="feature" x-model="filters.features" class="mr-2"><span x-text="feature"></span></label></template>
+                      </div>
+                      <button @click="modals.features = false" class="w-full mt-6 bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700">Apply Filter</button>
                  </div>
             </div>
             <div x-show="modals.status" @click.away="modals.status = false" style="display: none;" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -385,14 +353,14 @@
                 </div>
             </div>
              <div x-show="modals.confirmDelete" @click.away="modals.confirmDelete = false" style="display: none;" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                 <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-sm text-center">
-                     <h3 class="text-lg font-semibold text-gray-800">Confirm Deletion</h3>
-                     <p class="text-gray-600 my-4">Are you sure you want to delete the selected item(s)? This action cannot be undone.</p>
-                     <div class="flex justify-center gap-4">
-                         <button @click="modals.confirmDelete = false" class="px-4 py-2 rounded-lg text-gray-600 bg-gray-100 hover:bg-gray-200">Cancel</button>
-                         <button @click="deleteSelectedItems()" class="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">Delete</button>
-                     </div>
-                 </div>
+                  <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-sm text-center">
+                       <h3 class="text-lg font-semibold text-gray-800">Confirm Deletion</h3>
+                       <p class="text-gray-600 my-4">Are you sure you want to delete the selected item(s)? This action cannot be undone.</p>
+                       <div class="flex justify-center gap-4">
+                           <button @click="modals.confirmDelete = false" class="px-4 py-2 rounded-lg text-gray-600 bg-gray-100 hover:bg-gray-200">Cancel</button>
+                           <button @click="deleteSelectedItems()" class="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">Delete</button>
+                       </div>
+                  </div>
              </div>
             
             <div x-show="notification.show" @click.away="notification.show = false" style="display: none;" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -446,12 +414,12 @@
                                             </div>
                                         </div>
                                          <div class="mt-3 sm:mt-4 border-t pt-3 sm:pt-4 flex items-start text-gray-600"><i class="fas fa-user-shield w-4 text-center mr-2 text-gray-400 mt-1 flex-shrink-0"></i>
-                                            <div class="min-w-0 flex-1">
-                                                <p class="font-bold text-gray-800 truncate" x-text="hall.incharge_name"></p>
-                                                <p class="font-semibold text-xs truncate" x-text="hall.incharge_email"></p>
-                                                <p class="font-semibold text-xs" x-text="hall.incharge_contact_number"></p>
-                                            </div>
-                                        </div>
+                                             <div class="min-w-0 flex-1">
+                                                 <p class="font-bold text-gray-800 truncate" x-text="hall.incharge_name"></p>
+                                                 <p class="font-semibold text-xs truncate" x-text="hall.incharge_email"></p>
+                                                 <p class="font-semibold text-xs" x-text="hall.incharge_contact_number"></p>
+                                             </div>
+                                         </div>
                                          <div class="mt-3 sm:mt-4 border-t pt-3 sm:pt-4">
                                             <h4 class="text-xs font-semibold text-gray-400 uppercase mb-2">Features</h4>
                                             <div class="flex flex-wrap gap-1">
@@ -518,12 +486,12 @@
             errorMessage: '',
             viewMode: 'card',
             cardViewImage: 'with',
-            mobileMenuOpen: false,
             lastScrollY: 0,
             modals: { 
                 hallDetails: false, belongsTo: false, features: false, 
                 schoolFilterOpen: false, departmentFilterOpen: false, hallNameOpen: false, 
-                status: false, confirmDelete: false, sortOptionsOpen: false, cardOptionsOpen: false 
+                status: false, confirmDelete: false, sortOptionsOpen: false, cardOptionsOpen: false,
+                filterOverlayOpen: false // For the mobile filter panel
             },
             notification: { show: false, success: false, title: '', message: '' },
             filters: {
@@ -589,16 +557,9 @@
                 // Add scroll listener for mobile header hide
                 window.addEventListener('scroll', this.handleScroll.bind(this));
                 
-                // Close mobile menu when clicking outside
-                document.addEventListener('click', (e) => {
-                    if (!e.target.closest('.mobile-menu-panel') && !e.target.closest('[x-data]')) {
-                        this.mobileMenuOpen = false;
-                    }
-                });
-                
                 this.loadData(); 
                 this.$watch('multipleSelectionEnabled', (value) => { if (!value) this.selectedItems = []; }); 
-                this.$watch('mobileMenuOpen', (value) => {
+                this.$watch('modals.filterOverlayOpen', (value) => {
                     if (value) {
                         document.body.style.overflow = 'hidden';
                     } else {
