@@ -105,6 +105,29 @@ const AppConfig = {
             { value: 'UNDER_CONSTRUCTION', label: 'Under Construction' },
             // { value: 'MAINTENANCE', label: 'Under Maintenance' },
             // { value: 'OTHER', label: 'Other' }
-        ]
+        ],
+
+
+
+        ////////////////////////////////
+        // for filter purpose only !!!!!
+        ////////////////////////////////
+
+        hallTypes: [
+            { value: 'SEMINAR', label: 'Seminar' },
+            { value: 'AUDITORIUM', label: 'Auditorium' },
+            { value: 'LECTURE', label: 'Lecture' },
+            { value: 'CONFERENCE', label: 'Conference' }
+        ],
+
+        capacityRanges: [
+            { value: '<50', label: '< 50' },
+            { value: '50-100', label: '50-100' },
+            { value: '>100', label: '> 100' }
+        ],
+
+        /////////////////////////////////////////////
+        // filter part ends here !!!!!!!!!q
+        /////////////////////////////////////////////
     }
 };
