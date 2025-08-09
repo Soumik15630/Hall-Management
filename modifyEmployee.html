@@ -50,7 +50,14 @@
                     <div><label for="employeeName" class="block text-gray-600 text-sm font-medium mb-2">Employee Name:</label><input type="text" id="employeeName" name="employee_name" placeholder="Employee Name" class="block w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800" required></div>
                     <div><label for="employeeEmail" class="block text-gray-600 text-sm font-medium mb-2">Email:</label><input type="email" id="employeeEmail" name="employee_email" placeholder="Email" class="block w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800" required pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$"></div>
                     <div><label for="employeeContact" class="block text-gray-600 text-sm font-medium mb-2">Employee Contact:</label><input type="text" id="employeeContact" name="employee_mobile" x-model="contactNumber" placeholder="Enter Contact" class="block w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800" required><p class="text-red-500 text-xs mt-1" x-show="contactNumber && !isValidPhoneNumber(contactNumber)">Must be 10 digits, or 13 digits with +91 prefix.</p></div>
-                    <div><label for="designation" class="block text-gray-600 text-sm font-medium mb-2">Designation:</label><input type="text" id="designation" name="designation" placeholder="Enter Designation" class="block w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800" required></div>
+                    
+                    <div class="relative" @click.away="dropdowns.designation = false">
+                        <label for="designation" class="block text-gray-600 text-sm font-medium mb-2">Designation:</label>
+                        <input type="text" id="designation" x-model="searchTerms.designation" @focus="dropdowns.designation = true" @input.debounce.300ms="selectedDesignationId = null" placeholder="Type to search designation..." class="block w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800" required>
+                        <div x-show="dropdowns.designation" x-cloak x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto scrollable-dropdown">
+                            <template x-for="option in filteredDesignations" :key="option.value"><div @click="selectOption('designation', option.value)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="option.label"></div></template>
+                        </div>
+                    </div>
                     
                     <div class="relative">
                         <label for="belongsTo" class="block text-gray-600 text-sm font-medium mb-2">Belongs to:</label>
@@ -140,22 +147,18 @@
             selectedDepartmentId: null,
             selectedDeptSchoolId: null,
             selectedSectionId: null,
+            selectedDesignationId: null,
             contactNumber: '',
-            dropdowns: { school: false, department: false, deptSchool: false, section: false },
-            searchTerms: { school: '', department: '', deptSchool: '', section: '' },
+            dropdowns: { school: false, department: false, deptSchool: false, section: false, designation: false },
+            searchTerms: { school: '', department: '', deptSchool: '', section: '', designation: '' },
             isLoading: { schools: true, departments: true, employee: true },
-            schoolOptions: [], departmentOptions: [],
-            sectionOptions: [ 
-                { value: 'ENGINEERING_WING', label: 'Engineering Wing' }, 
-                { value: 'EXAMINATION_WING', label: 'Examination Wing' }, 
-                { value: 'LIBRARY', label: 'Library' }, 
-                { value: 'GUEST_HOUSE', label: 'Guest House' } 
-            ],
+            schoolOptions: [], 
+            departmentOptions: [],
+            sectionOptions: AppConfig.formOptions.generalSections,
+            designationOptions: AppConfig.formOptions.designations,
 
             // --- AUTHENTICATION LOGIC ---
-             
-
-
+            
             async fetchWithAuth(url, options = {}) {
                 const headers = getAuthHeaders();
                 if (!headers) {
@@ -203,7 +206,8 @@
                     document.getElementById('employeeName').value = employee.employee_name;
                     document.getElementById('employeeEmail').value = employee.employee_email;
                     this.contactNumber = employee.employee_mobile;
-                    document.getElementById('designation').value = employee.designation;
+                    
+                    this.selectOption('designation', employee.designation);
                     
                     this.selectedBelongsTo = employee.belongs_to.toLowerCase();
                     this.$nextTick(() => {
@@ -238,6 +242,7 @@
                 return depts.filter(o => o.label.toLowerCase().includes(this.searchTerms.department.toLowerCase()));
             },
             get filteredSections() { return this.sectionOptions.filter(o => o.label.toLowerCase().includes(this.searchTerms.section.toLowerCase())); },
+            get filteredDesignations() { return this.designationOptions.filter(o => o.label.toLowerCase().includes(this.searchTerms.designation.toLowerCase())); },
             
             async fetchSchools() { 
                 this.isLoading.schools = true; 
@@ -279,6 +284,7 @@
                         if (!this.selectedDeptSchoolId) { this.selectedDeptSchoolId = dept.schoolId; this.searchTerms.deptSchool = this.getLabelById(this.schoolOptions, dept.schoolId); }
                     }
                 } else if (type === 'section') { this.selectedSectionId = value; this.searchTerms.section = this.getLabelById(this.sectionOptions, value); }
+                else if (type === 'designation') { this.selectedDesignationId = value; this.searchTerms.designation = this.getLabelById(this.designationOptions, value); }
                 this.dropdowns[type] = false;
             },
 
@@ -304,11 +310,16 @@
                     return;
                 }
                 
+                if (!this.selectedDesignationId) {
+                    Alpine.store('modal').open(false, 'Please select a designation.');
+                    return;
+                }
+
                 const payload = {
                     employee_name: form.employee_name.value,
                     employee_email: form.employee_email.value,
                     employee_mobile: this.contactNumber,
-                    designation: form.designation.value,
+                    designation: this.selectedDesignationId,
                     belongs_to: this.selectedBelongsTo.toUpperCase(),
                 };
 
