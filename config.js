@@ -61,6 +61,10 @@ const AppConfig = {
     },
     
     formOptions: {
+        ///////////////////////////////////////////////////////////////////////////
+        // changes made here reflect to whole app automatically including filters//
+        ///////////////////////////////////////////////////////////////////////////
+        
         // Options for hall floors
         floors: [
             { value: 'ground', label: 'Ground Floor' },

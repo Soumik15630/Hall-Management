@@ -271,8 +271,9 @@
                         <div x-show="activeFilterTab === 'status'" class="bg-black/20 p-4 rounded-lg">
                             <div class="grid grid-cols-1 gap-2 mt-2">
                                 <button @click="toggleFilter('status', 'Available')" :class="{'bg-indigo-600 text-white': filters.status === 'Available', 'bg-white/10 hover:bg-white/20': filters.status !== 'Available'}" class="px-3 py-2 rounded-md transition-colors text-sm">Available</button>
-                                <button @click="toggleFilter('status', 'Under Construction')" :class="{'bg-indigo-600 text-white': filters.status === 'Under Construction', 'bg-white/10 hover:bg-white/20': filters.status !== 'Under Construction'}" class="px-3 py-2 rounded-md transition-colors text-sm">Under Construction</button>
-                                <button @click="toggleFilter('status', 'Awaiting Inauguration')" :class="{'bg-indigo-600 text-white': filters.status === 'Awaiting Inauguration', 'bg-white/10 hover:bg-white/20': filters.status !== 'Awaiting Inauguration'}" class="px-3 py-2 rounded-md transition-colors text-center text-sm">Awaiting Inauguration</button>
+                                <template x-for="reason in unavailabilityOptions" :key="reason.value">
+                                    <button @click="toggleFilter('status', reason.label)" :class="{'bg-indigo-600 text-white': filters.status === reason.label, 'bg-white/10 hover:bg-white/20': filters.status !== reason.label}" class="px-3 py-2 rounded-md transition-colors text-center text-sm" x-text="reason.label"></button>
+                                </template>
                             </div>
                         </div>
                     </div>
@@ -398,8 +399,9 @@
                     <h3 class="text-xl font-bold mb-4 border-b pb-2 text-indigo-600">Filter by Status</h3>
                     <div class="grid grid-cols-1 gap-2 mt-2">
                         <button @click="toggleFilter('status', 'Available')" :class="{'bg-indigo-600 text-white': filters.status === 'Available', 'bg-gray-200 hover:bg-gray-300': filters.status !== 'Available'}" class="px-3 py-2 rounded-md transition-colors text-sm">Available</button>
-                        <button @click="toggleFilter('status', 'Under Construction')" :class="{'bg-indigo-600 text-white': filters.status === 'Under Construction', 'bg-gray-200 hover:bg-gray-300': filters.status !== 'Under Construction'}" class="px-3 py-2 rounded-md transition-colors text-sm">Under Construction</button>
-                        <button @click="toggleFilter('status', 'Awaiting Inauguration')" :class="{'bg-indigo-600 text-white': filters.status === 'Awaiting Inauguration', 'bg-gray-200 hover:bg-gray-300': filters.status !== 'Awaiting Inauguration'}" class="px-3 py-2 rounded-md transition-colors text-center text-sm">Awaiting Inauguration</button>
+                        <template x-for="reason in unavailabilityOptions" :key="reason.value">
+                            <button @click="toggleFilter('status', reason.label)" :class="{'bg-indigo-600 text-white': filters.status === reason.label, 'bg-gray-200 hover:bg-gray-300': filters.status !== reason.label}" class="px-3 py-2 rounded-md transition-colors text-center text-sm" x-text="reason.label"></button>
+                        </template>
                     </div>
                     <button @click="modals.status = false" class="w-full mt-6 bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700">Apply Filter</button>
                 </div>
@@ -537,6 +539,7 @@
             floorOptions: AppConfig.formOptions.floors,
             zoneOptions: AppConfig.formOptions.zones,
             featuresOptions: AppConfig.formOptions.features,
+            unavailabilityOptions: AppConfig.formOptions.unavailabilityReasons,
             selectedItems: [],
             multipleSelectionEnabled: false,
             isLoading: true,
@@ -795,11 +798,12 @@
                         let status = 'Available';
                         let statusColor = 'bg-green-100 text-green-800';
                         if (!hall.availability) {
+                            const reason = this.unavailabilityOptions.find(r => r.value === hall.unavailability_reason);
+                            status = reason ? reason.label : 'Unavailable';
+                            
                             if (hall.unavailability_reason === 'AWAITING_INAUGURATION') {
-                                status = 'Awaiting Inauguration';
                                 statusColor = 'bg-yellow-100 text-yellow-800';
                             } else {
-                                status = 'Under Construction';
                                 statusColor = 'bg-red-100 text-red-800';
                             }
                         }
