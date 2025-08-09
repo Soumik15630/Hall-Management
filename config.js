@@ -143,7 +143,8 @@ const AppConfig = {
             { value: 'PROF', label: 'Professor' },
             { value: 'REGISTER', label: 'Registrar' },
             { value: 'FACULTY', label: 'Faculty' },
-            { value: 'OTHERS', label: 'Others' }
+            { value: 'OTHERS', label: 'Others' },
+            { value: 'OTHRS', label: 'lunders' }
         ],
     }
 };

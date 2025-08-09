@@ -147,21 +147,8 @@
             isLoading: { schools: true, departments: true },
             schoolOptions: [], 
             departmentOptions: [],
-            designationOptions: [
-                { value: 'HOD', label: 'HOD' },
-                { value: 'ADMIN', label: 'ADMIN' },
-                { value: 'DEAN', label: 'DEAN' },
-                { value: 'PROF', label: 'PROFESSOR' },
-                { value: 'REGISTER', label: 'REGISTER' },
-                { value: 'FACULTY', label: 'FACULTY' },
-                { value: 'OTHERS', label: 'OTHERS' }
-            ],
-            sectionOptions: [ 
-                { value: 'ENGINEERING_WING', label: 'Engineering Wing' }, 
-                { value: 'EXAMINATION_WING', label: 'Examination Wing' }, 
-                { value: 'LIBRARY', label: 'Library' }, 
-                { value: 'GUEST_HOUSE', label: 'Guest House' } 
-            ],
+            designationOptions: AppConfig.formOptions.designations,
+            sectionOptions: AppConfig.formOptions.generalSections,
 
             // --- AUTHENTICATION LOGIC ---
 
