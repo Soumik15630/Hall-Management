@@ -88,9 +88,9 @@
                             <div><label for="belongsTo" class="block text-gray-600 text-sm font-medium mb-2">BELONGS TO</label><select id="belongsTo" name="belongs_to" class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800" x-model="selectedBelongsTo" required><option value="" disabled>Select Type</option><option value="school">School</option><option value="department">Department</option><option value="administration">Administration</option></select></div>
                             <div>
                                 <label class="block text-gray-600 text-sm font-medium mb-2">AVAILABILITY</label>
-                                <div class="flex items-center space-x-6 mt-2">
-                                    <label class="flex items-center"><input type="radio" name="availability" value="yes" x-model="isAvailable" class="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"><span class="ml-2 text-gray-700">Yes</span></label>
-                                    <label class="flex items-center"><input type="radio" name="availability" value="no" x-model="isAvailable" class="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"><span class="ml-2 text-gray-700">No</span></label>
+                                <div class="flex items-center space-x-2 mt-2">
+                                    <button type="button" @click="isAvailable = 'yes'" :class="{'bg-green-600 text-white shadow-lg': isAvailable === 'yes', 'bg-gray-200 text-gray-700 hover:bg-gray-300': isAvailable !== 'yes'}" class="flex-1 py-2 px-3 text-center rounded-md text-sm font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">Available</button>
+                                    <button type="button" @click="isAvailable = 'no'" :class="{'bg-red-600 text-white shadow-lg': isAvailable === 'no', 'bg-gray-200 text-gray-700 hover:bg-gray-300': isAvailable !== 'no'}" class="flex-1 py-2 px-3 text-center rounded-md text-sm font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">Unavailable</button>
                                 </div>
                             </div>
                         </div>
@@ -98,8 +98,9 @@
                             <label for="unavailabilityReason" class="block text-gray-600 text-sm font-medium mb-2">REASON FOR UNAVAILABILITY</label>
                             <select id="unavailabilityReason" name="unavailability_reason" x-model="unavailabilityReason" class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800">
                                 <option value="" disabled>Select a reason</option>
-                                <option value="AWAITING_INAUGURATION">Awaiting Inauguration</option>
-                                <option value="UNDER_CONSTRUCTION">Under Construction</option>
+                                <template x-for="reason in unavailabilityOptions" :key="reason.value">
+                                    <option :value="reason.value" x-text="reason.label"></option>
+                                </template>
                             </select>
                         </div>
                         <div x-show="selectedBelongsTo === 'school'" class="mt-4 relative" @click.away="closeDropdownAndValidate('school')"><label class="block text-gray-600 text-sm font-medium mb-2">SCHOOL NAME</label><input type="text" x-model="searchTerms.school" @focus="dropdowns.school = true" @input.debounce.300ms="selectedSchoolId = null" placeholder="Type to search school..." class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800"><div x-show="dropdowns.school" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto scrollable-dropdown"><template x-if="isLoading.schools"><div class="px-4 py-2 text-sm text-gray-400">Loading...</div></template><template x-for="option in filteredSchools" :key="option.value"><div @click="selectOption('school', option.value)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="option.label"></div></template><template x-if="!isLoading.schools && filteredSchools.length === 0"><div class="px-4 py-2 text-sm text-gray-500">No schools found.</div></template></div></div>
@@ -155,9 +156,11 @@
                 dropdowns: { features: false, school: false, department: false, deptSchool: false, general: false },
                 searchTerms: { school: '', department: '', deptSchool: '', general: '' },
                 isLoading: { schools: true, departments: true, hall: true },
-                featuresOptions: [ { value: 'AC', label: 'AC' }, { value: 'PROJECTOR', label: 'Projector' }, { value: 'WIFI', label: 'WiFi' }, { value: 'SMART_BOARD', label: 'Smart Board' }, { value: 'COMPUTER', label: 'Computer' }, { value: 'AUDIO_SYSTEM', label: 'Audio System' }, { value: 'PODIUM', label: 'Podium' }, { value: 'WHITE_BOARD', label: 'White Board' }, { value: 'BLACK_BOARD', label: 'Black Board' }, { value: 'LIFT', label: 'Lift' }, { value: 'RAMP', label: 'Ramp' } ],
+                // --- Options now loaded from config.js ---
+                featuresOptions: AppConfig.formOptions.features,
+                generalOptions: AppConfig.formOptions.generalSections,
+                unavailabilityOptions: AppConfig.formOptions.unavailabilityReasons,
                 schoolOptions: [], departmentOptions: [],
-                generalOptions: [ { value: 'ENGINEERING_WING', label: 'Engineering Wing' }, { value: 'EXAMINATION_WING', label: 'Examination Wing' }, { value: 'LIBRARY', label: 'Library' }, { value: 'GUEST_HOUSE', label: 'Guest House' } ],
                 
                 // --- AUTHENTICATION LOGIC ---
                  
@@ -367,7 +370,6 @@
                             throw new Error(result.message || `HTTP error! ${response.status}`);
                         }
                         Alpine.store('modal').open(true, 'Hall updated successfully!');
-                        window.location.replace('manageHall.html');
                     } catch (error) {
                         Alpine.store('modal').open(false, `Failed to update hall. ${error.message}`);
                     }

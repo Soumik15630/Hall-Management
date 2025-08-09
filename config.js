@@ -88,8 +88,8 @@ const AppConfig = {
         unavailabilityReasons: [
             { value: 'AWAITING_INAUGURATION', label: 'Awaiting Inauguration' },
             { value: 'UNDER_CONSTRUCTION', label: 'Under Construction' },
-            { value: 'MAINTENANCE', label: 'Under Maintenance' },
-            { value: 'OTHER', label: 'Other' }
+            // { value: 'MAINTENANCE', label: 'Under Maintenance' },
+            // { value: 'OTHER', label: 'Other' }
         ]
     }
 };
