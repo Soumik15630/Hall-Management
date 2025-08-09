@@ -51,7 +51,7 @@ const AppConfig = {
         addSD: "addSD.html",
         manageSD: "manageSD.html",
         employee: "employee.html",
-        manageEmployee: "manageEmployee.html",
+        manageEMP: "manageEmployee.html",
 
         // Faculty & HOD Links
         facultyDash: 'faculty.html',
