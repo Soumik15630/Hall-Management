@@ -42,24 +42,24 @@
       <div id="header-placeholder"></div>
       <div id="nav-placeholder"></div>
 
-    <main class="flex-grow p-6">
+    <main class="flex-grow p-4 sm:p-6">
         <div class="container mx-auto" x-data="manageHalls">
-            <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                  <h2 class="text-3xl font-bold text-white">Manage Halls</h2>
-                <div class="flex items-center space-x-3 bg-[rgba(0,0,0,0.2)] p-2 rounded-lg">
-                    <button @click="modifySelectedItem()" :disabled="selectedItems.length !== 1" class="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-edit"></i><span>Modify</span></button>
-                    <button @click="confirmDeletion()" :disabled="selectedItems.length === 0" class="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-trash-alt"></i><span>Delete</span></button>
-                    <button @click="resetFilters" :class="isAnyFilterActive ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-500 hover:bg-gray-600'" class="text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-undo"></i></button>
-                    <div class="flex items-center space-x-2 text-white pl-2">
-                        <span>Multi-Select:</span>
-                        <label class="toggle-switch"><input type="checkbox" x-model="multipleSelectionEnabled"><span class="toggle-slider"></span></label>
-                    </div>
-                </div>
+                 <div class="flex flex-wrap items-center justify-end gap-3 bg-[rgba(0,0,0,0.2)] p-2 rounded-lg">
+                     <button @click="modifySelectedItem()" :disabled="selectedItems.length !== 1" class="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-edit"></i><span>Modify</span></button>
+                     <button @click="confirmDeletion()" :disabled="selectedItems.length === 0" class="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-trash-alt"></i><span>Delete</span></button>
+                     <button @click="resetFilters" :class="isAnyFilterActive ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-500 hover:bg-gray-600'" class="text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-undo"></i></button>
+                     <div class="flex items-center space-x-2 text-white pl-2">
+                         <span>Multi-Select:</span>
+                         <label class="toggle-switch"><input type="checkbox" x-model="multipleSelectionEnabled"><span class="toggle-slider"></span></label>
+                     </div>
+                 </div>
             </div>
             
-            <div class="bg-white/10 p-4 rounded-lg mb-6 flex flex-wrap items-center justify-between gap-4 text-white">
-                <div class="flex items-center gap-4 flex-wrap">
-                    <span class="font-semibold">Filters:</span>
+            <div class="bg-white/10 p-4 rounded-lg mb-6 flex flex-col lg:flex-row items-center justify-between gap-4 text-white">
+                <div class="flex items-center gap-4 flex-wrap justify-center">
+                    <span class="font-semibold hidden sm:inline">Filters:</span>
                     <button @click="modals.hallDetails = true" class="px-3 py-1 rounded-full text-sm flex items-center gap-2 filter-button" :class="{'active': isFilterActive('hallDetails')}"><i class="fas fa-building"></i> Hall Details</button>
                     <button @click="modals.belongsTo = true" class="px-3 py-1 rounded-full text-sm flex items-center gap-2 filter-button" :class="{'active': isFilterActive('belongsTo')}"><i class="fas fa-sitemap"></i> Belongs To</button>
                     <button @click="modals.features = true" class="px-3 py-1 rounded-full text-sm flex items-center gap-2 filter-button" :class="{'active': isFilterActive('features')}"><i class="fas fa-star"></i> Features</button>
@@ -93,7 +93,6 @@
                         <button @click="viewMode = 'card'" :class="{'bg-indigo-600 text-white': viewMode === 'card', 'text-gray-300 hover:bg-white/10': viewMode !== 'card'}" class="px-3 py-1 rounded-md transition-colors"><i class="fas fa-th-large"></i></button>
                         <button @click="viewMode = 'table'" :class="{'bg-indigo-600 text-white': viewMode === 'table', 'text-gray-300 hover:bg-white/10': viewMode !== 'table'}" class="px-3 py-1 rounded-md transition-colors"><i class="fas fa-list"></i></button>
 
-                        <!-- More Options Dropdown for Card View -->
                         <div x-show="viewMode === 'card'" class="relative" @click.away="modals.cardOptionsOpen = false">
                             <button @click="modals.cardOptionsOpen = !modals.cardOptionsOpen" class="px-3 py-1 rounded-md transition-colors text-gray-300 hover:bg-white/10">
                                 <i class="fas fa-ellipsis-v"></i>
@@ -111,7 +110,6 @@
                 </div>
             </div>
 
-            <!-- Filter Modals -->
             <div x-show="modals.hallDetails" @click.away="modals.hallDetails = false" style="display: none;" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                 <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-lg relative">
                     <div class="flex justify-between items-center mb-4 border-b pb-2">
@@ -128,7 +126,7 @@
                         </div>
                         <div>
                             <label class="font-semibold text-gray-700">Hall Type:</label>
-                            <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
                                 <button @click="toggleFilter('type', 'SEMINAR')" :class="{'bg-indigo-600 text-white': filters.type === 'SEMINAR', 'bg-gray-200 hover:bg-gray-300': filters.type !== 'SEMINAR'}" class="px-3 py-2 rounded-md transition-colors">Seminar</button>
                                 <button @click="toggleFilter('type', 'AUDITORIUM')" :class="{'bg-indigo-600 text-white': filters.type === 'AUDITORIUM', 'bg-gray-200 hover:bg-gray-300': filters.type !== 'AUDITORIUM'}" class="px-3 py-2 rounded-md transition-colors">Auditorium</button>
                                 <button @click="toggleFilter('type', 'LECTURE')" :class="{'bg-indigo-600 text-white': filters.type === 'LECTURE', 'bg-gray-200 hover:bg-gray-300': filters.type !== 'LECTURE'}" class="px-3 py-2 rounded-md transition-colors">Lecture</button>
@@ -137,13 +135,13 @@
                         </div>
                         <div>
                             <label class="font-semibold text-gray-700">Capacity:</label>
-                            <div class="grid grid-cols-3 gap-2 mt-2">
+                            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
                                 <button @click="toggleFilter('capacity', '<50')" :class="{'bg-indigo-600 text-white': filters.capacity === '<50', 'bg-gray-200 hover:bg-gray-300': filters.capacity !== '<50'}" class="px-3 py-2 rounded-md transition-colors">&lt; 50</button>
                                 <button @click="toggleFilter('capacity', '50-100')" :class="{'bg-indigo-600 text-white': filters.capacity === '50-100', 'bg-gray-200 hover:bg-gray-300': filters.capacity !== '50-100'}" class="px-3 py-2 rounded-md transition-colors">50-100</button>
                                 <button @click="toggleFilter('capacity', '>100')" :class="{'bg-indigo-600 text-white': filters.capacity === '>100', 'bg-gray-200 hover:bg-gray-300': filters.capacity !== '>100'}" class="px-3 py-2 rounded-md transition-colors">&gt; 100</button>
                             </div>
                         </div>
-                        <div class="grid grid-cols-2 gap-6">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
                             <div>
                                 <label class="font-semibold text-gray-700">Floor:</label>
                                 <div class="flex flex-col gap-2 mt-2">
@@ -171,43 +169,43 @@
             </div>
             <div x-show="modals.belongsTo" @click.away="modals.belongsTo = false" style="display: none;" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                  <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md relative">
-                    <button @click="modals.belongsTo = false" class="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
-                    <h3 class="text-xl font-bold mb-4 border-b pb-2 text-indigo-600">Filter School/Department/Section</h3>
-                    <div class="space-y-4 text-sm">
-                        <div><label class="font-semibold">Type:</label><div class="flex flex-wrap gap-x-4 gap-y-2 mt-2"><label><input type="radio" x-model="filters.ownerType" value="department"> Department</label><label><input type="radio" x-model="filters.ownerType" value="school"> School</label><label><input type="radio" x-model="filters.ownerType" value="administration"> Administration</label></div></div>
-                        <div x-show="filters.ownerType === 'school' || filters.ownerType === 'department'" class="relative" @click.away="closeSchoolFilterDropdown()">
-                            <label class="font-semibold">School Name:</label>
-                            <input type="text" x-model="filters.schoolSearchTerm" @focus="modals.schoolFilterOpen = true" @input.debounce.300ms="filters.schoolId = ''" placeholder="Type to search school..." class="w-full p-2 border rounded mt-1">
-                            <div x-show="modals.schoolFilterOpen" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
-                                <template x-for="school in filteredSchoolsForFilter" :key="school.value"><div @click="selectSchoolForFilter(school.value)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="school.label"></div></template>
-                            </div>
-                        </div>
-                        <div x-show="filters.ownerType === 'department'" class="relative" @click.away="closeDepartmentFilterDropdown()">
-                            <label class="font-semibold">Department:</label>
-                            <input type="text" x-model="filters.departmentSearchTerm" @focus="modals.departmentFilterOpen = true" @input.debounce.300ms="filters.departmentId = ''" placeholder="Type to search department..." class="w-full p-2 border rounded mt-1">
-                            <div x-show="modals.departmentFilterOpen" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
-                                <template x-for="dept in filteredDepartmentsForFilter" :key="dept.value"><div @click="selectDepartmentForFilter(dept.value)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="dept.label"></div></template>
-                            </div>
-                        </div>
-                    </div>
-                    <button @click="modals.belongsTo = false" class="w-full mt-6 bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700">Apply Filter</button>
-                </div>
+                     <button @click="modals.belongsTo = false" class="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+                     <h3 class="text-xl font-bold mb-4 border-b pb-2 text-indigo-600">Filter School/Department/Section</h3>
+                     <div class="space-y-4 text-sm">
+                         <div><label class="font-semibold">Type:</label><div class="flex flex-wrap gap-x-4 gap-y-2 mt-2"><label><input type="radio" x-model="filters.ownerType" value="department"> Department</label><label><input type="radio" x-model="filters.ownerType" value="school"> School</label><label><input type="radio" x-model="filters.ownerType" value="administration"> Administration</label></div></div>
+                         <div x-show="filters.ownerType === 'school' || filters.ownerType === 'department'" class="relative" @click.away="closeSchoolFilterDropdown()">
+                             <label class="font-semibold">School Name:</label>
+                             <input type="text" x-model="filters.schoolSearchTerm" @focus="modals.schoolFilterOpen = true" @input.debounce.300ms="filters.schoolId = ''" placeholder="Type to search school..." class="w-full p-2 border rounded mt-1">
+                             <div x-show="modals.schoolFilterOpen" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                                 <template x-for="school in filteredSchoolsForFilter" :key="school.value"><div @click="selectSchoolForFilter(school.value)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="school.label"></div></template>
+                             </div>
+                         </div>
+                         <div x-show="filters.ownerType === 'department'" class="relative" @click.away="closeDepartmentFilterDropdown()">
+                             <label class="font-semibold">Department:</label>
+                             <input type="text" x-model="filters.departmentSearchTerm" @focus="modals.departmentFilterOpen = true" @input.debounce.300ms="filters.departmentId = ''" placeholder="Type to search department..." class="w-full p-2 border rounded mt-1">
+                             <div x-show="modals.departmentFilterOpen" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                                 <template x-for="dept in filteredDepartmentsForFilter" :key="dept.value"><div @click="selectDepartmentForFilter(dept.value)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="dept.label"></div></template>
+                             </div>
+                         </div>
+                     </div>
+                     <button @click="modals.belongsTo = false" class="w-full mt-6 bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700">Apply Filter</button>
+                 </div>
             </div>
             <div x-show="modals.features" @click.away="modals.features = false" style="display: none;" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                  <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md relative">
-                    <button @click="modals.features = false" class="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
-                    <h3 class="text-xl font-bold mb-4 border-b pb-2 text-indigo-600">Filter Features</h3>
-                    <div class="grid grid-cols-3 gap-4 text-sm">
-                        <template x-for="feature in allFeatures" :key="feature"><label class="flex items-center"><input type="checkbox" :value="feature" x-model="filters.features" class="mr-2"><span x-text="feature"></span></label></template>
-                    </div>
-                    <button @click="modals.features = false" class="w-full mt-6 bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700">Apply Filter</button>
-                </div>
+                     <button @click="modals.features = false" class="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+                     <h3 class="text-xl font-bold mb-4 border-b pb-2 text-indigo-600">Filter Features</h3>
+                     <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+                         <template x-for="feature in allFeatures" :key="feature"><label class="flex items-center"><input type="checkbox" :value="feature" x-model="filters.features" class="mr-2"><span x-text="feature"></span></label></template>
+                     </div>
+                     <button @click="modals.features = false" class="w-full mt-6 bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700">Apply Filter</button>
+                 </div>
             </div>
             <div x-show="modals.status" @click.away="modals.status = false" style="display: none;" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                 <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md relative">
                     <button @click="modals.status = false" class="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
                     <h3 class="text-xl font-bold mb-4 border-b pb-2 text-indigo-600">Filter by Status</h3>
-                    <div class="grid grid-cols-3 gap-2 mt-2">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
                         <button @click="toggleFilter('status', 'Available')" :class="{'bg-indigo-600 text-white': filters.status === 'Available', 'bg-gray-200 hover:bg-gray-300': filters.status !== 'Available'}" class="px-3 py-2 rounded-md transition-colors">Available</button>
                         <button @click="toggleFilter('status', 'Under Construction')" :class="{'bg-indigo-600 text-white': filters.status === 'Under Construction', 'bg-gray-200 hover:bg-gray-300': filters.status !== 'Under Construction'}" class="px-3 py-2 rounded-md transition-colors">Under Construction</button>
                         <button @click="toggleFilter('status', 'Awaiting Inauguration')" :class="{'bg-indigo-600 text-white': filters.status === 'Awaiting Inauguration', 'bg-gray-200 hover:bg-gray-300': filters.status !== 'Awaiting Inauguration'}" class="px-3 py-2 rounded-md transition-colors text-center">Awaiting Inauguration</button>
@@ -216,17 +214,16 @@
                 </div>
             </div>
              <div x-show="modals.confirmDelete" @click.away="modals.confirmDelete = false" style="display: none;" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-sm text-center">
-                    <h3 class="text-lg font-semibold text-gray-800">Confirm Deletion</h3>
-                    <p class="text-gray-600 my-4">Are you sure you want to delete the selected item(s)? This action cannot be undone.</p>
-                    <div class="flex justify-center gap-4">
-                        <button @click="modals.confirmDelete = false" class="px-4 py-2 rounded-lg text-gray-600 bg-gray-100 hover:bg-gray-200">Cancel</button>
-                        <button @click="deleteSelectedItems()" class="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">Delete</button>
-                    </div>
-                </div>
-            </div>
+                 <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-sm text-center">
+                     <h3 class="text-lg font-semibold text-gray-800">Confirm Deletion</h3>
+                     <p class="text-gray-600 my-4">Are you sure you want to delete the selected item(s)? This action cannot be undone.</p>
+                     <div class="flex justify-center gap-4">
+                         <button @click="modals.confirmDelete = false" class="px-4 py-2 rounded-lg text-gray-600 bg-gray-100 hover:bg-gray-200">Cancel</button>
+                         <button @click="deleteSelectedItems()" class="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">Delete</button>
+                     </div>
+                 </div>
+             </div>
             
-            <!-- Notification Modal -->
             <div x-show="notification.show" @click.away="notification.show = false" style="display: none;" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                 <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm text-center">
                     <div class="flex-shrink-0 mx-auto mb-4">
@@ -245,13 +242,11 @@
             <div x-show="isLoading || errorMessage" class="p-4 text-center text-white"><span x-show="isLoading"><i class="fas fa-spinner fa-spin mr-2"></i>Loading Data...</span><span x-show="errorMessage" class="text-red-400" x-text="errorMessage"></span></div>
 
             <div x-show="!isLoading && !errorMessage" x-cloak>
-                <div x-show="viewMode === 'card'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div x-show="viewMode === 'card'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     <template x-for="hall in filteredHalls" :key="hall.unique_id">
                         <div class="bg-white rounded-lg shadow-lg flex flex-col transition-all duration-300 hover:shadow-xl hover:scale-[1.02] overflow-hidden">
-                            <!-- Image Display with conditional visibility -->
                             <img x-show="cardViewImage === 'with'" :src="hall.image_url || 'https://via.placeholder.com/400x250?text=No+Image'" alt="Hall Image" class="w-full h-48 object-cover">
                             
-                            <!-- Content Container -->
                             <div class="p-5 flex flex-col flex-grow justify-between">
                                 <div>
                                     <div class="flex justify-between items-start">
