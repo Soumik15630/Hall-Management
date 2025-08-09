@@ -68,8 +68,24 @@
                     <div class="bg-white p-6 rounded-lg shadow-md">
                         <h3 class="text-xl font-semibold text-gray-800 mb-4 border-b border-gray-200 pb-2">Location & Features</h3>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div><label for="floor" class="block text-gray-600 text-sm font-medium mb-2">FLOOR</label><select id="floor" name="hall_floor" class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800" required><option value="" disabled selected>Select Floor</option><option value="ground">Ground Floor</option><option value="first">First Floor</option><option value="second">Second Floor</option><option value="third">Third Floor</option></select></div>
-                            <div><label for="zone" class="block text-gray-600 text-sm font-medium mb-2">ZONE</label><select id="zone" name="hall_zone" class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800" required><option value="" disabled selected>Select Zone</option><option value="north">North Zone</option><option value="south">South Zone</option><option value="east">East Zone</option><option value="west">West Zone</option></select></div>
+                            <div>
+                                <label for="floor" class="block text-gray-600 text-sm font-medium mb-2">FLOOR</label>
+                                <select id="floor" name="hall_floor" class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800" required>
+                                    <option value="" disabled>Select Floor</option>
+                                    <template x-for="floor in floorOptions" :key="floor.value">
+                                        <option :value="floor.value" x-text="floor.label"></option>
+                                    </template>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="zone" class="block text-gray-600 text-sm font-medium mb-2">ZONE</label>
+                                <select id="zone" name="hall_zone" class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800" required>
+                                    <option value="" disabled>Select Zone</option>
+                                    <template x-for="zone in zoneOptions" :key="zone.value">
+                                        <option :value="zone.value" x-text="zone.label"></option>
+                                    </template>
+                                </select>
+                            </div>
                             <div><label for="latitude" class="block text-gray-600 text-sm font-medium mb-2">LATITUDE</label><input type="number" step="any" id="latitude" name="latitude" placeholder="e.g., 11.9416" class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800"></div>
                             <div><label for="longitude" class="block text-gray-600 text-sm font-medium mb-2">LONGITUDE</label><input type="number" step="any" id="longitude" name="longitude" placeholder="e.g., 79.8083" class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800"></div>
                             <div class="md:col-span-2 relative" @click.away="dropdowns.features = false">
@@ -157,6 +173,8 @@
                 searchTerms: { school: '', department: '', deptSchool: '', general: '' },
                 isLoading: { schools: true, departments: true, hall: true },
                 // --- Options now loaded from config.js ---
+                floorOptions: AppConfig.formOptions.floors,
+                zoneOptions: AppConfig.formOptions.zones,
                 featuresOptions: AppConfig.formOptions.features,
                 generalOptions: AppConfig.formOptions.generalSections,
                 unavailabilityOptions: AppConfig.formOptions.unavailabilityReasons,
@@ -204,8 +222,6 @@
                 async loadHallData() {
                     this.isLoading.hall = true;
                     try {
-                        // More efficient: Fetch single hall if API supports it.
-                        // For now, fetching all and finding the one.
                         const response = await this.fetchWithAuth(AppConfig.apiBaseUrl + AppConfig.endpoints.allHall);
                         if (!response.ok) throw new Error('Could not fetch hall list.');
                         

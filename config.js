@@ -61,6 +61,21 @@ const AppConfig = {
     },
     
     formOptions: {
+        // Options for hall floors
+        floors: [
+            { value: 'ground', label: 'Ground Floor' },
+            { value: 'first', label: 'First Floor' },
+            { value: 'second', label: 'Second Floor' },
+            { value: 'third', label: 'Third Floor' }
+        ],
+
+        // Options for hall zones
+        zones: [
+            { value: 'north', label: 'North Zone' },
+            { value: 'south', label: 'South Zone' },
+            { value: 'east', label: 'East Zone' },
+            { value: 'west', label: 'Wet Zone' }
+        ],
         // Options for the hall features dropdown
         features: [
             { value: 'AC', label: 'AC' },
