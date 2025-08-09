@@ -247,15 +247,28 @@
                 return pattern.test(number);
             },
 
-            get filteredSchools() { return this.schoolOptions.filter(o => o.label.toLowerCase().includes(this.searchTerms.school.toLowerCase())); },
-            get filteredDeptSchools() { return this.schoolOptions.filter(o => o.label.toLowerCase().includes(this.searchTerms.deptSchool.toLowerCase())); },
+            get filteredSchools() { 
+                const searchTerm = this.searchTerms.school || '';
+                return this.schoolOptions.filter(o => o.label.toLowerCase().includes(searchTerm.toLowerCase())); 
+            },
+            get filteredDeptSchools() { 
+                const searchTerm = this.searchTerms.deptSchool || '';
+                return this.schoolOptions.filter(o => o.label.toLowerCase().includes(searchTerm.toLowerCase())); 
+            },
             get filteredDepartments() {
                 let depts = this.departmentOptions;
                 if (this.selectedDeptSchoolId) { depts = depts.filter(d => d.schoolId === this.selectedDeptSchoolId); }
-                return depts.filter(o => o.label.toLowerCase().includes(this.searchTerms.department.toLowerCase()));
+                const searchTerm = this.searchTerms.department || '';
+                return depts.filter(o => o.label.toLowerCase().includes(searchTerm.toLowerCase()));
             },
-            get filteredSections() { return this.sectionOptions.filter(o => o.label.toLowerCase().includes(this.searchTerms.section.toLowerCase())); },
-            get filteredDesignations() { return this.designationOptions.filter(o => o.label.toLowerCase().includes(this.searchTerms.designation.toLowerCase())); },
+            get filteredSections() { 
+                const searchTerm = this.searchTerms.section || '';
+                return this.sectionOptions.filter(o => o.label.toLowerCase().includes(searchTerm.toLowerCase())); 
+            },
+            get filteredDesignations() { 
+                const searchTerm = this.searchTerms.designation || '';
+                return this.designationOptions.filter(o => o.label.toLowerCase().includes(searchTerm.toLowerCase())); 
+            },
             
             async fetchSchools() { 
                 this.isLoading.schools = true; 
@@ -287,17 +300,36 @@
             getLabelById(options, id) { const option = options.find(o => o.value === id); return option ? option.label : null; },
             
             selectOption(type, value) {
-                if (type === 'school') { this.selectedSchoolId = value; this.searchTerms.school = this.getLabelById(this.schoolOptions, value); } 
-                else if (type === 'deptSchool') { this.selectedDeptSchoolId = value; this.searchTerms.deptSchool = this.getLabelById(this.schoolOptions, value); this.selectedDepartmentId = null; this.searchTerms.department = ''; } 
+                if (type === 'school') { 
+                    this.selectedSchoolId = value; 
+                    this.searchTerms.school = this.getLabelById(this.schoolOptions, value) || ''; 
+                } 
+                else if (type === 'deptSchool') { 
+                    this.selectedDeptSchoolId = value; 
+                    this.searchTerms.deptSchool = this.getLabelById(this.schoolOptions, value) || '';
+                    this.selectedDepartmentId = null; 
+                    this.searchTerms.department = ''; 
+                } 
                 else if (type === 'department') {
                     this.selectedDepartmentId = value;
                     const dept = this.departmentOptions.find(o => o.value === value);
                     if (dept) {
                         this.searchTerms.department = dept.label;
-                        if (!this.selectedDeptSchoolId) { this.selectedDeptSchoolId = dept.schoolId; this.searchTerms.deptSchool = this.getLabelById(this.schoolOptions, dept.schoolId); }
+                        if (!this.selectedDeptSchoolId) { 
+                            this.selectedDeptSchoolId = dept.schoolId; 
+                            this.searchTerms.deptSchool = this.getLabelById(this.schoolOptions, dept.schoolId) || ''; 
+                        }
+                    } else {
+                        this.searchTerms.department = '';
                     }
-                } else if (type === 'section') { this.selectedSectionId = value; this.searchTerms.section = this.getLabelById(this.sectionOptions, value); }
-                else if (type === 'designation') { this.selectedDesignationId = value; this.searchTerms.designation = this.getLabelById(this.designationOptions, value); }
+                } else if (type === 'section') { 
+                    this.selectedSectionId = value; 
+                    this.searchTerms.section = this.getLabelById(this.sectionOptions, value) || ''; 
+                }
+                else if (type === 'designation') { 
+                    this.selectedDesignationId = value; 
+                    this.searchTerms.designation = this.getLabelById(this.designationOptions, value) || ''; 
+                }
                 this.dropdowns[type] = false;
             },
 
