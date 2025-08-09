@@ -37,16 +37,18 @@
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
-<body class="min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col pb-24 md:pb-0">
 
     <div id="header-placeholder"></div>
     <div id="nav-placeholder"></div>
 
-    <main class="flex-grow p-6">
+    <main class="flex-grow p-2 sm:p-6">
         <div class="container mx-auto" x-data="manageS_D">
-            <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+            <!-- Desktop Header -->
+            <div class="hidden md:flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                  <h2 class="text-3xl font-bold text-white">Manage Schools & Departments</h2>
                 <div class="flex items-center space-x-3 bg-[rgba(0,0,0,0.2)] p-2 rounded-lg">
+                    <a :href="activeView === 'schools' ? 'addSchool.html' : 'addDepartment.html'" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-plus"></i><span x-text="`Add ${activeView === 'schools' ? 'School' : 'Department'}`"></span></a>
                     <button @click="modifySelectedItem()" :disabled="selectedItems.length !== 1" class="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-edit"></i><span>Modify</span></button>
                     <button @click="confirmDeletion()" :disabled="selectedItems.length === 0" class="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-trash-alt"></i><span>Delete</span></button>
                     <button @click="resetFilters" :class="isAnyFilterActive ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-500 hover:bg-gray-600'" class="text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-undo"></i></button>
@@ -56,45 +58,100 @@
                     </div>
                 </div>
             </div>
-            
-            <div class="bg-white/10 p-4 rounded-lg mb-6 flex flex-wrap items-center justify-between gap-4 text-white">
-                <div class="flex items-center gap-4 flex-wrap">
-                    <div class="flex items-center gap-2 bg-gray-900/20 p-1 rounded-lg">
-                        <button @click="activeView = 'schools'" :class="{'bg-indigo-600 text-white': activeView === 'schools', 'text-gray-300 hover:bg-white/10': activeView !== 'schools'}" class="px-3 py-1 rounded-md transition-colors text-sm font-semibold">Schools</button>
-                        <button @click="activeView = 'departments'" :class="{'bg-indigo-600 text-white': activeView === 'departments', 'text-gray-300 hover:bg-white/10': activeView !== 'departments'}" class="px-3 py-1 rounded-md transition-colors text-sm font-semibold">Departments</button>
-                    </div>
-                    <button @click="modals.filter = true" class="px-3 py-1 rounded-full text-sm flex items-center gap-2 filter-button" :class="{'active': isAnyFilterActive}"><i class="fas fa-filter"></i> Filter</button>
-                    
-                    <button x-show="selectedItems.length > 0" @click="deselectAll()" x-transition class="px-3 py-1 rounded-full text-sm flex items-center gap-2 filter-button bg-yellow-400 text-black hover:bg-yellow-500">
-                        <i class="fas fa-eraser"></i> Deselect All
-                    </button>
-                </div>
-                <div class="flex items-center gap-2">
-                    <div class="relative" @click.away="modals.sortOptionsOpen = false">
-                        <button @click="modals.sortOptionsOpen = !modals.sortOptionsOpen" class="px-3 py-1 rounded-full text-sm flex items-center gap-2 filter-button bg-gray-900/20">
-                            <i class="fas fa-sort-amount-down"></i> Sort
-                        </button>
-                        <div x-show="modals.sortOptionsOpen" x-transition class="absolute right-0 mt-2 w-52 bg-white text-gray-800 rounded-md shadow-lg z-20">
-                            <a @click="applySort('name')" href="#" class="block px-4 py-2 text-sm hover:bg-gray-100" :class="{'font-bold text-indigo-600': sort.key === 'name'}">
-                                Sort by Name
-                                <i x-show="sort.key === 'name' && sort.direction === 'asc'" class="fas fa-arrow-up ml-2"></i>
-                                <i x-show="sort.key === 'name' && sort.direction === 'desc'" class="fas fa-arrow-down ml-2"></i>
-                            </a>
-                            <a @click="applySort('date')" href="#" class="block px-4 py-2 text-sm hover:bg-gray-100" :class="{'font-bold text-indigo-600': sort.key === 'date'}">
-                                Sort by Date Added
-                                <i x-show="sort.key === 'date' && sort.direction === 'asc'" class="fas fa-arrow-up ml-2"></i>
-                                <i x-show="sort.key === 'date' && sort.direction === 'desc'" class="fas fa-arrow-down ml-2"></i>
-                            </a>
-                        </div>
-                    </div>
 
-                    <div class="flex items-center gap-1 bg-gray-900/20 p-1 rounded-lg">
-                        <button @click="viewMode = 'card'" :class="{'bg-indigo-600 text-white': viewMode === 'card', 'text-gray-300 hover:bg-white/10': viewMode !== 'card'}" class="px-3 py-1 rounded-md transition-colors"><i class="fas fa-th-large"></i></button>
-                        <button @click="viewMode = 'table'" :class="{'bg-indigo-600 text-white': viewMode === 'table', 'text-gray-300 hover:bg-white/10': viewMode !== 'table'}" class="px-3 py-1 rounded-md transition-colors"><i class="fas fa-list"></i></button>
+            <!-- Mobile Header -->
+            <div class="md:hidden mb-4">
+                <h2 class="text-2xl font-bold text-white mb-3">Manage S&D</h2>
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2 bg-gray-900/20 p-1 rounded-lg">
+                        <button @click="activeView = 'schools'" :class="{'bg-indigo-600 text-white': activeView === 'schools', 'text-gray-300 hover:bg-white/10': activeView !== 'schools'}" class="px-3 py-1.5 rounded-md transition-colors text-sm font-semibold">Schools</button>
+                        <button @click="activeView = 'departments'" :class="{'bg-indigo-600 text-white': activeView === 'departments', 'text-gray-300 hover:bg-white/10': activeView !== 'departments'}" class="px-3 py-1.5 rounded-md transition-colors text-sm font-semibold">Departments</button>
+                    </div>
+                     <div class="flex items-center gap-1 bg-gray-900/20 p-1 rounded-lg">
+                        <button @click="viewMode = 'card'" :class="{'bg-indigo-600 text-white': viewMode === 'card', 'text-gray-300 hover:bg-white/10': viewMode !== 'card'}" class="px-3 py-1.5 rounded-md transition-colors"><i class="fas fa-th-large"></i></button>
+                        <button @click="viewMode = 'table'" :class="{'bg-indigo-600 text-white': viewMode === 'table', 'text-gray-300 hover:bg-white/10': viewMode !== 'table'}" class="px-3 py-1.5 rounded-md transition-colors"><i class="fas fa-list"></i></button>
+                    </div>
+                </div>
+                 <div class="flex items-center space-x-2 text-white text-sm mt-3">
+                    <span>Multi-Select:</span>
+                    <label class="toggle-switch scale-90"><input type="checkbox" x-model="multipleSelectionEnabled"><span class="toggle-slider"></span></label>
+                </div>
+            </div>
+            
+            <!-- Desktop Filter Bar -->
+            <div class="hidden md:block bg-white/10 p-4 rounded-lg mb-6">
+                 <div class="flex flex-wrap items-center justify-between gap-4 text-white">
+                    <div class="flex items-center gap-4 flex-wrap">
+                        <div class="flex items-center gap-2 bg-gray-900/20 p-1 rounded-lg">
+                            <button @click="activeView = 'schools'" :class="{'bg-indigo-600 text-white': activeView === 'schools', 'text-gray-300 hover:bg-white/10': activeView !== 'schools'}" class="px-3 py-1 rounded-md transition-colors text-sm font-semibold">Schools</button>
+                            <button @click="activeView = 'departments'" :class="{'bg-indigo-600 text-white': activeView === 'departments', 'text-gray-300 hover:bg-white/10': activeView !== 'departments'}" class="px-3 py-1 rounded-md transition-colors text-sm font-semibold">Departments</button>
+                        </div>
+                        <button @click="modals.filter = true" class="px-3 py-1 rounded-full text-sm flex items-center gap-2 filter-button" :class="{'active': isAnyFilterActive}"><i class="fas fa-filter"></i> Filter</button>
+                        
+                        <button x-show="selectedItems.length > 0" @click="deselectAll()" x-transition class="px-3 py-1 rounded-full text-sm flex items-center gap-2 filter-button bg-yellow-400 text-black hover:bg-yellow-500">
+                            <i class="fas fa-eraser"></i> Deselect All
+                        </button>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="relative" @click.away="modals.sortOptionsOpen = false">
+                            <button @click="modals.sortOptionsOpen = !modals.sortOptionsOpen" class="px-3 py-1 rounded-full text-sm flex items-center gap-2 filter-button bg-gray-900/20">
+                                <i class="fas fa-sort-amount-down"></i> Sort
+                            </button>
+                            <div x-show="modals.sortOptionsOpen" x-transition class="absolute right-0 mt-2 w-52 bg-white text-gray-800 rounded-md shadow-lg z-20">
+                                <a @click="applySort('name')" href="#" class="block px-4 py-2 text-sm hover:bg-gray-100" :class="{'font-bold text-indigo-600': sort.key === 'name'}">
+                                    Sort by Name
+                                    <i x-show="sort.key === 'name' && sort.direction === 'asc'" class="fas fa-arrow-up ml-2"></i>
+                                    <i x-show="sort.key === 'name' && sort.direction === 'desc'" class="fas fa-arrow-down ml-2"></i>
+                                </a>
+                                <a @click="applySort('date')" href="#" class="block px-4 py-2 text-sm hover:bg-gray-100" :class="{'font-bold text-indigo-600': sort.key === 'date'}">
+                                    Sort by Date Added
+                                    <i x-show="sort.key === 'date' && sort.direction === 'asc'" class="fas fa-arrow-up ml-2"></i>
+                                    <i x-show="sort.key === 'date' && sort.direction === 'desc'" class="fas fa-arrow-down ml-2"></i>
+                                </a>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-1 bg-gray-900/20 p-1 rounded-lg">
+                            <button @click="viewMode = 'card'" :class="{'bg-indigo-600 text-white': viewMode === 'card', 'text-gray-300 hover:bg-white/10': viewMode !== 'card'}" class="px-3 py-1 rounded-md transition-colors"><i class="fas fa-th-large"></i></button>
+                            <button @click="viewMode = 'table'" :class="{'bg-indigo-600 text-white': viewMode === 'table', 'text-gray-300 hover:bg-white/10': viewMode !== 'table'}" class="px-3 py-1 rounded-md transition-colors"><i class="fas fa-list"></i></button>
+                        </div>
                     </div>
                 </div>
             </div>
 
+            <!-- Floating Action Button (Mobile Only) -->
+            <div class="fixed bottom-24 right-4 z-30 md:hidden">
+                <a :href="activeView === 'schools' ? 'addSchool.html' : 'addDepartment.html'" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform transform hover:scale-110 active:scale-95">
+                    <i class="fas fa-plus text-xl"></i>
+                </a>
+            </div>
+
+            <!-- Mobile Bottom Action Bar (Mobile Only) -->
+            <div class="fixed bottom-0 left-0 right-0 bg-gray-900/80 backdrop-blur-sm p-2 z-40 md:hidden border-t border-white/20 shadow-t-2xl">
+                <div class="flex justify-around items-center max-w-md mx-auto">
+                    <button @click="modifySelectedItem()" :disabled="selectedItems.length !== 1" class="flex flex-col items-center justify-center w-20 h-14 rounded-lg transition-all" :class="selectedItems.length === 1 ? 'text-blue-400 hover:bg-blue-400/20' : 'text-gray-500 cursor-not-allowed'">
+                        <i class="fas fa-edit text-xl"></i>
+                        <span class="text-xs font-semibold mt-1">Modify</span>
+                    </button>
+                    <button x-show="selectedItems.length > 0" @click="deselectAll()" class="flex flex-col items-center justify-center w-20 h-14 rounded-lg transition-all text-yellow-400 hover:bg-yellow-400/20">
+                        <i class="fas fa-times-circle text-xl"></i>
+                        <span class="text-xs font-semibold mt-1">Deselect</span>
+                    </button>
+                    <button @click="confirmDeletion()" :disabled="selectedItems.length === 0" class="flex flex-col items-center justify-center w-20 h-14 rounded-lg transition-all" :class="selectedItems.length > 0 ? 'text-red-400 hover:bg-red-400/20' : 'text-gray-500 cursor-not-allowed'">
+                        <i class="fas fa-trash-alt text-xl"></i>
+                        <span class="text-xs font-semibold mt-1">Delete</span>
+                    </button>
+                    <button @click="modals.filterOverlayOpen = true" class="flex flex-col items-center justify-center w-20 h-14 rounded-lg transition-colors" :class="isAnyFilterActive ? 'text-indigo-400 hover:bg-indigo-400/20' : 'text-gray-300 hover:bg-white/10'">
+                        <div class="relative">
+                            <i class="fas fa-filter text-xl"></i>
+                            <span x-show="isAnyFilterActive" class="absolute -top-1 -right-1.5 block h-2.5 w-2.5 rounded-full bg-indigo-400 ring-2 ring-[#101d41]"></span>
+                        </div>
+                        <span class="text-xs font-semibold mt-1">Filter</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Desktop Filter Modal -->
             <div x-show="modals.filter" @click.away="modals.filter = false" style="display: none;" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                 <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md relative">
                     <button @click="modals.filter = false" class="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
@@ -135,6 +192,58 @@
                 </div>
             </div>
             
+            <!-- Mobile Filter Overlay -->
+            <div x-show="modals.filterOverlayOpen" class="fixed inset-0 bg-black/60 z-50 md:hidden" x-cloak>
+                <div @click="modals.filterOverlayOpen = false" class="absolute inset-0"></div>
+                <div class="absolute bottom-0 left-0 right-0 max-h-[85vh] bg-gradient-to-t from-[#0B1940] to-[#14555F] rounded-t-2xl shadow-2xl flex flex-col">
+                    <div class="flex justify-between items-center p-4 border-b border-white/10 flex-shrink-0">
+                        <h3 class="text-xl font-bold text-white" x-text="`Filter ${activeView === 'schools' ? 'Schools' : 'Departments'}`"></h3>
+                        <button @click="modals.filterOverlayOpen = false" class="text-gray-300 hover:text-white"><i class="fas fa-times text-2xl"></i></button>
+                    </div>
+                    <div class="flex-grow p-4 overflow-y-auto space-y-6 text-white">
+                        <div x-show="activeView === 'schools'">
+                            <div class="space-y-4 text-sm">
+                                <div class="relative" @click.away="modals.schoolFilterOpen = false">
+                                    <label class="font-semibold text-gray-300 text-xs">School Name:</label>
+                                    <input type="text" x-model="filters.school_nameSearchTerm" @focus="modals.schoolFilterOpen = true" placeholder="Type to search school..." class="w-full p-2 border rounded mt-1 bg-gray-800 border-gray-600 text-white placeholder-gray-400">
+                                    <div x-show="modals.schoolFilterOpen" x-transition class="absolute z-10 mt-1 w-full bg-gray-700 border border-gray-600 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                                        <template x-for="school in filteredSchoolsForFilter" :key="school.unique_id"><div @click="selectSchoolForFilter(school.unique_id)" class="px-4 py-2 text-sm hover:bg-gray-600 cursor-pointer" x-text="school.school_name"></div></template>
+                                    </div>
+                                </div>
+                                <div><label class="font-semibold text-gray-300 text-xs">Dean Name:</label><input type="text" x-model.debounce.300ms="filters.deanName" class="w-full p-2 border rounded mt-1 bg-gray-800 border-gray-600 text-white placeholder-gray-400"></div>
+                            </div>
+                        </div>
+                        <div x-show="activeView === 'departments'">
+                            <div class="space-y-4 text-sm">
+                                <div class="relative" @click.away="modals.schoolFilterOpen = false">
+                                    <label class="font-semibold text-gray-300 text-xs">School Name:</label>
+                                    <input type="text" x-model="filters.dept_schoolSearchTerm" @focus="modals.schoolFilterOpen = true" placeholder="Type to search school..." class="w-full p-2 border rounded mt-1 bg-gray-800 border-gray-600 text-white placeholder-gray-400">
+                                    <div x-show="modals.schoolFilterOpen" x-transition class="absolute z-10 mt-1 w-full bg-gray-700 border border-gray-600 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                                        <template x-for="school in filteredSchoolsForFilter" :key="school.unique_id"><div @click="selectSchoolForFilter(school.unique_id)" class="px-4 py-2 text-sm hover:bg-gray-600 cursor-pointer" x-text="school.school_name"></div></template>
+                                    </div>
+                                </div>
+                                <div class="relative" @click.away="modals.departmentFilterOpen = false">
+                                    <label class="font-semibold text-gray-300 text-xs">Department Name:</label>
+                                    <input type="text" x-model="filters.dept_nameSearchTerm" @focus="modals.departmentFilterOpen = true" placeholder="Type to search department..." class="w-full p-2 border rounded mt-1 bg-gray-800 border-gray-600 text-white placeholder-gray-400">
+                                    <div x-show="modals.departmentFilterOpen" x-transition class="absolute z-10 mt-1 w-full bg-gray-700 border border-gray-600 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                                        <template x-for="dept in filteredDepartmentsForFilter" :key="dept.unique_id"><div @click="selectDepartmentForFilter(dept.unique_id)" class="px-4 py-2 text-sm hover:bg-gray-600 cursor-pointer" x-text="dept.department_name"></div></template>
+                                    </div>
+                                </div>
+                                <div><label class="font-semibold text-gray-300 text-xs">HOD Name:</label><input type="text" x-model.debounce.300ms="filters.hodName" class="w-full p-2 border rounded mt-1 bg-gray-800 border-gray-600 text-white placeholder-gray-400"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-3 bg-black/20 border-t border-white/10 flex-shrink-0 flex gap-3">
+                        <button @click="resetFilters" class="flex-1 bg-red-600/80 hover:bg-red-600 disabled:bg-gray-500 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg shadow-lg flex items-center justify-center space-x-2 transition-colors" :disabled="!isAnyFilterActive">
+                            <i class="fas fa-undo"></i><span>Reset</span>
+                        </button>
+                        <button @click="modals.filterOverlayOpen = false" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg flex items-center justify-center space-x-2 transition-colors">
+                            <span>Done</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <div x-show="modals.confirmDelete" @click.away="modals.confirmDelete = false" style="display: none;" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                 <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-sm text-center">
                     <h3 class="text-lg font-semibold text-gray-800">Confirm Deletion</h3>
@@ -241,7 +350,14 @@
             errorMessage: '',
             activeView: 'schools',
             viewMode: 'card',
-            modals: { filter: false, schoolFilterOpen: false, departmentFilterOpen: false, confirmDelete: false, sortOptionsOpen: false },
+            modals: { 
+                filter: false, 
+                schoolFilterOpen: false, 
+                departmentFilterOpen: false, 
+                confirmDelete: false, 
+                sortOptionsOpen: false,
+                filterOverlayOpen: false
+            },
             notification: { show: false, success: false, title: '', message: '' },
             filters: {
                 schoolId: '', school_nameSearchTerm: '', deanName: '',
@@ -280,7 +396,14 @@
                 this.$watch('activeView', () => { 
                     this.selectedItems = []; 
                     this.resetFilters(); 
-                }); 
+                });
+                this.$watch('modals.filterOverlayOpen', (value) => {
+                    if (value) {
+                        document.body.style.overflow = 'hidden';
+                    } else {
+                        document.body.style.overflow = '';
+                    }
+                });
             },
 
             get filteredSchools() {
