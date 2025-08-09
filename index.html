@@ -427,6 +427,7 @@
             if (token) {
               // Securely save the token to sessionStorage
               sessionStorage.setItem("authToken", token);
+              sessionStorage.setItem("roleToken", role);
               displayMessage("Login successful! Redirecting...", "success");
 
               // Redirect based on the role
@@ -435,7 +436,9 @@
                   window.location.replace("admin.html");
                 } else if (role === "HOD") {
                   window.location.replace("hod.html");
-                } else {
+                } else if (role === "FACULTY") {
+                  window.location.replace("faculty.html");
+                }else {
                   // Handle unrecognized roles
                   displayMessage(
                     "Login successful, but role is not recognized.",
