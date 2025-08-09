@@ -64,7 +64,7 @@ const AppConfig = {
         ///////////////////////////////////////////////////////////////////////////
         // changes made here reflect to whole app automatically including filters//
         ///////////////////////////////////////////////////////////////////////////
-        
+
         // Options for hall floors
         floors: [
             { value: 'ground', label: 'Ground Floor' },
@@ -131,7 +131,19 @@ const AppConfig = {
         ],
 
         /////////////////////////////////////////////
-        // filter part ends here !!!!!!!!!q
+        // filter part ends here !!!!!!!!
         /////////////////////////////////////////////
+
+
+        // Options for employee designations
+        designations: [
+            { value: 'HOD', label: 'HOD' },
+            { value: 'ADMIN', label: 'Admin' },
+            { value: 'DEAN', label: 'Dean' },
+            { value: 'PROF', label: 'Professor' },
+            { value: 'REGISTER', label: 'Registrar' },
+            { value: 'FACULTY', label: 'Faculty' },
+            { value: 'OTHERS', label: 'Others' }
+        ],
     }
 };

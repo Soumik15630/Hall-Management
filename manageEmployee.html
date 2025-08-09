@@ -24,14 +24,15 @@
         input:checked + .toggle-slider { background-color: #4F46E5; }
         input:focus + .toggle-slider { box-shadow: 0 0 1px #4F46E5; }
         input:checked + .toggle-slider:before { transform: translateX(22px); }
+
         [x-cloak] { display: none !important; }
 
         .filter-button {
             transition: color 0.2s ease-in-out, background-color 0.2s ease-in-out;
         }
         .filter-button.active {
-            color: #4F46E5;
-            background-color: #E0E7FF;
+            color: #4F46E5; /* Indigo-600 */
+            background-color: #E0E7FF; /* Indigo-100 */
         }
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -45,12 +46,12 @@
         <div class="container mx-auto" x-data="manageEmployees">
             <!-- Desktop Header -->
             <div class="hidden md:flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-                <div>
+                 <div>
                     <h2 class="text-3xl font-bold text-white">Manage Employees</h2>
                     <p class="text-sm text-gray-300 mt-1" x-text="selectionCountText"></p>
                 </div>
                 <div class="flex items-center space-x-3 bg-[rgba(0,0,0,0.2)] p-2 rounded-lg">
-                    <a href="employee.html" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-plus"></i><span>Add Employee</span></a>
+                    <a href="addEmployee.html" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-plus"></i><span>Add Employee</span></a>
                     <button @click="modifySelectedItem()" :disabled="selectedItems.length !== 1" class="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-edit"></i><span>Modify</span></button>
                     <button @click="confirmDeletion()" :disabled="selectedItems.length === 0" class="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-trash-alt"></i><span>Delete</span></button>
                     <button @click="resetFilters" :class="isAnyFilterActive ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-500 hover:bg-gray-600'" class="text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-undo"></i></button>
@@ -70,7 +71,7 @@
                         <span>Multi-Select:</span>
                         <label class="toggle-switch scale-90"><input type="checkbox" x-model="multipleSelectionEnabled"><span class="toggle-slider"></span></label>
                     </div>
-                    <div class="flex items-center gap-1 bg-gray-900/20 p-1 rounded-lg">
+                     <div class="flex items-center gap-1 bg-gray-900/20 p-1 rounded-lg">
                         <button @click="viewMode = 'card'" :class="{'bg-indigo-600 text-white': viewMode === 'card', 'text-gray-300 hover:bg-white/10': viewMode !== 'card'}" class="px-3 py-1.5 rounded-md transition-colors"><i class="fas fa-th-large"></i></button>
                         <button @click="viewMode = 'table'" :class="{'bg-indigo-600 text-white': viewMode === 'table', 'text-gray-300 hover:bg-white/10': viewMode !== 'table'}" class="px-3 py-1.5 rounded-md transition-colors"><i class="fas fa-list"></i></button>
                     </div>
@@ -79,7 +80,7 @@
             
             <!-- Desktop Filter Bar -->
             <div class="hidden md:block bg-white/10 p-4 rounded-lg mb-6">
-                <div class="flex flex-wrap items-center justify-between gap-4 text-white">
+                 <div class="flex flex-wrap items-center justify-between gap-4 text-white">
                     <div class="flex items-center gap-4 flex-wrap">
                         <span class="font-semibold">Filters:</span>
                         <button @click="modals.filter = true" class="px-3 py-1 rounded-full text-sm flex items-center gap-2 filter-button" :class="{'active': isAnyFilterActive}"><i class="fas fa-filter"></i> Filter Employees</button>
@@ -115,7 +116,7 @@
 
             <!-- Floating Action Button (Mobile Only) -->
             <div class="fixed bottom-24 right-4 z-30 md:hidden">
-                <a href="employee.html" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform transform hover:scale-110 active:scale-95">
+                <a href="addEmployee.html" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform transform hover:scale-110 active:scale-95">
                     <i class="fas fa-plus text-xl"></i>
                 </a>
             </div>
@@ -147,59 +148,59 @@
 
             <!-- Desktop Filter Modal -->
             <div x-show="modals.filter" @click.away="modals.filter = false" style="display: none;" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                 <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md relative">
-                       <button @click="modals.filter = false" class="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
-                       <h3 class="text-xl font-bold mb-4 border-b pb-2 text-indigo-600">Filter Employees</h3>
-                       <div class="space-y-4 text-sm">
-                           <div class="relative" @click.away="modals.employeeFilterOpen = false">
-                                <label class="font-semibold text-gray-700">Employee Name:</label>
-                                <input type="text" x-model="filters.employeeSearchTerm" @focus="modals.employeeFilterOpen = true" @input.debounce.300ms="filters.employeeName = ''" placeholder="Type to search employee..." class="w-full p-2 border rounded mt-1">
-                                <div x-show="modals.employeeFilterOpen" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
-                                     <template x-for="employee in filteredEmployeeNames" :key="employee.unique_id"><div @click="selectEmployeeForFilter(employee.employee_name)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="employee.employee_name"></div></template>
-                                </div>
-                           </div>
-                           <div>
-                                <label class="font-semibold text-gray-700">Designation:</label>
-                                <div class="grid grid-cols-3 gap-2 mt-2">
-                                     <template x-for="option in designationOptions" :key="option.value">
-                                         <button @click="toggleFilter('designation', option.value)" :class="{'bg-indigo-600 text-white': filters.designation === option.value, 'bg-gray-200 hover:bg-gray-300': filters.designation !== option.value}" class="px-3 py-2 rounded-md transition-colors" x-text="option.label"></button>
-                                     </template>
-                                </div>
-                           </div>
-                           <div>
-                                <label class="font-semibold text-gray-700">Type:</label>
-                                <div class="grid grid-cols-3 gap-2 mt-2">
-                                     <button @click="toggleFilter('ownerType', 'department')" :class="{'bg-indigo-600 text-white': filters.ownerType === 'department', 'bg-gray-200 hover:bg-gray-300': filters.ownerType !== 'department'}" class="px-3 py-2 rounded-md transition-colors">Department</button>
-                                     <button @click="toggleFilter('ownerType', 'school')" :class="{'bg-indigo-600 text-white': filters.ownerType === 'school', 'bg-gray-200 hover:bg-gray-300': filters.ownerType !== 'school'}" class="px-3 py-2 rounded-md transition-colors">School</button>
-                                     <button @click="toggleFilter('ownerType', 'administration')" :class="{'bg-indigo-600 text-white': filters.ownerType === 'administration', 'bg-gray-200 hover:bg-gray-300': filters.ownerType !== 'administration'}" class="px-3 py-2 rounded-md transition-colors">Administration</button>
-                                </div>
-                           </div>
-                           <div x-show="filters.ownerType === 'school' || filters.ownerType === 'department'" class="relative" @click.away="modals.schoolFilterOpen = false">
-                                <label class="font-semibold text-gray-700">School Name:</label>
-                                <input type="text" x-model="filters.schoolSearchTerm" @focus="modals.schoolFilterOpen = true" @input.debounce.300ms="filters.schoolId = ''" placeholder="Type to search school..." class="w-full p-2 border rounded mt-1">
-                                <div x-show="modals.schoolFilterOpen" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
-                                     <template x-for="school in schoolOptions" :key="school.value"><div @click="selectSchoolForFilter(school.value)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="school.label"></div></template>
-                                </div>
-                           </div>
-                           <div x-show="filters.ownerType === 'department'" class="relative" @click.away="modals.departmentFilterOpen = false">
-                                <label class="font-semibold text-gray-700">Department:</label>
-                                <input type="text" x-model="filters.departmentSearchTerm" @focus="modals.departmentFilterOpen = true" @input.debounce.300ms="filters.departmentId = ''" placeholder="Type to search department..." class="w-full p-2 border rounded mt-1">
-                                <div x-show="modals.departmentFilterOpen" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
-                                     <template x-for="dept in filteredDepartmentsForFilter" :key="dept.value"><div @click="selectDepartmentForFilter(dept.value)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="dept.label"></div></template>
-                                </div>
-                           </div>
-                           <div x-show="filters.ownerType === 'administration'" class="relative" @click.away="modals.sectionFilterOpen = false">
-                                <label class="font-semibold text-gray-700">Section:</label>
-                                <input type="text" x-model="filters.sectionSearchTerm" @focus="modals.sectionFilterOpen = true" @input.debounce.300ms="filters.section = ''" placeholder="Type to search section..." class="w-full p-2 border rounded mt-1">
-                                <div x-show="modals.sectionFilterOpen" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
-                                     <template x-for="section in filteredSectionsForFilter" :key="section.value"><div @click="selectSectionForFilter(section.value)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="section.label"></div></template>
-                                </div>
-                           </div>
-                       </div>
-                       <button @click="modals.filter = false" class="w-full mt-6 bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700">Apply Filter</button>
-                  </div>
+                <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md relative">
+                    <button @click="modals.filter = false" class="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+                    <h3 class="text-xl font-bold mb-4 border-b pb-2 text-indigo-600">Filter Employees</h3>
+                    <div class="space-y-4 text-sm">
+                        <div class="relative" @click.away="modals.employeeFilterOpen = false">
+                            <label class="font-semibold text-gray-700">Employee Name:</label>
+                            <input type="text" x-model="filters.employeeSearchTerm" @focus="modals.employeeFilterOpen = true" @input.debounce.300ms="filters.employeeName = ''" placeholder="Type to search employee..." class="w-full p-2 border rounded mt-1">
+                            <div x-show="modals.employeeFilterOpen" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                                <template x-for="employee in filteredEmployeeNames" :key="employee.unique_id"><div @click="selectEmployeeForFilter(employee.employee_name)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="employee.employee_name"></div></template>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="font-semibold text-gray-700">Designation:</label>
+                            <div class="grid grid-cols-3 gap-2 mt-2">
+                                <template x-for="option in designationOptions" :key="option.value">
+                                    <button @click="toggleFilter('designation', option.value)" :class="{'bg-indigo-600 text-white': filters.designation === option.value, 'bg-gray-200 hover:bg-gray-300': filters.designation !== option.value}" class="px-3 py-2 rounded-md transition-colors text-sm" x-text="option.label"></button>
+                                </template>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="font-semibold text-gray-700">Type:</label>
+                            <div class="grid grid-cols-3 gap-2 mt-2">
+                                <button @click="toggleFilter('ownerType', 'department')" :class="{'bg-indigo-600 text-white': filters.ownerType === 'department', 'bg-gray-200 hover:bg-gray-300': filters.ownerType !== 'department'}" class="px-3 py-2 rounded-md transition-colors">Department</button>
+                                <button @click="toggleFilter('ownerType', 'school')" :class="{'bg-indigo-600 text-white': filters.ownerType === 'school', 'bg-gray-200 hover:bg-gray-300': filters.ownerType !== 'school'}" class="px-3 py-2 rounded-md transition-colors">School</button>
+                                <button @click="toggleFilter('ownerType', 'administration')" :class="{'bg-indigo-600 text-white': filters.ownerType === 'administration', 'bg-gray-200 hover:bg-gray-300': filters.ownerType !== 'administration'}" class="px-3 py-2 rounded-md transition-colors">Administration</button>
+                            </div>
+                        </div>
+                        <div x-show="filters.ownerType === 'school' || filters.ownerType === 'department'" class="relative" @click.away="modals.schoolFilterOpen = false">
+                            <label class="font-semibold text-gray-700">School Name:</label>
+                            <input type="text" x-model="filters.schoolSearchTerm" @focus="modals.schoolFilterOpen = true" @input.debounce.300ms="filters.schoolId = ''" placeholder="Type to search school..." class="w-full p-2 border rounded mt-1">
+                            <div x-show="modals.schoolFilterOpen" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                                <template x-for="school in schoolOptions" :key="school.value"><div @click="selectSchoolForFilter(school.value)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="school.label"></div></template>
+                            </div>
+                        </div>
+                        <div x-show="filters.ownerType === 'department'" class="relative" @click.away="modals.departmentFilterOpen = false">
+                            <label class="font-semibold text-gray-700">Department:</label>
+                            <input type="text" x-model="filters.departmentSearchTerm" @focus="modals.departmentFilterOpen = true" @input.debounce.300ms="filters.departmentId = ''" placeholder="Type to search department..." class="w-full p-2 border rounded mt-1">
+                            <div x-show="modals.departmentFilterOpen" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                                <template x-for="dept in filteredDepartmentsForFilter" :key="dept.value"><div @click="selectDepartmentForFilter(dept.value)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="dept.label"></div></template>
+                            </div>
+                        </div>
+                        <div x-show="filters.ownerType === 'administration'" class="relative" @click.away="modals.sectionFilterOpen = false">
+                            <label class="font-semibold text-gray-700">Section:</label>
+                            <input type="text" x-model="filters.sectionSearchTerm" @focus="modals.sectionFilterOpen = true" @input.debounce.300ms="filters.section = ''" placeholder="Type to search section..." class="w-full p-2 border rounded mt-1">
+                            <div x-show="modals.sectionFilterOpen" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                                <template x-for="section in filteredSectionsForFilter" :key="section.value"><div @click="selectSectionForFilter(section.value)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="section.label"></div></template>
+                            </div>
+                        </div>
+                    </div>
+                    <button @click="modals.filter = false" class="w-full mt-6 bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700">Apply Filter</button>
+                </div>
             </div>
-
+            
             <!-- Mobile Filter Overlay -->
             <div x-show="modals.filterOverlayOpen" class="fixed inset-0 bg-black/60 z-50 md:hidden" x-cloak>
                 <div @click="modals.filterOverlayOpen = false" class="absolute inset-0"></div>
@@ -356,11 +357,8 @@
             employees: [],
             schoolOptions: [],
             departmentOptions: [],
-            sectionOptions: [ { value: 'ENGINEERING_WING', label: 'Engineering Wing' }, { value: 'EXAMINATION_WING', label: 'Examination Wing' }, { value: 'LIBRARY', label: 'Library' }, { value: 'GUEST_HOUSE', label: 'Guest House' } ],
-            designationOptions: [
-                { value: 'HOD', label: 'HOD' }, { value: 'ADMIN', label: 'Admin' }, { value: 'DEAN', label: 'Dean' }, 
-                { value: 'PROF', label: 'Professor' }, { value: 'REGISTER', label: 'Register' }, { value: 'FACULTY', label: 'Faculty' }, { value: 'OTHERS', label: 'Others' }
-            ],
+            sectionOptions: AppConfig.formOptions.generalSections,
+            designationOptions: AppConfig.formOptions.designations,
             selectedItems: [],
             multipleSelectionEnabled: false,
             isLoading: true,
@@ -376,7 +374,6 @@
 
             // --- AUTHENTICATION LOGIC ---
              
-
 
             async fetchWithAuth(url, options = {}) {
                 const headers = getAuthHeaders();
