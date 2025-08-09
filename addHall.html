@@ -70,8 +70,24 @@
                     <section class="bg-white p-6 rounded-lg shadow-md" aria-labelledby="location-features-heading">
                         <h3 id="location-features-heading" class="text-xl font-semibold text-gray-800 mb-4 border-b border-gray-200 pb-2">Location & Features</h3>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div><label for="floor" class="block text-gray-600 text-sm font-medium mb-2">FLOOR</label><select id="floor" name="hall_floor" class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800" required><option value="" disabled selected>Select Floor</option><option value="ground">Ground Floor</option><option value="first">First Floor</option><option value="second">Second Floor</option><option value="third">Third Floor</option></select></div>
-                            <div><label for="zone" class="block text-gray-600 text-sm font-medium mb-2">ZONE</label><select id="zone" name="hall_zone" class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800" required><option value="" disabled selected>Select Zone</option><option value="north">North Zone</option><option value="south">South Zone</option><option value="east">East Zone</option><option value="west">West Zone</option></select></div>
+                            <div>
+                                <label for="floor" class="block text-gray-600 text-sm font-medium mb-2">FLOOR</label>
+                                <select id="floor" name="hall_floor" class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800" required>
+                                    <option value="" disabled selected>Select Floor</option>
+                                    <template x-for="floor in floorOptions" :key="floor.value">
+                                        <option :value="floor.value" x-text="floor.label"></option>
+                                    </template>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="zone" class="block text-gray-600 text-sm font-medium mb-2">ZONE</label>
+                                <select id="zone" name="hall_zone" class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800" required>
+                                    <option value="" disabled selected>Select Zone</option>
+                                    <template x-for="zone in zoneOptions" :key="zone.value">
+                                        <option :value="zone.value" x-text="zone.label"></option>
+                                    </template>
+                                </select>
+                            </div>
                             <div><label for="latitude" class="block text-gray-600 text-sm font-medium mb-2">LATITUDE</label><input type="number" step="any" id="latitude" name="latitude" placeholder="e.g., 11.9416" class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800"></div>
                             <div><label for="longitude" class="block text-gray-600 text-sm font-medium mb-2">LONGITUDE</label><input type="number" step="any" id="longitude" name="longitude" placeholder="e.g., 79.8083" class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800"></div>
                             <div class="md:col-span-2 relative" @click.away="dropdowns.features = false">
@@ -112,8 +128,8 @@
                     </section>
 
                     <div class="flex justify-end space-x-4 pt-6">
-                        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-md shadow-lg transition-colors duration-300">SUBMIT</button>
-                        <button type="reset" @click="resetForm" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-8 rounded-md shadow-lg transition-colors duration-300">CLEAR</button>
+                        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-md shadow-lg transition-colors duration-300">UPDATE</button>
+                        <button type="reset" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-8 rounded-md shadow-lg transition-colors duration-300">CANCEL</button>
                     </div>
                 </form>
             </div>
@@ -142,20 +158,26 @@
                     this.message = message;
                     this.show = true;
                 },
-                close() { this.show = false; }
+                close() { 
+                    this.show = false; 
+                    if (this.isSuccess) {
+                        // Redirect on success
+                        window.location.href = 'manageHall.html'; // Use absolute path
+                    }
+                }
             });
 
-            const urlsch = AppConfig.apiBaseUrl + AppConfig.endpoints.allschool;
-            const urldept = AppConfig.apiBaseUrl + AppConfig.endpoints.alldept;
-            
-            Alpine.data('addHallForm', () => ({
+            Alpine.data('modifyHallForm', () => ({
+                hallId: null,
                 hallType: '', selectedFeatures: [], selectedBelongsTo: '',
                 selectedSchoolId: null, selectedDepartmentId: null, selectedDeptSchoolId: null, selectedGeneralOptionId: null,
                 isAvailable: 'yes', unavailabilityReason: '',
                 dropdowns: { features: false, school: false, department: false, deptSchool: false, general: false },
                 searchTerms: { school: '', department: '', deptSchool: '', general: '' },
-                isLoading: { schools: true, departments: true },
+                isLoading: { schools: true, departments: true, hall: true },
                 // --- Options now loaded from config.js ---
+                floorOptions: AppConfig.formOptions.floors,
+                zoneOptions: AppConfig.formOptions.zones,
                 featuresOptions: AppConfig.formOptions.features,
                 generalOptions: AppConfig.formOptions.generalSections,
                 unavailabilityOptions: AppConfig.formOptions.unavailabilityReasons,
@@ -164,15 +186,92 @@
                 // --- AUTHENTICATION LOGIC ---
                  
 
-                init() {
+                async fetchWithAuth(url, options = {}) {
                     const headers = getAuthHeaders();
                     if (!headers) {
+                        logout();
+                        throw new Error('User not authenticated');
+                    }
+                    
+                    const config = { ...options, headers: {...headers, ...options.headers} };
+                    const response = await fetch(url, config);
+
+                    if (response.status === 401) {
+                        logout();
+                        throw new Error('Authentication failed');
+                    }
+                    return response;
+                },
+                // --- END AUTHENTICATION LOGIC ---
+
+                async init() {
+                    if (!getAuthHeaders()) {
                         console.error("No auth token found. Redirecting to login.");
                         logout();
-                        return; // Stop initialization if not authenticated
+                        return;
                     }
-                    this.fetchSchools(); 
-                    this.fetchDepartments(); 
+
+                    const urlParams = new URLSearchParams(window.location.search);
+                    this.hallId = urlParams.get('id');
+                    if (!this.hallId) {
+                        Alpine.store('modal').open(false, 'No Hall ID provided. Cannot modify.');
+                        return;
+                    }
+                    
+                    await Promise.all([this.fetchSchools(), this.fetchDepartments()]);
+                    await this.loadHallData();
+                },
+
+                async loadHallData() {
+                    this.isLoading.hall = true;
+                    try {
+                        const response = await this.fetchWithAuth(AppConfig.apiBaseUrl + AppConfig.endpoints.allHall);
+                        if (!response.ok) throw new Error('Could not fetch hall list.');
+                        
+                        const data = await response.json();
+                        const hallList = Array.isArray(data) ? data : data.halls || data.data || [];
+                        const hall = hallList.find(h => h.unique_id === this.hallId);
+
+                        if (!hall) throw new Error('Hall not found.');
+
+                        // Pre-fill form fields
+                        document.getElementById('hallName').value = hall.name;
+                        document.getElementById('hallCapacity').value = hall.capacity;
+                        document.getElementById('assignedTo').value = hall.assigned_to || '';
+                        document.getElementById('floor').value = hall.floor.toLowerCase();
+                        document.getElementById('zone').value = hall.zone.toLowerCase();
+                        document.getElementById('latitude').value = hall.latitude;
+                        document.getElementById('longitude').value = hall.longitude;
+                        
+                        const apiType = hall.type.toUpperCase();
+                        if (apiType === 'AUDITORIUM') this.hallType = 'auditorium';
+                        else if (apiType === 'CONFERENCE') this.hallType = 'conference_room';
+                        else if (apiType === 'LECTURE') this.hallType = 'lecture_hall';
+                        else if (apiType === 'SEMINAR') this.hallType = 'seminar_hall';
+
+                        this.selectedFeatures = hall.features || [];
+                        this.isAvailable = hall.availability ? 'yes' : 'no';
+                        if (!hall.availability) {
+                            this.unavailabilityReason = hall.unavailability_reason;
+                        }
+                        
+                        this.selectedBelongsTo = hall.belongs_to.toLowerCase();
+                        this.$nextTick(() => {
+                            if (hall.belongs_to === 'SCHOOL') {
+                                this.selectOption('school', hall.school_id);
+                            } else if (hall.belongs_to === 'DEPARTMENT') {
+                                this.selectOption('deptSchool', hall.school_id);
+                                this.selectOption('department', hall.department_id);
+                            } else if (hall.belongs_to === 'ADMINISTRATION') {
+                                this.selectOption('general', hall.section);
+                            }
+                        });
+
+                    } catch (error) {
+                        Alpine.store('modal').open(false, `Error loading hall data: ${error.message}`);
+                    } finally {
+                        this.isLoading.hall = false;
+                    }
                 },
 
                 get filteredSchools() { return this.schoolOptions.filter(o => o.label.toLowerCase().includes(this.searchTerms.school.toLowerCase())); },
@@ -183,27 +282,14 @@
                     return depts.filter(o => o.label.toLowerCase().includes(this.searchTerms.department.toLowerCase()));
                 },
                 get filteredGeneral() { return this.generalOptions.filter(o => o.label.toLowerCase().includes(this.searchTerms.general.toLowerCase())); },
-
-                async fetchWithAuth(url) {
-                    const headers = getAuthHeaders();
-                    if (!headers) {
-                        this.logout();
-                        throw new Error('User not authenticated');
-                    }
-                    const response = await fetch(url, { headers });
-                    if (response.status === 401) {
-                        this.logout();
-                        throw new Error('Authentication failed');
-                    }
-                    if (!response.ok) throw new Error('Network response was not ok');
-                    return response.json();
-                },
-
+                
                 async fetchSchools() { 
                     this.isLoading.schools = true; 
                     try { 
-                        const data = await this.fetchWithAuth(urlsch);
-                        this.schoolOptions = data.filter(s => s && s.unique_id && s.school_name).map(s => ({ value: s.unique_id, label: s.school_name })); 
+                        const response = await this.fetchWithAuth(AppConfig.apiBaseUrl + AppConfig.endpoints.allschool);
+                        if (!response.ok) throw new Error('Network error'); 
+                        const d = await response.json(); 
+                        this.schoolOptions = d.filter(s => s && s.unique_id && s.school_name).map(s => ({ value: s.unique_id, label: s.school_name })); 
                     } catch (e) { 
                         Alpine.store('modal').open(false, `Could not load school data: ${e.message}`); 
                     } finally { 
@@ -213,8 +299,10 @@
                 async fetchDepartments() { 
                     this.isLoading.departments = true; 
                     try { 
-                        const data = await this.fetchWithAuth(urldept);
-                        this.departmentOptions = data.filter(t => t && t.unique_id && t.department_name && t.school_id).map(t => ({ value: t.unique_id, label: t.department_name, schoolId: t.school_id })); 
+                        const response = await this.fetchWithAuth(AppConfig.apiBaseUrl + AppConfig.endpoints.alldept);
+                        if (!response.ok) throw new Error('Network error'); 
+                        const d = await response.json(); 
+                        this.departmentOptions = d.filter(t => t && t.unique_id && t.department_name && t.school_id).map(t => ({ value: t.unique_id, label: t.department_name, schoolId: t.school_id })); 
                     } catch (e) { 
                         Alpine.store('modal').open(false, `Could not load department data: ${e.message}`); 
                     } finally { 
@@ -249,17 +337,12 @@
                 },
 
                 resetForm() {
-                    document.getElementById("addHallForm").reset();
-                    this.hallType = ''; this.selectedFeatures = []; this.selectedBelongsTo = '';
-                    this.selectedSchoolId = null; this.selectedDepartmentId = null; this.selectedDeptSchoolId = null; this.selectedGeneralOptionId = null;
-                    this.searchTerms = { school: '', department: '', deptSchool: '', general: '' };
-                    this.isAvailable = 'yes';
-                    this.unavailabilityReason = '';
+                    this.loadHallData(); // Reload original data
                 },
 
                 async submitForm() {
                     if (!this.hallType) { Alpine.store('modal').open(false, 'Please select a hall type.'); return; }
-                    const form = document.getElementById('addHallForm');
+                    const form = document.getElementById('modifyHallForm');
                     if (!form.checkValidity()) { 
                         Alpine.store('modal').open(false, 'Please fill out all required fields.');
                         form.reportValidity(); 
@@ -268,7 +351,7 @@
                     
                     const payload = {
                         name: form.hall_name.value,
-                        image_url: "https://picsum.photos/id/237/200/300",
+                        image_url: "https://picsum.photos/id/237/200/300", // Placeholder
                         type: this.hallType.replace(/_hall|_room/g, '').toUpperCase(),
                         capacity: parseInt(form.hall_capacity.value, 10),
                         floor: form.hall_floor.value.toUpperCase(),
@@ -294,29 +377,20 @@
                     
                     console.log('Sending Payload:', JSON.stringify(payload, null, 2));
 
-                    const headers = getAuthHeaders();
-                    if (!headers) {
-                        this.logout();
-                        return;
-                    }
-
                     try {
-                        const url = AppConfig.apiBaseUrl + AppConfig.endpoints.addHall
-                        const response = await fetch(url,{ method: 'POST', headers, body: JSON.stringify(payload) });
+                        const url = `${AppConfig.apiBaseUrl}${AppConfig.endpoints.hall}/${this.hallId}`;
+                        const response = await this.fetchWithAuth(url, { 
+                            method: 'PUT',
+                            body: JSON.stringify(payload) 
+                        });
                         
-                        if (response.status === 401) {
-                            this.logout();
-                            return;
-                        }
-
                         const result = await response.json();
                         if (!response.ok) { 
                             throw new Error(result.message || `HTTP error! ${response.status}`);
                         }
-                        Alpine.store('modal').open(true, 'Hall added successfully!');
-                        this.resetForm();
+                        Alpine.store('modal').open(true, 'Hall updated successfully!');
                     } catch (error) {
-                        Alpine.store('modal').open(false, `Failed to add hall. ${error.message}`);
+                        Alpine.store('modal').open(false, `Failed to update hall. ${error.message}`);
                     }
                 }
             }));
