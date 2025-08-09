@@ -58,5 +58,38 @@ const AppConfig = {
         hodDash: 'hod.html',
         bookAndBrowse: 'bookBrowse.html',
         myBookings: 'bookings.html'
+    },
+    
+    formOptions: {
+        // Options for the hall features dropdown
+        features: [
+            { value: 'AC', label: 'AC' },
+            { value: 'PROJECTOR', label: 'Projector' },
+            { value: 'WIFI', label: 'WiFi' },
+            { value: 'SMART_BOARD', label: 'Smart Board' },
+            { value: 'COMPUTER', label: 'Computer' },
+            { value: 'AUDIO_SYSTEM', label: 'Audio System' },
+            { value: 'PODIUM', label: 'Podium' },
+            { value: 'WHITE_BOARD', label: 'White Board' },
+            { value: 'BLACK_BOARD', label: 'Black Board' },
+            { value: 'LIFT', label: 'Lift' },
+            { value: 'RAMP', label: 'Ramp' }
+        ],
+
+        // Options for administrative sections
+        generalSections: [
+            { value: 'ENGINEERING_WING', label: 'Engineering Wing' },
+            { value: 'EXAMINATION_WING', label: 'Examination Wing' },
+            { value: 'LIBRARY', label: 'Library' },
+            { value: 'GUEST_HOUSE', label: 'Guest House' }
+        ],
+        
+        // Options for why a hall might be unavailable
+        unavailabilityReasons: [
+            { value: 'AWAITING_INAUGURATION', label: 'Awaiting Inauguration' },
+            { value: 'UNDER_CONSTRUCTION', label: 'Under Construction' },
+            { value: 'MAINTENANCE', label: 'Under Maintenance' },
+            { value: 'OTHER', label: 'Other' }
+        ]
     }
 };
