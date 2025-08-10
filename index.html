@@ -383,6 +383,7 @@
 
         if (token) {
           sessionStorage.setItem("authToken", token);
+          sessionStorage.setItem("roleToken", role);
           displayMessage("Login successful! Redirecting...", "success");
 
           setTimeout(() => {
@@ -390,7 +391,10 @@
               window.location.replace("admin.html");
             } else if (role === "HOD") {
               window.location.replace("hod.html");
-            } else {
+            } 
+            else if (role === "FACULTY") {
+              window.location.replace("faculty.html");
+            }else {
               displayMessage(
                 "Login successful, but role is not recognized.",
                 "error"
