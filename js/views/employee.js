@@ -104,8 +104,8 @@ window.EmployeeView = (function() {
         }));
     }
 
-    async function updateEmployee(employeeData) {
-         return await fetchFromAPI(`${AppConfig.endpoints.emp}/${employeeData.id}`, { method: 'PUT', body: JSON.stringify(employeeData) });
+    async function updateEmployee(id, employeeData) {
+         return await fetchFromAPI(`${AppConfig.endpoints.emp}/${id}`, { method: 'PUT', body: JSON.stringify(employeeData) });
     }
 
     async function deleteEmployees(employeeIds) {
@@ -246,19 +246,19 @@ window.EmployeeView = (function() {
         e.preventDefault();
         const form = e.target;
         const payload = {
-            id: state.modalState.employeeId,
+            // id: state.modalState.employeeId,
             employee_name: form.querySelector('#update-employee-name').value,
             employee_email: form.querySelector('#update-employee-email').value,
             employee_mobile: form.querySelector('#update-employee-phone').value,
             designation: form.querySelector('#update-employee-designation').value,
             belongs_to: state.modalState.belongsTo,
-            school_id: state.modalState.schoolId,
-            department_id: state.modalState.departmentId,
-            section: state.modalState.section
+            school_id: state.modalState.schoolId || '',
+            department_id: state.modalState.departmentId || '',
+            section: state.modalState.section || ''
         };
         
         try {
-            await updateEmployee(payload);
+            await updateEmployee(state.modalState.employeeId,payload);
             alert('Employee updated successfully!');
             closeModal();
             await initialize();
