@@ -5,26 +5,42 @@ window.ConflictsView = (function() {
     /**
      * Helper function to make authenticated API calls.
      * @param {string} endpoint - The API endpoint to call.
+     * @param {string} [method='GET'] - The HTTP method to use.
+     * @param {object|null} [body=null] - The request body for PUT/POST requests.
      * @returns {Promise<any>} - The JSON response data.
      */
-    async function fetchFromAPI(endpoint) {
+    async function apiCall(endpoint, method = 'GET', body = null) {
         const headers = getAuthHeaders();
         if (!headers) {
             logout();
             throw new Error("User not authenticated");
         }
+
         const fullUrl = AppConfig.apiBaseUrl + endpoint;
-        const response = await fetch(fullUrl, { headers });
+        const options = {
+            method,
+            headers,
+        };
+
+        if (body) {
+            options.headers['Content-Type'] = 'application/json';
+            options.body = JSON.stringify(body);
+        }
+
+        const response = await fetch(fullUrl, options);
 
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`API Error on ${endpoint}: ${response.status} - ${errorText}`);
+            throw new Error(`API Error on ${method} ${endpoint}: ${response.status} - ${errorText}`);
         }
+        
         const text = await response.text();
-        if (!text) return [];
+        if (!text) return null; // Return null for empty responses (e.g., on successful PUT/DELETE)
+        
         const result = JSON.parse(text);
         return result.data || result;
     }
+
 
     /**
      * Fetches pending bookings and identifies conflicts.
@@ -32,7 +48,7 @@ window.ConflictsView = (function() {
      * @returns {Promise<Array>} A promise that resolves to an array of conflicting booking objects.
      */
     async function fetchBookingConflictsData() {
-        const pendingBookings = await fetchFromAPI(AppConfig.endpoints.pendingApprovals);
+        const pendingBookings = await apiCall(AppConfig.endpoints.pendingApprovals);
         if (!pendingBookings || pendingBookings.length === 0) {
             return [];
         }
@@ -57,6 +73,41 @@ window.ConflictsView = (function() {
 
         return Array.from(conflictingBookings);
     }
+
+    /**
+     * Handles the approval or rejection of a booking.
+     * @param {string} bookingId - The unique ID of the booking.
+     * @param {string} action - The action to perform ('approve' or 'reject').
+     */
+    async function handleBookingAction(bookingId, action) {
+        // Disable buttons on the row to prevent double-clicks
+        const row = document.querySelector(`tr[data-booking-id="${bookingId}"]`);
+        if(row) {
+            row.querySelectorAll('button').forEach(btn => btn.disabled = true);
+            row.style.opacity = '0.5';
+        }
+
+        try {
+            // Construct the endpoint from the base path and action
+            const endpoint = `/api/booking/${bookingId}/${action}`;
+            const result = await apiCall(endpoint, 'PUT');
+
+            console.log(`Booking ${bookingId} ${action}d successfully.`, result);
+            
+            // On success, simply re-initialize the view to refresh the list
+            await initialize();
+
+        } catch (error) {
+            console.error(`Failed to ${action} booking ${bookingId}:`, error);
+            alert(`Error: Could not ${action} the booking. ${error.message}`);
+            // Re-enable buttons on failure
+            if(row) {
+                row.querySelectorAll('button').forEach(btn => btn.disabled = false);
+                row.style.opacity = '1';
+            }
+        }
+    }
+
 
     // --- RENDERING ---
     /**
@@ -99,8 +150,8 @@ window.ConflictsView = (function() {
                 </td>
                 <td class="whitespace-nowrap px-3 py-4 text-sm">
                     <div class="flex flex-col gap-2">
-                        <button data-action="approve" class="px-3 py-1 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-md transition">Approve</button>
-                        <button data-action="reject" class="px-3 py-1 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-md transition">Reject</button>
+                        <button data-action="approve" class="px-3 py-1 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-md transition disabled:opacity-50 disabled:cursor-not-allowed">Approve</button>
+                        <button data-action="reject" class="px-3 py-1 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-md transition disabled:opacity-50 disabled:cursor-not-allowed">Reject</button>
                     </div>
                 </td>
             </tr>
@@ -117,11 +168,19 @@ window.ConflictsView = (function() {
         const tableBody = document.getElementById('booking-conflicts-body');
         if (!tableBody) return;
 
-        // Placeholder for future functionality to resolve conflicts
         tableBody.addEventListener('click', (e) => {
             const button = e.target.closest('button[data-action]');
-            if (!button) return;
-            alert('Conflict resolution is not yet connected to the backend.');
+            if (!button || button.disabled) return;
+
+            const action = button.dataset.action;
+            const row = e.target.closest('tr[data-booking-id]');
+            const bookingId = row ? row.dataset.bookingId : null;
+
+            if (bookingId && (action === 'approve' || action === 'reject')) {
+                 if (confirm(`Are you sure you want to ${action} booking ${bookingId}? This may resolve the conflict.`)) {
+                    handleBookingAction(bookingId, action);
+                }
+            }
         });
     }
 
@@ -129,10 +188,15 @@ window.ConflictsView = (function() {
      * Initializes the Booking Conflicts view.
      */
     async function initialize() {
+        // A flag to ensure event handlers are only set up once.
+        if (!window.ConflictsView.isInitialized) {
+             setupEventHandlers();
+             window.ConflictsView.isInitialized = true;
+        }
+
         try {
             const data = await fetchBookingConflictsData();
             renderBookingConflictsTable(data);
-            setupEventHandlers();
         } catch (error) {
             console.error('Error loading booking conflicts:', error);
             const tableBody = document.getElementById('booking-conflicts-body');

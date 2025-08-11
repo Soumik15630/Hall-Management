@@ -37,7 +37,8 @@ const AppConfig = {
         myBookings: 'api/booking/my-requests',
         pendingApprovals: 'api/booking/pending-approval',
         getHallSchedule: 'api/booking/hall/',
-        getHallById: 'api/hall/'
+        getHallById: 'api/hall/',
+        forward: 'api/forward'
     },
     links: {
         // General Links

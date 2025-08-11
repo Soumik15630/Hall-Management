@@ -155,13 +155,16 @@ window.FinalBookingFormView = (function() {
 
     async function fetchHallAvailability(hallId) {
         try {
-            const bookings = await fetchFromAPI(`/api/booking/hall/${hallId}`);
+            // MODIFIED: Now uses the getHallSchedule endpoint from AppConfig
+            const endpoint = `${AppConfig.endpoints.getHallSchedule}${hallId}`;
+            const bookings = await fetchFromAPI(endpoint);
             
             if (!Array.isArray(bookings)) {
+                console.error("Expected an array of bookings but received:", bookings);
                 return [];
             }
 
-            // Transform the booking data to match our expected format
+            // Transform the booking data to match the state's expected format
             return bookings.map(booking => ({
                 hall_id: hallId,
                 start_date: booking.start_time,
@@ -177,6 +180,8 @@ window.FinalBookingFormView = (function() {
                 additional_info: booking.additional_info || booking.notes || ''
             }));
         } catch (error) {
+            console.error(`Failed to fetch hall schedule for hallId ${hallId}:`, error);
+            // Return an empty array on error so the UI can still render
             return [];
         }
     }
@@ -880,29 +885,39 @@ window.FinalBookingFormView = (function() {
                 return;
             }
 
-            // Since we now only allow single-day bookings, this is simplified
+            // Get the date and sorted times from the state
             const selectedDate = state.selectedSlots[0].date;
             const times = state.selectedSlots.map(slot => slot.time).sort();
             
-            const startTime = times[0];
-            const endTime = times[times.length - 1];
+            // --- NEW PAYLOAD LOGIC ---
             
-            // Calculate end time (add 1 hour to last slot)
-            const [endHour, endMinute] = endTime.split(':');
-            const endHourInt = parseInt(endHour) + 1;
-            const calculatedEndTime = `${String(endHourInt).padStart(2, '0')}:${endMinute}`;
+            // 1. Get start_time and end_time in HH:MM format
+            const startTime = times[0]; // The first selected slot
+            const lastSlotStartTime = times[times.length - 1]; // The last selected slot
             
-            const startDateTime = `${selectedDate}T${startTime}:00.000Z`;
-            const endDateTime = `${selectedDate}T${calculatedEndTime}:00.000Z`;
+            // Calculate the final end time by adding 1 hour to the start of the last slot
+            const [endHour, endMinute] = lastSlotStartTime.split(':');
+            const calculatedEndTime = `${String(parseInt(endHour) + 1).padStart(2, '0')}:${endMinute}`;
 
+            // 2. Format start_date and end_date as ISO 8601 datetime strings.
+            //    Since the UI only supports single-day bookings, they are the same.
+            const startDate = `${selectedDate}T00:00:00.000Z`;
+            const endDate = `${selectedDate}T00:00:00.000Z`;
+
+            // 3. Assemble the new bookingRequest object
             const bookingRequest = {
                 hall_id: state.hall.id,
-                start_time: startDateTime,
-                end_time: endDateTime,
                 purpose: purposeInput.value.trim(),
                 class_code: classCodeInput?.value.trim() || null,
-                booking_type: state.bookingType
+                booking_type: state.bookingType, // This will be 'INDIVIDUAL'
+                start_date: startDate,
+                end_date: endDate,
+                start_time: startTime,
+                end_time: calculatedEndTime
+                // The 'days_of_week' field is omitted as it is optional for INDIVIDUAL bookings
             };
+            
+            // --- END OF NEW PAYLOAD LOGIC ---
             
             // Show loading state
             const submitBtn = document.querySelector('button[type="submit"]');
@@ -911,6 +926,7 @@ window.FinalBookingFormView = (function() {
             submitBtn.disabled = true;
 
             try {
+                // The addIndividualBooking function will now send the new payload structure
                 const result = await addIndividualBooking(bookingRequest);
                 alert(`Booking request submitted successfully! You will receive confirmation once approved.`);
                 resetForm();

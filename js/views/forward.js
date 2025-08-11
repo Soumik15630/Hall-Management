@@ -1,5 +1,6 @@
 // Forward Bookings View Module
 window.ForwardView = (function() {
+    let abortController;
 
     // --- API & DATA HANDLING ---
     /**
@@ -9,13 +10,22 @@ window.ForwardView = (function() {
      * @returns {Promise<any>} - The JSON response data.
      */
     async function fetchFromAPI(endpoint, options = {}) {
+        // This function assumes getAuthHeaders() and AppConfig are defined globally
+        // and that logout() is available to handle authentication failures.
         const headers = getAuthHeaders();
         if (!headers) {
             logout();
             throw new Error("User not authenticated");
         }
+        // Ensure Content-Type is set for POST/PUT requests with a body
+        if (options.body) {
+            headers['Content-Type'] = 'application/json';
+        }
+
         const fullUrl = AppConfig.apiBaseUrl + endpoint;
-        const config = { ...options, headers };
+        const config = { ...options,
+            headers
+        };
         const response = await fetch(fullUrl, config);
 
         if (!response.ok) {
@@ -25,18 +35,30 @@ window.ForwardView = (function() {
         const text = await response.text();
         if (!text) return null;
         const result = JSON.parse(text);
+        // This handles responses that wrap data in a 'data' property
+        // and also responses that do not (like the reject/approve endpoints).
         return result.data || result;
     }
 
     /**
      * Fetches bookings that are pending and need to be forwarded.
-     * This assumes an endpoint exists for this specific purpose.
      */
     async function fetchForwardBookingsData() {
-        // Assuming an endpoint like 'pending/forward' exists for this role.
-        // If not, this would need to filter from a general pending list.
-        return await fetchFromAPI(AppConfig.endpoints.pendingApprovals); 
+        return await fetchFromAPI(AppConfig.endpoints.pendingApprovals);
     }
+
+    /**
+     * Updates the status of a booking to 'REJECTED'.
+     * @param {string} bookingId - The ID of the booking to reject.
+     */
+    async function rejectBooking(bookingId) {
+        const endpoint = `${AppConfig.endpoints.booking}/${bookingId}/reject`;
+        // We expect a JSON response with a message, so we use fetchFromAPI
+        return await fetchFromAPI(endpoint, {
+            method: 'PUT'
+        });
+    }
+
 
     // --- RENDERING ---
     /**
@@ -51,7 +73,7 @@ window.ForwardView = (function() {
             tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-slate-400">No pending requests to forward.</td></tr>`;
             return;
         }
-        
+
         const tableHtml = data.map(booking => `
             <tr class="hover:bg-slate-800/50 transition-colors">
                 <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300">${new Date(booking.created_at).toLocaleDateString()}</td>
@@ -88,15 +110,43 @@ window.ForwardView = (function() {
      * @param {string} action - The action to perform ('forward' or 'reject').
      */
     async function handleBookingAction(bookingId, action) {
-        // This is a placeholder for the actual API call logic.
-        // For example, forwarding might involve a PUT/POST to a '/forward' endpoint.
-        alert(`Action '${action}' for booking ${bookingId} is not yet implemented.`);
+        try {
+            let response;
+            if (action === 'forward') {
+                // Use the fetchFromAPI helper for a POST request to the 'forward' endpoint
+                response = await fetchFromAPI(AppConfig.endpoints.forward, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        unique_id: bookingId
+                    })
+                });
+                alert(response.message || `Booking ${bookingId} has been forwarded successfully!`);
+
+            } else if (action === 'reject') {
+                // Call the rejectBooking function to handle the API call
+                response = await rejectBooking(bookingId);
+                alert(response.message || `Booking ${bookingId} has been rejected successfully.`);
+            }
+
+            // Refresh the list to show the updated data
+            await initialize();
+
+        } catch (error) {
+            console.error(`Failed to ${action} booking ${bookingId}:`, error);
+            alert(`Error: Could not complete the '${action}' action. ${error.message}`);
+        }
     }
 
     /**
      * Sets up event listeners for the view.
      */
     function setupEventHandlers() {
+        if (abortController) abortController.abort();
+        abortController = new AbortController();
+        const {
+            signal
+        } = abortController;
+
         const tableBody = document.getElementById('forward-bookings-body');
         if (!tableBody) return;
 
@@ -110,6 +160,8 @@ window.ForwardView = (function() {
             if (confirm(`Are you sure you want to ${action} this booking?`)) {
                 handleBookingAction(bookingId, action);
             }
+        }, {
+            signal
         });
     }
 
@@ -124,12 +176,17 @@ window.ForwardView = (function() {
         } catch (error) {
             console.error('Error loading forward bookings view:', error);
             const tableBody = document.getElementById('forward-bookings-body');
-            if(tableBody) tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-red-400">Failed to load data. ${error.message}</td></tr>`;
+            if (tableBody) tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-red-400">Failed to load data. ${error.message}</td></tr>`;
         }
+    }
+
+    function cleanup() {
+        if (abortController) abortController.abort();
     }
 
     // Public API
     return {
-        initialize
+        initialize,
+        cleanup
     };
 })();

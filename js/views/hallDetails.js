@@ -22,6 +22,12 @@ window.HallDetailsView = (function() {
         }
         const fullUrl = AppConfig.apiBaseUrl + endpoint;
         const config = { ...options, headers };
+
+        // Ensure Content-Type is set for methods with a body
+        if (options.body && !config.headers['Content-Type']) {
+            config.headers['Content-Type'] = 'application/json';
+        }
+
         const response = await fetch(fullUrl, config);
         if (!response.ok) {
             const errorText = await response.text();
@@ -29,9 +35,15 @@ window.HallDetailsView = (function() {
         }
         if (isJson) {
             const text = await response.text();
-            if (!text) return null;
-            const result = JSON.parse(text);
-            return result.data || result;
+            // Handle empty response body for 200 OK, etc.
+            if (!text) return null; 
+            try {
+                const result = JSON.parse(text);
+                return result.data || result;
+            } catch (e) {
+                console.error("Failed to parse JSON response:", text);
+                throw new Error("Invalid JSON response from server.");
+            }
         }
         return response;
     }
@@ -235,15 +247,31 @@ window.HallDetailsView = (function() {
 
     // --- MODAL SPECIFIC LOGIC ---
     function setupUpdateStatusModal() {
-        const hall = state.allHalls.find(h => h.hallCode === state.selectedRows[0]);
-        if (!hall) return;
-
-        document.querySelector(`input[name="status-option"][value="${hall.status}"]`).checked = true;
+        const isSingleSelection = state.selectedRows.length === 1;
+        const hall = isSingleSelection ? state.allHalls.find(h => h.hallCode === state.selectedRows[0]) : null;
+    
+        const availableRadio = document.querySelector('input[name="status-option"][value="true"]');
+        const unavailableRadio = document.querySelector('input[name="status-option"][value="false"]');
+        
+        // Default to 'Available' if multiple halls are selected, otherwise use the hall's current status.
+        if (hall) {
+            (hall.status ? availableRadio : unavailableRadio).checked = true;
+        } else {
+            availableRadio.checked = true;
+        }
+    
         const reasonContainer = document.getElementById('status-reason-container');
-        reasonContainer.classList.toggle('hidden', hall.status);
+        const reasonTextarea = document.getElementById('status-reason-textarea');
+        
+        if (reasonTextarea) reasonTextarea.value = '';
+        
+        const shouldShowReason = unavailableRadio.checked;
+        reasonContainer.classList.toggle('hidden', !shouldShowReason);
         
         document.querySelectorAll('input[name="status-option"]').forEach(radio => {
-            radio.addEventListener('change', (e) => reasonContainer.classList.toggle('hidden', e.target.value === 'true'));
+            radio.addEventListener('change', (e) => {
+                reasonContainer.classList.toggle('hidden', e.target.value === 'true');
+            });
         });
     }
 
@@ -273,6 +301,102 @@ window.HallDetailsView = (function() {
             return `<label class="flex items-center text-slate-300"><input type="checkbox" value="${feature}" class="feature-checkbox form-checkbox h-4 w-4 bg-slate-800 text-blue-500 border-slate-600 rounded focus:ring-blue-500 mr-2" ${isChecked ? 'checked' : ''}>${feature}</label>`;
         }).join('');
     }
+
+    /**
+     * Handles the submission of the status update modal.
+     * It constructs a PUT request to the /api/hall/:id endpoint for each selected hall.
+     */
+    async function handleStatusUpdate() {
+        const submitBtn = document.getElementById('submit-status-update');
+        const originalBtnHTML = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `Updating...`;
+
+        try {
+            const newStatus = document.querySelector('input[name="status-option"]:checked').value === 'true';
+            const reasonInput = document.getElementById('status-reason-textarea');
+            const reason = reasonInput ? reasonInput.value.trim() : '';
+
+            if (!newStatus && !reason) {
+                alert('A reason is required when setting a hall to "Unavailable".');
+                return; // Stop execution
+            }
+
+            const payload = { availability: newStatus };
+            if (!newStatus) {
+                payload.reason_for_unavailability = reason;
+            }
+
+            // Create an array of promises for all the API calls
+            const updatePromises = state.selectedRows.map(hallId => {
+                const endpoint = `/api/hall/${hallId}`;
+                return fetchFromAPI(endpoint, {
+                    method: 'PUT',
+                    body: JSON.stringify(payload)
+                }, false); // The PUT response might not have a body, so don't force JSON parsing of the response.
+            });
+
+            // Wait for all updates to complete
+            await Promise.all(updatePromises);
+
+            alert(`Successfully updated status for ${state.selectedRows.length} hall(s).`);
+            closeModal();
+            
+            // Re-initialize to fetch the latest data and refresh the view
+            await initialize(); 
+
+        } catch (error) {
+            console.error('Failed to update hall status:', error);
+            alert(`An error occurred while updating status: ${error.message}. Please try again.`);
+        } finally {
+            // Restore button state regardless of success or failure
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalBtnHTML;
+        }
+    }
+
+    /**
+     * Handles the submission of the modify features modal.
+     * It constructs a PUT request to the /api/hall/:id endpoint.
+     */
+    async function handleFeaturesUpdate() {
+        const submitBtn = document.getElementById('submit-features-update');
+        const originalBtnHTML = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `Updating...`;
+
+        try {
+            const selectedFeatures = Array.from(document.querySelectorAll('.feature-checkbox:checked')).map(cb => cb.value);
+            const hallId = state.selectedRows[0];
+
+            if (!hallId) {
+                throw new Error("No hall selected for feature update.");
+            }
+
+            const payload = { features: selectedFeatures };
+            const endpoint = `/api/hall/${hallId}`;
+
+            await fetchFromAPI(endpoint, {
+                method: 'PUT',
+                body: JSON.stringify(payload)
+            }, false); // The PUT response might not have a body, so don't force JSON parsing of the response.
+
+            alert(`Successfully updated features for hall ${hallId}.`);
+            closeModal();
+            
+            // Re-initialize to fetch the latest data and refresh the view
+            await initialize();
+
+        } catch (error) {
+            console.error('Failed to update hall features:', error);
+            alert(`An error occurred while updating features: ${error.message}. Please try again.`);
+        } finally {
+            // Restore button state regardless of success or failure
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalBtnHTML;
+        }
+    }
+
 
     // --- EVENT HANDLERS ---
     function setupEventHandlers() {
@@ -307,16 +431,9 @@ window.HallDetailsView = (function() {
         document.querySelectorAll('.modal-close-btn').forEach(btn => btn.addEventListener('click', closeModal, { signal }));
         document.getElementById('modal-backdrop')?.addEventListener('click', closeModal, { signal });
         
-        // Modal submission logic (placeholders)
-        document.getElementById('submit-status-update')?.addEventListener('click', () => {
-            alert(`Status updated for ${state.selectedRows.length} hall(s).`);
-            closeModal();
-        }, { signal });
-        
-        document.getElementById('submit-features-update')?.addEventListener('click', () => {
-            alert(`Features updated for ${state.selectedRows[0]}.`);
-            closeModal();
-        }, { signal });
+        // --- MODAL SUBMISSION LOGIC ---
+        document.getElementById('submit-status-update')?.addEventListener('click', handleStatusUpdate, { signal });
+        document.getElementById('submit-features-update')?.addEventListener('click', handleFeaturesUpdate, { signal });
     }
     
     function cleanup() {
@@ -336,7 +453,7 @@ window.HallDetailsView = (function() {
         } catch (error) {
             console.error('Error loading hall details:', error);
             const tableBody = document.getElementById('hall-details-body');
-            if(tableBody) tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-red-400">Failed to load hall data.</td></tr>`;
+            if(tableBody) tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-red-400">Failed to load hall data. Please try again.</td></tr>`;
         }
     }
 
