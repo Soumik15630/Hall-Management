@@ -148,7 +148,7 @@
                                 <div class="border rounded-lg p-4 flex flex-col bg-blue-50/50 transition-all duration-300 hover:shadow-lg">
                                     <img :src="hall.imageUrl" alt="Hall Image" class="w-full h-40 object-cover rounded-md mb-4" :onerror="`this.onerror=null;this.src='https://placehold.co/600x400/e2e8f0/64748b?text=Image+Not+Found';`">
                                     <h4 class="font-bold text-lg text-gray-900" x-text="hall.name"></h4>
-                                    <p class="text-sm text-gray-600" x-text="hall.departmentName"></p>
+                                    <p class="text-sm text-gray-600" x-text="hall.ownerName"></p>
                                     <p class="text-sm text-gray-600 mt-2">Capacity: <span class="font-semibold" x-text="hall.capacity"></span></p>
                                     <div class="flex-grow"></div>
                                     <div class="grid grid-cols-2 gap-2 mt-4">
@@ -270,18 +270,27 @@
                         const data = await this.fetchWithAuth(url);
                         
                         this.allHalls = data.map(hall => {
+                            let ownerName = 'Administration'; // Default
                             const dept = this.departmentOptions.find(d => d.value === hall.department_id);
+                            const school = this.schoolOptions.find(s => s.value === hall.school_id);
+
+                            if (dept) {
+                                ownerName = dept.label;
+                            } else if (school) {
+                                ownerName = school.label;
+                            }
+
                             return { 
                                 id: hall.unique_id,
                                 name: hall.name,
                                 departmentId: hall.department_id,
                                 schoolId: hall.school_id,
-                                departmentName: dept ? dept.label : 'University Central',
+                                ownerName: ownerName,
                                 capacity: hall.capacity,
-                                type: hall.type, // SEMINAR, LECTURE etc.
+                                type: hall.type,
                                 floor: hall.floor,
                                 zone: hall.zone,
-                                features: hall.features, // Expects an array like ['AC', 'PROJECTOR']
+                                features: hall.features || [],
                                 imageUrl: hall.image_url1 || 'https://placehold.co/600x400/e2e8f0/64748b?text=Image+Not+Found'
                             };
                         });
