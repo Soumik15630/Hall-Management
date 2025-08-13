@@ -69,14 +69,18 @@ window.HallBookingDetailsView = (function() {
         if (!state.availabilityData || state.availabilityData.length === 0) {
             return [];
         }
-        // The API response is an array of bookings, so we can filter it directly
+        
+        const slotDateTime = new Date(`${dateString}T${time}:00.000Z`);
+
         return state.availabilityData.filter(b => {
-            if (!b || !b.start_time) return false;
+            if (!b || !b.start_time || !b.end_time) return false;
+            
             try {
-                const bookingDate = new Date(b.start_time).toISOString().split('T')[0];
-                const bookingTime = new Date(b.start_time).toTimeString().substring(0, 5);
-                return bookingDate === dateString && bookingTime === time;
+                const bookingStartDateTime = new Date(b.start_time);
+                const bookingEndDateTime = new Date(b.end_time);
+                return slotDateTime >= bookingStartDateTime && slotDateTime < bookingEndDateTime;
             } catch (e) {
+                console.error("Error parsing booking dates", e);
                 return false;
             }
         });
@@ -133,7 +137,6 @@ window.HallBookingDetailsView = (function() {
 
     function renderHallInfo() {
         const { hall } = state;
-        // This function now expects hall.location and hall.incharge to exist
         document.getElementById('booking-hall-details').innerHTML = `
             <h3 class="text-lg font-bold text-blue-300 mb-3">Hall Details</h3>
             <div class="space-y-2 text-sm">
@@ -203,41 +206,33 @@ window.HallBookingDetailsView = (function() {
     }
 
     function getSlotStatus(dateString, time) {
-        // 1. Check if selected by the user
         if (state.selectedSlots.some(s => s.date === dateString && s.time === time)) {
             return { classes: 'bg-cyan-500 ring-2 ring-cyan-200', status: 'selected', isClickable: true };
         }
 
-        // 2. Check if the slot is in the past. This has the highest priority.
         if (isSlotInPast(dateString, time)) {
             return { classes: 'bg-slate-700/50 cursor-not-allowed', status: 'past', isClickable: false };
         }
 
-        // 3. Check for existing bookings (Approved or Pending)
         const bookings = getBookingsForSlot(dateString, time);
         if (bookings.length > 0) {
             if (bookings.some(b => b.status === 'APPROVED')) {
-                // RED for booked
                 return { classes: 'bg-red-600/80 cursor-pointer', status: 'booked', isClickable: true };
             }
             if (bookings.some(b => b.status === 'PENDING')) {
-                // YELLOW for pending
                 return { classes: 'bg-yellow-500/80 hover:bg-yellow-400/80 cursor-pointer', status: 'pending', isClickable: true };
             }
+            // Fallback for bookings without a status field
+            return { classes: 'bg-red-600/80 cursor-pointer', status: 'booked', isClickable: true };
         }
         
-        // Create a date object safely for checking the day of the week
         const dateParts = dateString.split('-').map(Number);
         const dayOfWeek = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]).getDay();
 
-        // 4. If available, check if it's a weekend
-        if (dayOfWeek === 0 || dayOfWeek === 6) { // 0 for Sunday, 6 for Saturday
-            // LIGHT GREEN for available weekend slots
+        if (dayOfWeek === 0 || dayOfWeek === 6) {
             return { classes: 'bg-green-400/60 hover:bg-green-500/70', status: 'available-weekend', isClickable: true };
         }
 
-        // 5. If none of the above, it's an available weekday slot
-        // DEEP GREEN for available weekday slots
         return { classes: 'bg-green-700/80 hover:bg-green-600/80', status: 'available', isClickable: true };
     }
 
@@ -250,7 +245,6 @@ window.HallBookingDetailsView = (function() {
         const viewContainer = document.getElementById('hall-booking-details-view');
         if (!viewContainer) return;
 
-        // Main click handler
         viewContainer.addEventListener('click', e => {
             const button = e.target.closest('button');
             if (!button) return;
@@ -268,38 +262,31 @@ window.HallBookingDetailsView = (function() {
             }
         }, { signal });
 
-        // Tooltip handlers
         const grid = viewContainer.querySelector('#booking-calendar-grid');
         if (!grid) return;
 
         grid.addEventListener('mouseover', e => {
-            const slot = e.target.closest('button[data-status]');
-            if (slot && (slot.dataset.status === 'booked' || slot.dataset.status === 'pending')) {
+            const slot = e.target.closest('button[data-status="booked"], button[data-status="pending"]');
+            if (slot) {
                 clearTimeout(tooltipTimeout);
                 tooltipTimeout = setTimeout(() => showSlotTooltip(slot), 200);
             }
         }, { signal });
 
         grid.addEventListener('mouseout', e => {
-            const slot = e.target.closest('button[data-status]');
+            const slot = e.target.closest('button[data-status="booked"], button[data-status="pending"]');
             if (slot) {
                 clearTimeout(tooltipTimeout);
-                // Don't hide on mouseout immediately, gives user time to move to the tooltip
                 tooltipTimeout = setTimeout(removeTooltip, 300);
             }
         }, { signal });
         
-        // Keep tooltip open if mouse enters it
         document.body.addEventListener('mouseover', e => {
-            if (e.target.closest('#booking-tooltip')) {
-                clearTimeout(tooltipTimeout);
-            }
+            if (e.target.closest('#booking-tooltip')) clearTimeout(tooltipTimeout);
         }, { signal });
         
         document.body.addEventListener('mouseout', e => {
-             if (e.target.closest('#booking-tooltip')) {
-                removeTooltip();
-            }
+             if (e.target.closest('#booking-tooltip')) removeTooltip();
         }, { signal });
     }
 
@@ -311,25 +298,26 @@ window.HallBookingDetailsView = (function() {
     }
 
     function showSlotTooltip(slotEl) {
-        const { date, time } = slotEl.dataset;
+        const { date, time, status } = slotEl.dataset;
         const bookings = getBookingsForSlot(date, time);
         if (bookings.length === 0) return;
 
-        const approvedBooking = bookings.find(b => b.status === 'APPROVED');
-        if (approvedBooking) {
+        const booking = bookings[0];
+        
+        if (status === 'booked') {
             const content = `
                 <div class="font-bold text-red-400 mb-2">Slot Booked</div>
                 <div class="space-y-1">
-                    <div><span class="text-slate-400">By:</span> <span class="text-white">${approvedBooking.bookingRequest?.user?.name || 'N/A'}</span></div>
-                    <div><span class="text-slate-400">Dept:</span> <span class="text-white">${approvedBooking.bookingRequest?.user?.department || 'N/A'}</span></div>
-                    <div><span class="text-slate-400">Purpose:</span> <span class="text-white">${approvedBooking.bookingRequest?.purpose || 'N/A'}</span></div>
+                    <div><span class="text-slate-400">By:</span> <span class="text-white">${booking.user.name}</span></div>
+                    <div><span class="text-slate-400">Dept:</span> <span class="text-white">${booking.user.department}</span></div>
+                    <div><span class="text-slate-400">Purpose:</span> <span class="text-white">${booking.purpose}</span></div>
                 </div>`;
             createTooltip(content, slotEl);
-        } else { // Must be pending
+        } else if (status === 'pending') {
             const content = `
                 <div class="font-bold text-yellow-400 mb-2">Pending Requests (${bookings.length})</div>
                 <ul class="space-y-2 list-disc list-inside">
-                    ${bookings.map(b => `<li><span class="text-white">${b.bookingRequest?.user?.name || 'N/A'}</span> <span class="text-slate-400">(${b.bookingRequest?.user?.department || 'N/A'})</span></li>`).join('')}
+                    ${bookings.map(b => `<li><span class="text-white">${b.user.name}</span> <span class="text-slate-400">(${b.user.department})</span></li>`).join('')}
                 </ul>
                 <div class="text-xs text-slate-500 mt-2">This slot can still be selected.</div>`;
             createTooltip(content, slotEl);
@@ -339,12 +327,10 @@ window.HallBookingDetailsView = (function() {
     function handleSlotClick(slotEl) {
         const { status } = slotEl.dataset;
 
-        // Show tooltip for booked/pending slots on click
         if (status === 'booked' || status === 'pending') {
             showSlotTooltip(slotEl);
         }
         
-        // Prevent selection for past or already approved slots
         if (status === 'past' || status === 'booked') {
             return;
         }
@@ -356,7 +342,6 @@ window.HallBookingDetailsView = (function() {
         } else {
              const existingDates = [...new Set(state.selectedSlots.map(slot => slot.date))];
              if(existingDates.length > 0 && !existingDates.includes(date)) {
-                 // Using a more modern notification instead of alert
                  showNotification("You can only pre-select slots for one day at a time. Please clear your selection to choose a different day.");
                  return;
              }
@@ -396,17 +381,15 @@ window.HallBookingDetailsView = (function() {
             sessionStorage.removeItem('finalBookingSlots');
             sessionStorage.removeItem('finalBookingHall');
 
-            // Fetch hall details and availability concurrently
             const [hallData, availabilityData] = await Promise.all([
-                fetchFromAPI(`api/hall/${hallId}`), // Fetch specific hall details
-                fetchFromAPI(`api/booking/hall/${hallId}`) // Fetch bookings for the hall
+                fetchFromAPI(`api/hall/${hallId}`),
+                fetchFromAPI(`api/booking/hall/${hallId}`)
             ]);
             
             if (!hallData) {
                 throw new Error(`Hall data not found for ID: ${hallId}`);
             }
 
-            // Process the raw hall data to create a consistent object for the state
             const processedHallData = {
                 ...hallData,
                 location: `${hallData.school?.school_name || ''}${hallData.department?.department_name ? ' - ' + hallData.department.department_name : ''}`.trim() || 'N/A',
@@ -418,9 +401,22 @@ window.HallBookingDetailsView = (function() {
                 }
             };
             
+            // UPDATED: Process the availability data to create a consistent, safe structure.
+            const processedAvailabilityData = (availabilityData || []).map(b => ({
+                start_time: b.start_time,
+                end_time: b.end_time,
+                status: b.status || 'APPROVED', // Default to APPROVED if status is missing
+                purpose: b.bookingRequest?.purpose || b.purpose || 'N/A',
+                class_code: b.bookingRequest?.class_code || b.class_code || null,
+                user: {
+                    name: b.bookingRequest?.user?.name || b.user?.name || 'N/A',
+                    department: b.bookingRequest?.user?.department || b.user?.department || 'N/A'
+                }
+            }));
+
             state = {
                 hall: processedHallData,
-                availabilityData: availabilityData || [],
+                availabilityData: processedAvailabilityData, // Use the processed data
                 selectedSlots: [],
                 currentDate: new Date(),
             };

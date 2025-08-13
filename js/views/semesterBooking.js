@@ -311,14 +311,36 @@ window.SemesterBookingView = (function() {
         optionsContainer.innerHTML = filteredEmployees.map(emp => `<div class="p-2 cursor-pointer hover:bg-slate-700" data-value="${emp.email}" data-name="${emp.name}">${emp.name}</div>`).join('');
     }
 
+    /**
+     * MODIFIED FUNCTION
+     * The original code prevented this function from running if a button was clicked.
+     * This change ensures that clicking anywhere on the card, including the "View Details" button,
+     * correctly selects the hall and its ID. This prevents a "garbage value" or incorrect ID from being used.
+     */
     function handleHallClick(e) {
         const card = e.target.closest('.semester-hall-card');
-        if (!card || e.target.closest('button')) return;
-        state.selectedHallId = card.dataset.hallId;
-        document.querySelectorAll('.semester-hall-card').forEach(c => c.classList.remove('active'));
-        card.classList.add('active');
-        renderBookingPanel();
-        saveStateToSession();
+        // If the click is not on a card, do nothing.
+        if (!card) return;
+
+        // The original logic `if (!card || e.target.closest('button')) return;` was preventing
+        // clicks on the "View Details" button from being processed. 
+        // By removing that check, we ensure that clicking anywhere inside the card,
+        // including the button, correctly selects the hall.
+        
+        const hallId = card.dataset.hallId;
+
+        // This ensures we always have a valid hallId before proceeding.
+        if (hallId) {
+            state.selectedHallId = hallId;
+            document.querySelectorAll('.semester-hall-card').forEach(c => c.classList.remove('active'));
+            card.classList.add('active');
+            renderBookingPanel();
+            saveStateToSession();
+        } else {
+            // This case should not be reached if the HTML is rendered correctly,
+            // but it's a good safeguard against passing a "garbage value".
+            console.error("Clicked card does not have a hall-id.", card);
+        }
     }
 
     function toggleSlotSelection(day, period) {
