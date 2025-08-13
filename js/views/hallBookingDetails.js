@@ -15,6 +15,59 @@ window.HallBookingDetailsView = (function() {
     const timeSlots = ['09:30', '10:30', '11:30', '12:30', '13:30', '14:30', '15:30', '16:30'];
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+    // --- UI HELPERS ---
+    /**
+     * Creates and displays a loading overlay.
+     * This prevents user interaction while data is being fetched.
+     */
+    function showLoader() {
+        // Check if loader already exists to avoid duplicates
+        if (document.getElementById('booking-loader')) return;
+
+        const loader = document.createElement('div');
+        loader.id = 'booking-loader';
+        // Uses fixed positioning to cover the entire viewport. Tailwind classes handle styling.
+        loader.className = 'fixed inset-0 bg-slate-900 bg-opacity-75 flex items-center justify-center z-[100] transition-opacity duration-300 opacity-0';
+        loader.innerHTML = `
+            <style>
+                /* A simple CSS spinner animation */
+                .spinner {
+                    width: 56px;
+                    height: 56px;
+                    border-radius: 50%;
+                    border: 8px solid #475569; /* slate-600 */
+                    border-top-color: #60a5fa; /* blue-400 */
+                    animation: spin 1s linear infinite;
+                }
+                @keyframes spin {
+                    to { transform: rotate(360deg); }
+                }
+            </style>
+            <div class="spinner" role="status" aria-label="Loading..."></div>
+        `;
+        document.body.appendChild(loader);
+
+        // A tiny delay to allow the element to be in the DOM before starting the transition
+        setTimeout(() => {
+            loader.classList.remove('opacity-0');
+        }, 10);
+    }
+
+    /**
+     * Hides and removes the loading overlay with a fade-out effect.
+     */
+    function hideLoader() {
+        const loader = document.getElementById('booking-loader');
+        if (loader) {
+            loader.classList.add('opacity-0');
+            // Remove the loader from the DOM after the transition completes
+            setTimeout(() => {
+                loader.remove();
+            }, 300); // Should match the duration-300 class
+        }
+    }
+
+
     // --- UTILITY FUNCTIONS FOR IST TIME HANDLING ---
     function getTodayISTString() {
         const now = new Date();
@@ -362,19 +415,9 @@ window.HallBookingDetailsView = (function() {
     }
 
     function handleBookHall() {
-        // 1. Check if any slots are selected (your existing logic)
-        if (state.selectedSlots.length === 0) {
-            showNotification("Please select at least one time slot to book.");
-            return;
-        }
-
-        // 2. Save the necessary data to sessionStorage
-        //    - The selected slots (the new feature)
-        //    - The hall details (just like browseBook.js does)
+        
         sessionStorage.setItem('finalBookingSlots', JSON.stringify(state.selectedSlots));
         sessionStorage.setItem('finalBookingHall', JSON.stringify(state.hall));
-
-        // 3. Redirect using the exact URL format from browseBook.js
         const hallId = state.hall?.unique_id;
         window.location.hash = `#final-booking-form-view?id=${hallId}`;
     }
@@ -384,6 +427,7 @@ window.HallBookingDetailsView = (function() {
             abortController.abort();
         }
         removeTooltip();
+        hideLoader(); // Ensure loader is removed on cleanup
     }
 
     // --- DYNAMIC/DELEGATED EVENT HANDLER SETUP ---
@@ -392,7 +436,6 @@ window.HallBookingDetailsView = (function() {
         const viewContainer = document.getElementById('hall-booking-details-view');
         if (!viewContainer) return;
 
-        // Listeners for drag-to-select functionality
         const calendarBody = document.getElementById('calendar-body');
         if(calendarBody) {
             calendarBody.addEventListener('mousedown', handleDragStart, { signal });
@@ -400,7 +443,6 @@ window.HallBookingDetailsView = (function() {
         document.addEventListener('mouseover', handleDragOver, { signal });
         document.addEventListener('mouseup', handleDragStop, { signal });
 
-        // Delegated tooltip listeners
         const calendarGrid = document.getElementById('booking-calendar-grid');
         if(calendarGrid) {
             calendarGrid.addEventListener('mouseover', e => {
@@ -422,6 +464,8 @@ window.HallBookingDetailsView = (function() {
 
 
     async function initialize(hallId) {
+        showLoader(); // Show loader at the very beginning
+
         if (abortController) abortController.abort();
         abortController = new AbortController();
         const { signal } = abortController;
@@ -441,13 +485,13 @@ window.HallBookingDetailsView = (function() {
 
             const processedHallData = {
                 ...hallData,
-                id: hallData.id || hallData.unique_id,
+                id:  hallData.unique_id,
                 location: `${hallData.school?.school_name || ''}${hallData.department?.department_name ? ' - ' + hallData.department.department_name : ''}`.trim() || 'N/A',
                 incharge: {
-                    name: hallData.department?.incharge_name || hallData.school?.incharge_name || 'N/A',
-                    designation: hallData.department ? 'HOD' : (hallData.school ? 'Dean' : 'N/A'),
-                    email: hallData.department?.incharge_email || hallData.school?.incharge_email || 'N/A',
-                    intercom: hallData.department?.incharge_contact_number || hallData.school?.incharge_contact_number || 'N/A',
+                    name: hallData.department?.incharge_name || hallData.school?.incharge_name || hallData.incharge_name || 'N/A',
+                    designation: hallData.department ? 'HOD' : (hallData.school ? 'Dean' : (hallData.incharge_designation || 'N/A')),
+                    email: hallData.department?.incharge_email || hallData.school?.incharge_email || hallData.incharge_email || 'N/A',
+                    intercom: hallData.department?.incharge_contact_number || hallData.school?.incharge_contact_number || hallData.incharge_contact_number || 'N/A',
                 }
             };
             
@@ -470,11 +514,8 @@ window.HallBookingDetailsView = (function() {
                 currentDate: new Date(),
             };
             
-            // Render the initial view.
             render();
             
-            // --- SETUP STATIC LISTENERS DIRECTLY ---
-            // This is more robust than delegation for elements that never get re-rendered.
             const prevMonthBtn = document.getElementById('prev-month-btn');
             const nextMonthBtn = document.getElementById('next-month-btn');
             const bookHallBtn = document.getElementById('confirm-booking-btn');
@@ -497,7 +538,6 @@ window.HallBookingDetailsView = (function() {
                 bookHallBtn.addEventListener('click', handleBookHall, { signal });
             }
 
-            // Listeners for tooltips on the body can also be static.
             document.body.addEventListener('mouseover', e => { if (e.target.closest('#booking-tooltip')) clearTimeout(tooltipTimeout); }, { signal });
             document.body.addEventListener('mouseout', e => { if (e.target.closest('#booking-tooltip')) removeTooltip(); }, { signal });
 
@@ -512,6 +552,27 @@ window.HallBookingDetailsView = (function() {
                         <button onclick="window.history.back()" class="px-4 py-2 bg-slate-600 text-white rounded hover:bg-slate-700">Go Back</button>
                     </div>`;
             }
+        } finally {
+            // This block ensures the loader is hidden after the browser has had a chance
+            // to paint the newly rendered calendar.
+            
+            // First, we wait for the next animation frame to let the browser process the DOM changes.
+            requestAnimationFrame(() => {
+                const calendarGridContainer = document.getElementById('booking-calendar-grid');
+                if (calendarGridContainer) {
+                    // By reading a property like offsetHeight, we force the browser to
+                    // synchronously calculate the layout of the table. This is a key step
+                    // to ensure the table dimensions are correct before we make it visible.
+                    void calendarGridContainer.offsetHeight;
+                }
+
+                // After forcing the layout calculation, we wait for one more animation frame.
+                // This ensures the browser has had a chance to *paint* the calculated layout.
+                // Only then do we hide the loader for a smooth transition.
+                requestAnimationFrame(() => {
+                    hideLoader();
+                });
+            });
         }
     }
 

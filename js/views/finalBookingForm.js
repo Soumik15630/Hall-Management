@@ -27,6 +27,58 @@ window.FinalBookingFormView = (function() {
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const apiDayNames = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
 
+    // --- UI HELPERS ---
+    /**
+     * Creates and displays a loading overlay.
+     * This prevents user interaction while data is being fetched.
+     */
+    function showLoader() {
+        // Check if loader already exists to avoid duplicates
+        if (document.getElementById('booking-loader')) return;
+
+        const loader = document.createElement('div');
+        loader.id = 'booking-loader';
+        // Uses fixed positioning to cover the entire viewport. Tailwind classes handle styling.
+        loader.className = 'fixed inset-0 bg-slate-900 bg-opacity-75 flex items-center justify-center z-[100] transition-opacity duration-300 opacity-0';
+        loader.innerHTML = `
+            <style>
+                /* A simple CSS spinner animation */
+                .spinner {
+                    width: 56px;
+                    height: 56px;
+                    border-radius: 50%;
+                    border: 8px solid #475569; /* slate-600 */
+                    border-top-color: #60a5fa; /* blue-400 */
+                    animation: spin 1s linear infinite;
+                }
+                @keyframes spin {
+                    to { transform: rotate(360deg); }
+                }
+            </style>
+            <div class="spinner" role="status" aria-label="Loading..."></div>
+        `;
+        document.body.appendChild(loader);
+
+        // A tiny delay to allow the element to be in the DOM before starting the transition
+        setTimeout(() => {
+            loader.classList.remove('opacity-0');
+        }, 10);
+    }
+
+    /**
+     * Hides and removes the loading overlay with a fade-out effect.
+     */
+    function hideLoader() {
+        const loader = document.getElementById('booking-loader');
+        if (loader) {
+            loader.classList.add('opacity-0');
+            // Remove the loader from the DOM after the transition completes
+            setTimeout(() => {
+                loader.remove();
+            }, 300); // Should match the duration-300 class
+        }
+    }
+
 
     // --- UTILITY FUNCTIONS FOR IST TIME HANDLING ---
     function getCurrentISTTime() {
@@ -1326,9 +1378,11 @@ window.FinalBookingFormView = (function() {
     function cleanup() {
         if (abortController) abortController.abort();
         window.removeEventListener('mouseup', handleDragStop);
+        hideLoader(); // Ensure loader is removed on cleanup
     }
 
     async function initialize(hallId) {
+        showLoader(); // Show loader at the very beginning
         try {
             let hallData = null;
             let preSelectedSlots = [];
@@ -1395,6 +1449,9 @@ window.FinalBookingFormView = (function() {
                         </div>
                     </div>`;
             }
+        } finally {
+            // This block ensures the loader is hidden whether the try block succeeds or fails.
+            hideLoader();
         }
     }
 
