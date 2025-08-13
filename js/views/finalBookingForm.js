@@ -5,6 +5,7 @@ window.FinalBookingFormView = (function() {
     // --- STATE MANAGEMENT ---
     let state = {
         hall: null,
+        hallIdFromUrl: null, // To store the ID from the URL
         availabilityData: [],
         selectedSlots: [], // Format: [{ date: 'YYYY-MM-DD', time: 'HH:MM' }]
         currentDate: new Date(),
@@ -869,7 +870,7 @@ window.FinalBookingFormView = (function() {
         const classCodeInput = document.getElementById('class_code');
 
         // Validation from user's snippet, adapted to state
-        if (!state.hall?.id) {
+        if (!state.hallIdFromUrl) {
             alert('Hall ID is missing.');
             return;
         }
@@ -899,7 +900,7 @@ window.FinalBookingFormView = (function() {
         const actualEndTime = `${endHour}:${endMinute}`;
 
         const payload = {
-            hall_id: String(state.hall.id), // Ensure it's a string
+            hall_id: state.hallIdFromUrl, // Use the actual ID from the URL
             purpose: purposeInput.value.trim(),
             booking_type: state.bookingType, // 'INDIVIDUAL'
             start_date: new Date(selectedDate).toISOString(),
@@ -946,8 +947,8 @@ window.FinalBookingFormView = (function() {
             resetForm();
 
             // Refresh availability data after successful submission
-            if (state.hall?.id) {
-                state.availabilityData = await fetchHallAvailability(state.hall.id);
+            if (state.hallIdFromUrl) {
+                state.availabilityData = await fetchHallAvailability(state.hallIdFromUrl);
                 render();
             }
 
@@ -1274,6 +1275,7 @@ window.FinalBookingFormView = (function() {
             
             state = {
                 hall: hallData,
+                hallIdFromUrl: hallId, // Store the actual hall ID from the URL
                 availabilityData: availabilityData,
                 selectedSlots: selectedSlots,
                 currentDate: new Date(),
