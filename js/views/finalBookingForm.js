@@ -9,16 +9,24 @@ window.FinalBookingFormView = (function() {
         availabilityData: [],
         selectedSlots: [], // Format: [{ date: 'YYYY-MM-DD', time: 'HH:MM' }]
         currentDate: new Date(),
-        bookingType: 'INDIVIDUAL',
+        bookingType: 'INDIVIDUAL', // Can be 'INDIVIDUAL' or 'SEMESTER'
         purpose: '',
         classCode: '',
         isDragging: false,
         dragSelectionMode: 'add',
         dragDate: null,
         currentSelectedDate: null, // For tracking which date is selected for time buttons
+        semester: {
+            fromDate: '',
+            toDate: '',
+            daysOfWeek: [], // e.g., [1, 3, 5] for Mon, Wed, Fri
+        }
     };
     let abortController;
     const timeSlots = ['09:30', '10:30', '11:30', '12:30', '13:30', '14:30', '15:30', '16:30'];
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const apiDayNames = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+
 
     // --- UTILITY FUNCTIONS FOR IST TIME HANDLING ---
     function getCurrentISTTime() {
@@ -365,33 +373,60 @@ window.FinalBookingFormView = (function() {
         const container = document.getElementById('final-booking-form-content'); 
         if (!container) return;
 
+        const isIndividual = state.bookingType === 'INDIVIDUAL';
+
         container.innerHTML = `
             <div id="final-booking-form-container" class="container mx-auto max-w-7xl">
                 <div class="space-y-8">
-                    <section id="calendar-section" class="bg-slate-900/70 p-4 sm:p-6 rounded-lg shadow-md border border-slate-700">
-                        ${renderCalendar()}
+                    <section id="booking-type-section" class="bg-slate-900/70 p-4 sm:p-6 rounded-lg shadow-md border border-slate-700">
+                         <h3 class="text-xl font-semibold text-white mb-4 border-b border-slate-700 pb-2">Booking Type</h3>
+                         <div class="flex rounded-lg bg-slate-800 p-1 max-w-sm">
+                            <button type="button" data-booking-type="INDIVIDUAL" class="booking-type-btn flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-colors duration-300 ${isIndividual ? 'bg-blue-600 text-white' : 'text-slate-300'}">Individual</button>
+                            <button type="button" data-booking-type="SEMESTER" class="booking-type-btn flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-colors duration-300 ${!isIndividual ? 'bg-blue-600 text-white' : 'text-slate-300'}">Semester</button>
+                        </div>
                     </section>
-                    ${renderTimeSlotSelector()}
-                    <form id="bookingForm" class="space-y-8">
+
+                    <div id="individual-booking-section" class="${isIndividual ? '' : 'hidden'} space-y-8">
+                        <section id="calendar-section" class="bg-slate-900/70 p-4 sm:p-6 rounded-lg shadow-md border border-slate-700">
+                            ${renderCalendar()}
+                        </section>
+                        ${renderTimeSlotSelector()}
+                    </div>
+
+                    <div id="semester-booking-section" class="${!isIndividual ? '' : 'hidden'} space-y-8">
                         <section class="bg-slate-900/70 p-4 sm:p-6 rounded-lg shadow-md border border-slate-700">
-                            <h3 class="text-xl font-semibold text-white mb-4 border-b border-slate-700 pb-2">Booking Details</h3>
+                            <h3 class="text-xl font-semibold text-white mb-4 border-b border-slate-700 pb-2">Semester Booking Details</h3>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                                 <div>
-                                    <label for="start_date" class="block text-slate-300 text-sm font-medium mb-2">BOOKING DATE</label>
-                                    <input type="date" id="start_date" class="block w-full p-3 bg-slate-700 border border-slate-600 rounded-md text-white focus:ring-blue-500 focus:border-blue-500" readonly>
-                                    <p class="text-xs text-slate-400 mt-1">Date is automatically set based on your time slot selection</p>
+                                    <label for="semester-from-date" class="block text-slate-300 text-sm font-medium mb-2">FROM DATE</label>
+                                    <input type="date" id="semester-from-date" class="block w-full p-3 bg-slate-700 border border-slate-600 rounded-md text-white focus:ring-blue-500 focus:border-blue-500">
                                 </div>
                                 <div>
-                                    <label class="block text-slate-300 text-sm font-medium mb-2">SELECTED TIME SLOTS</label>
-                                    <div id="selected-times-display" class="p-3 bg-slate-700 border border-slate-600 rounded-md text-white min-h-[48px] flex items-center">
-                                        ${state.selectedSlots.length > 0 ? 
-                                            state.selectedSlots.map(slot => formatTimeForDisplay(slot.time)).join(', ') : 
-                                            'No time slots selected'
-                                        }
-                                    </div>
+                                    <label for="semester-to-date" class="block text-slate-300 text-sm font-medium mb-2">TO DATE</label>
+                                    <input type="date" id="semester-to-date" class="block w-full p-3 bg-slate-700 border border-slate-600 rounded-md text-white focus:ring-blue-500 focus:border-blue-500">
+                                </div>
+                            </div>
+                             <div>
+                                <label class="block text-slate-300 text-sm font-medium mb-2">CHOOSE SLOT(S)</label>
+                                <div id="semester-time-slots" class="grid grid-cols-4 gap-2">
+                                    ${timeSlots.map(time => `<button type="button" data-time="${time}" class="semester-slot-btn p-2 rounded-lg bg-slate-700 hover:bg-slate-600 transition border border-slate-600">${formatTimeForDisplay(time)}</button>`).join('')}
+                                </div>
+                            </div>
+                            <div class="mt-6">
+                                <label class="block text-slate-300 text-sm font-medium mb-2">SELECT DAYS OF THE WEEK</label>
+                                <div id="semester-days" class="grid grid-cols-7 gap-2">
+                                    ${dayNames.map((day, index) => `<button type="button" data-day="${index}" class="semester-day-btn p-2 rounded-lg bg-slate-700 hover:bg-slate-600 transition border border-slate-600">${day}</button>`).join('')}
                                 </div>
                             </div>
                         </section>
+                        <section id="semester-availability-section" class="bg-slate-900/70 p-4 sm:p-6 rounded-lg shadow-md border border-slate-700">
+                            <h3 class="text-xl font-semibold text-white mb-4 border-b border-slate-700 pb-2">Availability</h3>
+                            <div id="semester-table-container" class="overflow-x-auto"></div>
+                        </section>
+                    </div>
+
+
+                    <form id="bookingForm" class="space-y-8">
                         <section class="bg-slate-900/70 p-4 sm:p-6 rounded-lg shadow-md border border-slate-700">
                             <h3 class="text-xl font-semibold text-white mb-4 border-b border-slate-700 pb-2">Purpose of Booking</h3>
                             <div>
@@ -765,51 +800,103 @@ window.FinalBookingFormView = (function() {
             </section>`;
     }
     
+    function renderSemesterTable() {
+        const daysToDisplay = [0, 1, 2, 3, 4, 5, 6];
+
+        const header = `
+            <thead class="bg-slate-800">
+                <tr>
+                    <th class="p-2 text-left text-sm font-semibold text-slate-300">Time</th>
+                    ${daysToDisplay.map(dayIndex => `<th class="p-2 text-center text-sm font-semibold text-slate-300">${dayNames[dayIndex]}</th>`).join('')}
+                </tr>
+            </thead>`;
+
+        const body = `
+            <tbody>
+                ${timeSlots.map(time => `
+                    <tr class="border-b border-slate-700">
+                        <td class="p-2 text-sm text-slate-400">${formatTimeForDisplay(time)}</td>
+                        ${daysToDisplay.map(dayIndex => {
+                            // This is a simplified availability check. 
+                            // A real implementation would check against existing semester bookings.
+                            const isAvailable = true; 
+                            return `<td class="p-1 text-center">
+                                <span class="block w-full h-8 rounded ${isAvailable ? 'bg-green-500/20' : 'bg-red-500/20'}"></span>
+                            </td>`;
+                        }).join('')}
+                    </tr>
+                `).join('')}
+            </tbody>`;
+
+        return `
+            <table class="w-full border-collapse text-white">
+                ${header}
+                ${body}
+            </table>`;
+    }
+    
     function updateUI() {
-        const calendarContainer = document.getElementById('calendar-section');
-        if (calendarContainer) calendarContainer.innerHTML = renderCalendar();
+        const isIndividual = state.bookingType === 'INDIVIDUAL';
         
-        // Update time slot selector
-        const timeSelectorContainer = document.querySelector('#final-booking-form-container .space-y-8');
-        if (timeSelectorContainer) {
-            const existingTimeSelector = timeSelectorContainer.children[1];
-            if (existingTimeSelector) {
-                const newTimeSelectorContent = renderTimeSlotSelector();
-                const match = newTimeSelectorContent.match(/<section[^>]*>(.*)<\/section>/s);
-                if (match && match[1]) {
-                    existingTimeSelector.innerHTML = match[1];
-                } else {
-                     existingTimeSelector.innerHTML = newTimeSelectorContent;
-                }
+        // Toggle visibility of main sections
+        document.getElementById('individual-booking-section').classList.toggle('hidden', !isIndividual);
+        document.getElementById('semester-booking-section').classList.toggle('hidden', isIndividual);
+
+        // Update booking type button styles
+        document.querySelectorAll('.booking-type-btn').forEach(btn => {
+            const type = btn.dataset.bookingType;
+            if (type === state.bookingType) {
+                btn.classList.add('bg-blue-600', 'text-white');
+                btn.classList.remove('text-slate-300');
+            } else {
+                btn.classList.remove('bg-blue-600', 'text-white');
+                btn.classList.add('text-slate-300');
+            }
+        });
+
+        if (isIndividual) {
+            const calendarContainer = document.getElementById('calendar-section');
+            if (calendarContainer) calendarContainer.innerHTML = renderCalendar();
+            
+            const timeSelectorContainer = document.querySelector('#individual-booking-section .space-y-8');
+            if (timeSelectorContainer) {
+                 const newTimeSelectorContent = renderTimeSlotSelector();
+                 const match = newTimeSelectorContent.match(/<section[^>]*>(.*)<\/section>/s);
+                 if (match && match[1]) {
+                    timeSelectorContainer.children[1].innerHTML = match[1];
+                 }
+            }
+        } else {
+            // Update semester UI elements
+            document.querySelectorAll('.semester-slot-btn, .semester-day-btn').forEach(btn => {
+                const isSlot = btn.classList.contains('semester-slot-btn');
+                const value = isSlot ? btn.dataset.time : parseInt(btn.dataset.day, 10);
+                const isSelected = isSlot 
+                    ? state.selectedSlots.some(slot => slot.time === value)
+                    : state.semester.daysOfWeek.includes(value);
+
+                btn.classList.toggle('bg-blue-600', isSelected);
+                btn.classList.toggle('text-white', isSelected);
+                btn.classList.toggle('border-blue-500', isSelected);
+                btn.classList.toggle('shadow-lg', isSelected);
+                btn.classList.toggle('transform', isSelected);
+                btn.classList.toggle('scale-105', isSelected);
+
+                btn.classList.toggle('bg-slate-700', !isSelected);
+                btn.classList.toggle('border-slate-600', !isSelected);
+            });
+
+            const semesterTableContainer = document.getElementById('semester-table-container');
+            if(semesterTableContainer) {
+                semesterTableContainer.innerHTML = renderSemesterTable();
             }
         }
         
         syncFormWithState();
     }
 
+
     function syncFormWithState() {
-        const startDateInput = document.getElementById('start_date');
-        const selectedTimesDisplay = document.getElementById('selected-times-display');
-        
-        if (state.selectedSlots.length > 0) {
-            const dates = [...new Set(state.selectedSlots.map(s => s.date))].sort();
-            if(startDateInput) startDateInput.value = dates[0];
-            
-            if(selectedTimesDisplay) {
-                const sortedTimes = state.selectedSlots
-                    .map(slot => formatTimeForDisplay(slot.time))
-                    .sort()
-                    .join(', ');
-                selectedTimesDisplay.textContent = sortedTimes;
-            }
-        } else {
-            const todayString = getTodayISTString();
-            if(startDateInput) startDateInput.value = todayString;
-            if(selectedTimesDisplay) {
-                selectedTimesDisplay.textContent = 'No time slots selected';
-            }
-        }
-        
         const purposeInput = document.getElementById('purpose');
         const classCodeInput = document.getElementById('class_code');
         if (purposeInput) purposeInput.value = state.purpose;
@@ -860,7 +947,12 @@ window.FinalBookingFormView = (function() {
             isDragging: false, 
             dragSelectionMode: 'add', 
             dragDate: null,
-            currentSelectedDate: null
+            currentSelectedDate: null,
+            semester: {
+                fromDate: '',
+                toDate: '',
+                daysOfWeek: [],
+            }
         };
         render();
     }
@@ -869,50 +961,84 @@ window.FinalBookingFormView = (function() {
         const purposeInput = document.getElementById('purpose');
         const classCodeInput = document.getElementById('class_code');
 
-        // Validation from user's snippet, adapted to state
         if (!state.hallIdFromUrl) {
             alert('Hall ID is missing.');
             return;
         }
-        if (state.selectedSlots.length === 0) {
-            alert('Please select at least one time slot.');
-            return;
-        }
-        // The current form only supports INDIVIDUAL, so semester check is skipped.
         if (!purposeInput?.value.trim()) {
             alert('Please provide a purpose for the booking.');
             purposeInput?.focus();
             return;
         }
 
-        // Logic from user's snippet, adapted to state
-        const selectedDate = state.selectedSlots[0].date;
-        const times = state.selectedSlots.map(slot => slot.time).sort();
-        const lastSlotStartTime = times[times.length - 1];
-        const [hour, minute] = lastSlotStartTime.split(':').map(Number);
+        let payload;
 
-        const tempDate = new Date();
-        tempDate.setHours(hour, minute, 0, 0);
-        tempDate.setHours(tempDate.getHours() + 1);
+        if (state.bookingType === 'INDIVIDUAL') {
+            if (state.selectedSlots.length === 0) {
+                alert('Please select at least one time slot.');
+                return;
+            }
+            const selectedDate = state.selectedSlots[0].date;
+            const times = state.selectedSlots.map(slot => slot.time).sort();
+            const lastSlotStartTime = times[times.length - 1];
+            const [hour, minute] = lastSlotStartTime.split(':').map(Number);
 
-        const endHour = String(tempDate.getHours()).padStart(2, '0');
-        const endMinute = String(tempDate.getMinutes()).padStart(2, '0');
-        const actualEndTime = `${endHour}:${endMinute}`;
+            const tempDate = new Date();
+            tempDate.setHours(hour, minute, 0, 0);
+            tempDate.setHours(tempDate.getHours() + 1);
 
-        const payload = {
-            hall_id: state.hallIdFromUrl, // Use the actual ID from the URL
-            purpose: purposeInput.value.trim(),
-            booking_type: state.bookingType, // 'INDIVIDUAL'
-            start_date: new Date(selectedDate).toISOString(),
-            end_date: new Date(selectedDate).toISOString(), // Same for single day
-            start_time: times[0],
-            end_time: actualEndTime,
-        };
+            const endHour = String(tempDate.getHours()).padStart(2, '0');
+            const endMinute = String(tempDate.getMinutes()).padStart(2, '0');
+            const actualEndTime = `${endHour}:${endMinute}`;
+
+            payload = {
+                hall_id: state.hallIdFromUrl,
+                purpose: purposeInput.value.trim(),
+                booking_type: 'INDIVIDUAL',
+                start_date: new Date(selectedDate).toISOString(),
+                end_date: new Date(selectedDate).toISOString(),
+                start_time: times[0],
+                end_time: actualEndTime,
+            };
+        } else { // SEMESTER
+            const fromDate = document.getElementById('semester-from-date').value;
+            const toDate = document.getElementById('semester-to-date').value;
+            if (!fromDate || !toDate) {
+                alert('Please select a start and end date for the semester booking.');
+                return;
+            }
+            if (state.selectedSlots.length === 0) {
+                alert('Please select at least one time slot for the semester booking.');
+                return;
+            }
+             if (state.semester.daysOfWeek.length === 0) {
+                alert('Please select at least one day of the week.');
+                return;
+            }
+
+            const times = state.selectedSlots.map(slot => slot.time).sort();
+            const lastSlotStartTime = times[times.length - 1];
+            const [hour, minute] = lastSlotStartTime.split(':').map(Number);
+            const tempDate = new Date();
+            tempDate.setHours(hour, minute, 0, 0);
+            tempDate.setHours(tempDate.getHours() + 1);
+            const actualEndTime = `${String(tempDate.getHours()).padStart(2, '0')}:${String(tempDate.getMinutes()).padStart(2, '0')}`;
+
+            payload = {
+                hall_id: state.hallIdFromUrl,
+                purpose: purposeInput.value.trim(),
+                booking_type: 'SEMESTER',
+                start_date: new Date(fromDate).toISOString(),
+                end_date: new Date(toDate).toISOString(),
+                start_time: times[0],
+                end_time: actualEndTime,
+                days_of_week: state.semester.daysOfWeek.map(dayIndex => apiDayNames[dayIndex]),
+            };
+        }
 
         if (classCodeInput?.value.trim()) {
             payload.class_code = classCodeInput.value.trim();
         }
-        // Semester 'days_of_week' is not applicable here.
 
         const submitBtn = document.querySelector('button[type="submit"]');
         const originalText = submitBtn.textContent;
@@ -946,7 +1072,6 @@ window.FinalBookingFormView = (function() {
             alert(result.message || 'Booking request submitted successfully!');
             resetForm();
 
-            // Refresh availability data after successful submission
             if (state.hallIdFromUrl) {
                 state.availabilityData = await fetchHallAvailability(state.hallIdFromUrl);
                 render();
@@ -986,6 +1111,39 @@ window.FinalBookingFormView = (function() {
     function handleContainerClick(e) {
         const target = e.target.closest('button');
         if (!target) return;
+
+        if (target.classList.contains('booking-type-btn')) {
+            state.bookingType = target.dataset.bookingType;
+            // Clear selections when switching types
+            state.selectedSlots = [];
+            state.semester.daysOfWeek = [];
+            render();
+            return;
+        }
+        
+        if (target.classList.contains('semester-slot-btn')) {
+            const time = target.dataset.time;
+            const index = state.selectedSlots.findIndex(s => s.time === time);
+            if (index > -1) {
+                state.selectedSlots.splice(index, 1);
+            } else {
+                state.selectedSlots.push({ date: null, time }); // Date is null for semester
+            }
+            updateUI();
+            return;
+        }
+
+        if (target.classList.contains('semester-day-btn')) {
+            const day = parseInt(target.dataset.day, 10);
+            const index = state.semester.daysOfWeek.indexOf(day);
+            if (index > -1) {
+                state.semester.daysOfWeek.splice(index, 1);
+            } else {
+                state.semester.daysOfWeek.push(day);
+            }
+            updateUI();
+            return;
+        }
         
         if (target.id === 'prev-month-btn') { 
             state.currentDate.setMonth(state.currentDate.getMonth() - 1); 
@@ -1274,17 +1432,12 @@ window.FinalBookingFormView = (function() {
             availabilityData = await fetchHallAvailability(hallId);
             
             state = {
+                ...state, // Keep existing state like bookingType
                 hall: hallData,
                 hallIdFromUrl: hallId, // Store the actual hall ID from the URL
                 availabilityData: availabilityData,
                 selectedSlots: selectedSlots,
                 currentDate: new Date(),
-                bookingType: 'INDIVIDUAL',
-                purpose: '',
-                classCode: '',
-                isDragging: false,
-                dragSelectionMode: 'add',
-                dragDate: null,
                 currentSelectedDate: selectedSlots.length > 0 ? selectedSlots[0].date : getTodayISTString()
             };
             
