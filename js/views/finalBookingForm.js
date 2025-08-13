@@ -1406,27 +1406,29 @@ window.FinalBookingFormView = (function() {
     async function initialize(hallId) {
         try {
             let hallData = null;
-            let selectedSlots = [];
-            let availabilityData = [];
-            
+            let preSelectedSlots = []; // Use a different name to be clear
+
+            // Try to retrieve data passed from the details page via session storage.
             try {
                 const storedHall = sessionStorage.getItem('finalBookingHall');
                 const storedSlots = sessionStorage.getItem('finalBookingSlots');
-                const storedAvailability = sessionStorage.getItem('finalBookingAvailability');
                 
                 if (storedHall) {
                     hallData = JSON.parse(storedHall);
                 }
+                // Ensure preSelectedSlots is an array even if storage is corrupted/null
                 if (storedSlots) {
-                    selectedSlots = JSON.parse(storedSlots);
-                }
-                if (storedAvailability) {
-                    availabilityData = JSON.parse(storedAvailability);
+                    const parsedSlots = JSON.parse(storedSlots);
+                    if (Array.isArray(parsedSlots)) {
+                        preSelectedSlots = parsedSlots;
+                    }
                 }
             } catch (e) {
-                // Handle parsing errors silently
+                console.error("Could not parse session storage data.", e);
+                preSelectedSlots = []; // Reset on error
             }
             
+            // Fetch hall data from API if it wasn't in session storage
             if (!hallData) {
                 const allHalls = await fetchAllHalls();
                 hallData = allHalls.find(h => h.id === hallId || h.unique_id === hallId);
@@ -1436,19 +1438,22 @@ window.FinalBookingFormView = (function() {
                 }
             }
             
-            availabilityData = await fetchHallAvailability(hallId);
+            // Always fetch the latest availability to avoid using stale data.
+            const availabilityData = await fetchHallAvailability(hallId);
             
+            // Set the component's state
             state = {
-                ...state, // Keep existing state like bookingType
+                ...state,
                 hall: hallData,
-                hallIdFromUrl: hallId, // Store the actual hall ID from the URL
+                hallIdFromUrl: hallId,
                 availabilityData: availabilityData,
-                selectedSlots: selectedSlots,
+                selectedSlots: preSelectedSlots, // This is where the carry-over happens
                 currentDate: new Date(),
-                currentSelectedDate: selectedSlots.length > 0 ? selectedSlots[0].date : getTodayISTString()
+                // Set the view to the date of the selection, or today if no selection
+                currentSelectedDate: preSelectedSlots.length > 0 ? preSelectedSlots[0].date : getTodayISTString()
             };
             
-            render();
+            render(); // Render the UI with the pre-selected slots
             
         } catch (error) {
             const container = document.getElementById('final-booking-form-content');
