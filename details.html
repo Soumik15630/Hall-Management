@@ -155,7 +155,9 @@
                             </div>
 
                             <!-- Calendar Grid -->
-                            <div class="calendar-grid" @wheel="hideScrollIndicator" @touchstart="hideScrollIndicator">
+                            <div class="calendar-grid" 
+                                 @wheel.prevent="$refs.headerScroller.scrollLeft += $event.deltaY; $refs.bodyScroller.scrollLeft += $event.deltaY; hideScrollIndicator()" 
+                                 @touchstart="hideScrollIndicator">
                                 <!-- Top-left empty cell -->
                                 <div></div>
 
