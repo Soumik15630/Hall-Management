@@ -2,9 +2,35 @@
 window.MyBookingsView = (function() {
     let state = {
         bookings: [],
-        selectedRows: [] // Stores booking IDs
+        selectedRows: [] // Stores booking unique_ids
     };
     let abortController;
+
+    // --- HELPER FUNCTIONS ---
+    function formatStatus(status) {
+        if (!status) return { text: 'Unknown', className: 'text-yellow-400' };
+        
+        // Example: "REJECTED_BY_HOD" -> "Rejected By Hod"
+        const text = status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+        
+        let className = 'text-yellow-400'; // Default for PENDING or other statuses
+        if (status.includes('REJECTED')) {
+            className = 'text-red-400';
+        } else if (status.includes('APPROVED')) {
+            className = 'text-green-400';
+        }
+        return { text, className };
+    }
+
+    function formatDate(dateString) {
+        if (!dateString) return 'N/A';
+        return new Date(dateString).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+        });
+    }
+
 
     // --- API & DATA HANDLING ---
     async function fetchFromAPI(endpoint, options = {}, isJson = true) {
@@ -35,8 +61,8 @@ window.MyBookingsView = (function() {
 
     async function cancelBookings(bookingIds) {
         // This function assumes a DELETE endpoint for individual bookings exists.
-        // e.g., DELETE /api/booking/{bookingId}
-        const cancelPromises = bookingIds.map(id => 
+        // e.g., DELETE /api/booking/{unique_id}
+        const cancelPromises = bookingIds.map(id =>
             fetchFromAPI(`${AppConfig.endpoints.booking}/${id}`, { method: 'DELETE' }, false)
         );
         return await Promise.all(cancelPromises);
@@ -53,30 +79,40 @@ window.MyBookingsView = (function() {
             tableBody.innerHTML = `<tr><td colspan="6" class="text-center py-10 text-slate-400">You have no bookings.</td></tr>`;
             return;
         }
-        
+
         const tableHtml = data.map(booking => {
-            const isSelected = state.selectedRows.includes(booking.bookingId);
-            const statusClass = booking.status === 'Approved' ? 'text-green-400' : (booking.status === 'Rejected' ? 'text-red-400' : 'text-yellow-400');
-            // Assuming the API provides all necessary fields directly
+            const bookingId = booking.unique_id; // Use the correct unique identifier
+            const isSelected = state.selectedRows.includes(bookingId);
+            const { text: statusText, className: statusClass } = formatStatus(booking.status);
+            
+            const hallName = booking.hall ? booking.hall.name : 'Hall name not available';
+            const dateRange = `${formatDate(booking.start_date)} to ${formatDate(booking.end_date)}`;
+            const timeRange = `${booking.start_time} - ${booking.end_time}`;
+            const days = booking.days_of_week.map(day => day.substring(0, 3).toUpperCase()).join(', ');
+
             return `
-                <tr data-booking-id="${booking.bookingId}" class="${isSelected ? 'bg-blue-900/30' : ''} hover:bg-slate-800/50 transition-colors">
+                <tr data-booking-id="${bookingId}" class="${isSelected ? 'bg-blue-900/30' : ''} hover:bg-slate-800/50 transition-colors">
                     <td class="py-4 pl-4 pr-3 text-sm sm:pl-6">
                         <input type="checkbox" class="row-checkbox rounded bg-slate-700 border-slate-500 text-blue-500 focus:ring-blue-500" ${isSelected ? 'checked' : ''}>
                     </td>
                     <td class="whitespace-nowrap px-3 py-4 text-sm">
-                        <div class="text-slate-300">${new Date(booking.created_at).toLocaleDateString()}</div>
-                        <div class="text-blue-400">${booking.unique_id}</div>
+                        <div class="text-slate-300">${formatDate(booking.created_at)}</div>
+                        <div class="text-blue-400 text-xs mt-1">${booking.unique_id}</div>
                     </td>
                     <td class="whitespace-nowrap px-3 py-4 text-sm">
-                        <div class="font-medium text-white">${booking.hall_name}</div>
+                        <div class="font-medium text-white">${hallName}</div>
                         <div class="text-slate-400">${booking.hall_id}</div>
                     </td>
                     <td class="whitespace-nowrap px-3 py-4 text-sm">
                         <div class="font-medium text-white">${booking.purpose}</div>
-                        <div class="text-slate-400">${booking.class_code || ''}</div>
+                        <div class="text-slate-400">${booking.class_code || 'N/A'}</div>
                     </td>
-                    <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300">${new Date(booking.start_date).toLocaleString()} - ${new Date(booking.end_date).toLocaleTimeString()}</td>
-                    <td class="whitespace-nowrap px-3 py-4 text-sm font-semibold ${statusClass}">${booking.status}</td>
+                    <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300">
+                        <div>${dateRange}</div>
+                        <div class="text-slate-400">${timeRange}</div>
+                        <div class="text-slate-500 text-xs mt-1">${days}</div>
+                    </td>
+                    <td class="whitespace-nowrap px-3 py-4 text-sm font-semibold ${statusClass}">${statusText}</td>
                 </tr>
             `;
         }).join('');
@@ -100,6 +136,7 @@ window.MyBookingsView = (function() {
         } else {
             state.selectedRows = state.selectedRows.filter(id => id !== bookingId);
         }
+        // Re-render the table to reflect the selection state consistently
         renderMyBookingsTable();
     }
 
@@ -113,6 +150,7 @@ window.MyBookingsView = (function() {
             tableBody.addEventListener('change', e => {
                 if (e.target.classList.contains('row-checkbox')) {
                     const row = e.target.closest('tr');
+                    // Use the correct dataset key from the <tr> element
                     const bookingId = row.dataset.bookingId;
                     handleRowSelection(bookingId, e.target.checked);
                 }
@@ -124,11 +162,12 @@ window.MyBookingsView = (function() {
             cancelBtn.addEventListener('click', async () => {
                 if (state.selectedRows.length === 0) return;
 
-                if (confirm(`Are you sure you want to cancel ${state.selectedRows.length} booking(s)?`)) {
+                // Using a custom modal instead of confirm() would be a good improvement
+                if (confirm(`Are you sure you want to request cancellation for ${state.selectedRows.length} booking(s)?`)) {
                     try {
-                        // Calling the local cancelBookings function
                         await cancelBookings(state.selectedRows);
-                        alert('Selected booking(s) cancelled successfully.');
+                        // Using a custom modal instead of alert() would be a good improvement
+                        alert('Cancellation request sent for selected booking(s).');
                         state.selectedRows = [];
                         await initialize(); // Refresh view
                     } catch (error) {
@@ -142,7 +181,6 @@ window.MyBookingsView = (function() {
 
     async function initialize() {
         try {
-            // Calling the local fetch function
             const data = await fetchMyBookingsData();
             state.bookings = data;
             renderMyBookingsTable();
@@ -150,7 +188,7 @@ window.MyBookingsView = (function() {
         } catch (error) {
             console.error('Error loading my bookings:', error);
             const tableBody = document.getElementById('my-bookings-body');
-            if(tableBody) tableBody.innerHTML = `<tr><td colspan="6" class="text-center py-10 text-red-400">Failed to load bookings.</td></tr>`;
+            if (tableBody) tableBody.innerHTML = `<tr><td colspan="6" class="text-center py-10 text-red-400">Failed to load bookings. Please try again later.</td></tr>`;
         }
     }
 

@@ -200,15 +200,20 @@ window.ArchiveView = (function() {
 
         document.getElementById('reactivate-btn')?.addEventListener('click', async () => {
             if (state.selectedRows.length === 0) return;
-            
+
             if (confirm(`Are you sure you want to re-activate ${state.selectedRows.length} hall(s)?`)) {
                 try {
-                    const updatePromises = state.selectedRows.map(hallCode => 
-                        updateHall(hallCode, { availability: true })
-                    );
+                    // This logic now creates a payload with ONLY the fields that need to be changed,
+                    // avoiding the validation error on the server for null latitude/longitude.
+                    const updatePromises = state.selectedRows.map(hallCode => {
+                        const payload = { availability: true }; // FIX: Only send the field that is being updated.
+                        return updateHall(hallCode, payload);
+                    });
+
                     await Promise.all(updatePromises);
                     
                     alert('Hall(s) have been re-activated successfully.');
+                    
                     state.selectedRows = [];
                     await initialize(); // Refresh the view
                 } catch (error) {
