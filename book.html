@@ -151,7 +151,9 @@
                                     <p class="text-lg font-semibold">Scroll sideways for more dates</p>
                                 </div>
 
-                                <div class="calendar-grid" @wheel="hideScrollIndicator" @touchstart="hideScrollIndicator">
+                                <div class="calendar-grid" 
+                                     @wheel.prevent="$refs.headerScroller.scrollLeft += $event.deltaY; $refs.bodyScroller.scrollLeft += $event.deltaY; hideScrollIndicator()" 
+                                     @touchstart="hideScrollIndicator">
                                     <!-- Top-left empty cell -->
                                     <div></div>
 
