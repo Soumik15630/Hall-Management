@@ -47,42 +47,7 @@
             background-color: rgba(15, 23, 42, 0.7);
         }
 
-        /* --- Custom Cursor Styles --- */
-        body {
-            cursor: none;
-        }
-        .custom-cursor {
-            transition: opacity 0.3s ease;
-        }
-        .custom-cursor.hidden {
-            opacity: 0;
-        }
-        .custom-cursor > div { /* Target both children */
-            position: fixed;
-            pointer-events: none;
-            z-index: 9999;
-            border-radius: 50%;
-            mix-blend-mode: difference;
-            transform: translate(-50%, -50%);
-        }
-        .cursor-dot {
-            width: 8px;
-            height: 8px;
-            background-color: white;
-        }
-        .cursor-outline {
-            width: 40px;
-            height: 40px;
-            background-color: rgba(255,255,255,0);
-            border: 2px solid rgba(255, 255, 255, 0.5);
-        }
-        /* Let the browser handle the cursor for these elements */
-        a, button, input[type="checkbox"], input[type="radio"], select, .timetable-slot.available, .timetable-slot.selected, [data-action] {
-            cursor: pointer;
-        }
-        input[type="text"], input[type="email"], input[type="date"], input[type="number"], textarea {
-            cursor: text;
-        }
+
 
     </style>
 </head>
@@ -639,9 +604,18 @@
                     <label for="update-employee-phone" class="block text-sm font-medium text-slate-300">Employee Contact:</label>
                     <input type="text" id="update-employee-phone" class="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-white focus:ring-blue-500 focus:border-blue-500" required>
                 </div>
+                <!-- FIX: Updated designation to a dropdown with API-compliant values -->
                 <div>
-                    <label for="update-employee-designation" class="block text-sm font-medium text-slate-300">Designation:</label>
-                    <input type="text" id="update-employee-designation" class="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-white focus:ring-blue-500 focus:border-blue-500" required>
+                    <label for="update-employee-designation-select" class="block text-sm font-medium text-slate-300">Designation:</label>
+                    <select id="update-employee-designation-select" class="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-white focus:ring-blue-500 focus:border-blue-500">
+                        <option value="HOD">HOD</option>
+                        <option value="ADMIN">Admin</option>
+                        <option value="DEAN">Dean</option>
+                        <option value="PROF">Professor</option>
+                        <option value="REGISTER">Register</option>
+                        <option value="FACULTY">Faculty</option>
+                        <option value="OTHERS">Others</option>
+                    </select>
                 </div>
                  <div>
                     <label class="block text-sm font-medium text-slate-300">Status:</label>

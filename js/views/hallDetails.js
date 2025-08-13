@@ -31,7 +31,15 @@ window.HallDetailsView = (function() {
         const response = await fetch(fullUrl, config);
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`API Error on ${endpoint}: ${response.status} - ${errorText}`);
+            // Try to parse error as JSON for more details
+            try {
+                const errorJson = JSON.parse(errorText);
+                console.error('API Error Response:', errorJson);
+                const errorMessages = errorJson.error.map(e => e.message).join('\n');
+                throw new Error(`API Error on ${endpoint}: ${response.status}\n${errorMessages}`);
+            } catch (e) {
+                 throw new Error(`API Error on ${endpoint}: ${response.status} - ${errorText}`);
+            }
         }
         if (isJson) {
             const text = await response.text();
@@ -86,8 +94,21 @@ window.HallDetailsView = (function() {
         return schoolsMap;
     }
     
+    // FIX: Updated to match the backend's expected enum values (UPPER_SNAKE_CASE)
     function getFeatures() { 
-        return ['WiFi', 'AC', 'Smartboard', 'Projector', 'Audio System', 'Computer', 'Podium', 'Ramp', 'Video Conferencing', 'Blackboard']; 
+        return [
+            'AC',
+            'PROJECTOR',
+            'WIFI',
+            'SMART_BOARD',
+            'COMPUTER',
+            'AUDIO_SYSTEM',
+            'PODIUM',
+            'WHITE_BOARD',
+            'BLACK_BOARD',
+            'LIFT',
+            'RAMP'
+        ]; 
     }
 
     async function fetchHallsForHOD() {
@@ -112,24 +133,25 @@ window.HallDetailsView = (function() {
              }
 
             return {
+                // Keep the raw hall data for API updates
+                ...hall,
+                // Add formatted fields for display
                 id: hall.unique_id,
                 hallCode: hall.unique_id,
                 hallName: hall.name,
-                type: mapHallType(hall.type),
+                displayType: mapHallType(hall.type),
                 location: `${school ? school.school_name : 'Administration'}${dept ? ' - ' + dept.department_name : ''}`,
-                capacity: hall.capacity,
-                floor: formatTitleCase(hall.floor) + ' Floor',
-                zone: formatTitleCase(hall.zone) + ' Zone',
-                school: school ? school.school_name : 'N/A',
-                department: dept ? dept.department_name : 'N/A',
-                features: Array.isArray(hall.features) ? hall.features.map(formatTitleCase).join(', ') : '',
+                displayFloor: formatTitleCase(hall.floor) + ' Floor',
+                displayZone: formatTitleCase(hall.zone) + ' Zone',
+                schoolName: school ? school.school_name : 'N/A',
+                departmentName: dept ? dept.department_name : 'N/A',
+                displayFeatures: Array.isArray(hall.features) ? hall.features.map(formatTitleCase).join(', ') : '',
                 inchargeName: incharge.name,
                 inchargeRole: incharge.role,
                 inchargeEmail: incharge.email,
                 inchargePhone: incharge.phone,
-                status: hall.availability,
-                date: new Date(hall.created_at).toLocaleDateString(), // Assuming created_at exists
-                ...hall
+                displayStatus: hall.availability,
+                displayDate: new Date(hall.created_at).toLocaleDateString(),
             };
         });
     }
@@ -148,27 +170,27 @@ window.HallDetailsView = (function() {
         
         const tableHtml = state.filteredHalls.map(hall => {
             const isSelected = state.selectedRows.includes(hall.hallCode);
-            const statusColor = hall.status ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-400';
-            const statusText = hall.status ? 'Yes' : 'No';
+            const statusColor = hall.displayStatus ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-400';
+            const statusText = hall.displayStatus ? 'Available' : 'Unavailable';
 
             return `
             <tr data-hall-code="${hall.hallCode}" class="${isSelected ? 'bg-blue-900/30' : ''} hover:bg-slate-800/50 transition-colors">
                 <td class="py-4 pl-4 pr-3 text-sm sm:pl-6">
                     <input type="checkbox" class="row-checkbox rounded bg-slate-700 border-slate-500 text-blue-500 focus:ring-blue-500" ${isSelected ? 'checked' : ''}>
                 </td>
-                <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300">${hall.date}</td>
+                <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300">${hall.displayDate}</td>
                 <td class="whitespace-nowrap px-3 py-4 text-sm">
                     <div class="font-medium text-blue-400">${hall.hallName}</div>
                     <div class="text-slate-400">${hall.hallCode}</div>
                     <div class="text-slate-400">Capacity: ${hall.capacity}</div>
-                    <div class="text-slate-400">${hall.floor}</div>
-                    <div class="text-slate-400">${hall.zone}</div>
+                    <div class="text-slate-400">${hall.displayFloor}</div>
+                    <div class="text-slate-400">${hall.displayZone}</div>
                 </td>
                 <td class="whitespace-nowrap px-3 py-4 text-sm">
-                    <div class="font-medium text-blue-400">${hall.school}</div>
-                    <div class="text-slate-400">${hall.department}</div>
+                    <div class="font-medium text-blue-400">${hall.schoolName}</div>
+                    <div class="text-slate-400">${hall.departmentName}</div>
                 </td>
-                <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300 max-w-xs truncate" title="${hall.features}">${hall.features}</td>
+                <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300 max-w-xs truncate" title="${hall.displayFeatures}">${hall.displayFeatures}</td>
                 <td class="whitespace-nowrap px-3 py-4 text-sm">
                     <div class="font-medium text-blue-400">${hall.inchargeName}</div>
                     <div class="text-slate-400">${hall.inchargeRole}</div>
@@ -219,15 +241,22 @@ window.HallDetailsView = (function() {
 
     // --- MODAL HANDLING ---
     function openModal(modalId) {
-        document.getElementById('modal-backdrop').classList.remove('hidden');
-        document.getElementById(modalId).classList.remove('hidden');
+        const modal = document.getElementById(modalId);
+        const backdrop = document.getElementById('modal-backdrop');
+        if(!modal || !backdrop) return;
+        
+        backdrop.classList.remove('hidden');
+        backdrop.classList.remove('opacity-0');
+        modal.classList.remove('hidden');
     }
 
     function closeModal() {
-        document.getElementById('modal-backdrop').classList.add('hidden');
+        const backdrop = document.getElementById('modal-backdrop');
+        if(backdrop) {
+            backdrop.classList.add('opacity-0');
+            setTimeout(() => backdrop.classList.add('hidden'), 300);
+        }
         document.querySelectorAll('.modal').forEach(modal => modal.classList.add('hidden'));
-        const dynamicModal = document.getElementById('transfer-ownership-modal');
-        if (dynamicModal) dynamicModal.remove();
     }
 
     function setupModal(modalId, openBtnId, setupFn) {
@@ -241,6 +270,7 @@ window.HallDetailsView = (function() {
                 openModal(modalId);
             } catch (error) {
                 console.error(`Error setting up modal "${modalId}":`, error);
+                alert(`Could not open modal. ${error.message}`);
             }
         });
     }
@@ -253,38 +283,34 @@ window.HallDetailsView = (function() {
         const availableRadio = document.querySelector('input[name="status-option"][value="true"]');
         const unavailableRadio = document.querySelector('input[name="status-option"][value="false"]');
         
-        // Default to 'Available' if multiple halls are selected, otherwise use the hall's current status.
         if (hall) {
-            (hall.status ? availableRadio : unavailableRadio).checked = true;
+            (hall.availability ? availableRadio : unavailableRadio).checked = true;
         } else {
             availableRadio.checked = true;
         }
     
         const reasonContainer = document.getElementById('status-reason-container');
-        const reasonTextarea = document.getElementById('status-reason-textarea');
+        const dateRangeContainer = document.getElementById('status-date-range');
+        const reasonSelect = document.getElementById('status-reason-select');
         
-        if (reasonTextarea) reasonTextarea.value = '';
+        if (reasonSelect) reasonSelect.value = '';
         
-        const shouldShowReason = unavailableRadio.checked;
-        reasonContainer.classList.toggle('hidden', !shouldShowReason);
+        const showDetails = unavailableRadio.checked;
+        reasonContainer.classList.toggle('hidden', !showDetails);
+        dateRangeContainer.classList.toggle('hidden', !showDetails);
         
         document.querySelectorAll('input[name="status-option"]').forEach(radio => {
             radio.addEventListener('change', (e) => {
-                reasonContainer.classList.toggle('hidden', e.target.value === 'true');
+                const shouldShow = e.target.value === 'false';
+                reasonContainer.classList.toggle('hidden', !shouldShow);
+                dateRangeContainer.classList.toggle('hidden', !shouldShow);
             });
         });
     }
 
     async function showTransferModal() {
-        if (Object.keys(schoolsData).length === 0) {
-            try {
-                schoolsData = await getSchools();
-            } catch (error) {
-                alert("Could not load school and department data. Please try again.");
-                return;
-            }
-        }
-        // ... (rest of the dynamic modal creation logic remains the same)
+        // Placeholder for transfer ownership logic
+        alert("Transfer ownership functionality is not yet implemented.");
     }
 
     function setupFeaturesModal() {
@@ -295,16 +321,19 @@ window.HallDetailsView = (function() {
         const container = document.getElementById('features-checkbox-container');
         if (!container) throw new Error("Required modal element not found.");
         
+        // hall.features is the raw array from the API
+        const currentFeatures = hall.features || [];
+        
         container.innerHTML = allPossibleFeatures.map(feature => {
-            const currentFeatures = (hall.features || '').split(', ');
+            // Check against the raw feature name (e.g., 'SMART_BOARD'), not the formatted one.
             const isChecked = currentFeatures.includes(feature);
-            return `<label class="flex items-center text-slate-300"><input type="checkbox" value="${feature}" class="feature-checkbox form-checkbox h-4 w-4 bg-slate-800 text-blue-500 border-slate-600 rounded focus:ring-blue-500 mr-2" ${isChecked ? 'checked' : ''}>${feature}</label>`;
+            return `<label class="flex items-center text-slate-300"><input type="checkbox" value="${feature}" class="feature-checkbox form-checkbox h-4 w-4 bg-slate-800 text-blue-500 border-slate-600 rounded focus:ring-blue-500 mr-2" ${isChecked ? 'checked' : ''}>${formatTitleCase(feature)}</label>`;
         }).join('');
     }
 
     /**
      * Handles the submission of the status update modal.
-     * It constructs a PUT request to the /api/hall/:id endpoint for each selected hall.
+     * It constructs a full payload for the PUT request for each selected hall.
      */
     async function handleStatusUpdate() {
         const submitBtn = document.getElementById('submit-status-update');
@@ -314,42 +343,56 @@ window.HallDetailsView = (function() {
 
         try {
             const newStatus = document.querySelector('input[name="status-option"]:checked').value === 'true';
-            const reasonInput = document.getElementById('status-reason-textarea');
-            const reason = reasonInput ? reasonInput.value.trim() : '';
+            const reasonSelect = document.getElementById('status-reason-select');
+            const reason = reasonSelect ? reasonSelect.value.trim() : '';
 
             if (!newStatus && !reason) {
                 alert('A reason is required when setting a hall to "Unavailable".');
-                return; // Stop execution
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnHTML;
+                return;
             }
 
-            const payload = { availability: newStatus };
-            if (!newStatus) {
-                payload.reason_for_unavailability = reason;
-            }
-
-            // Create an array of promises for all the API calls
             const updatePromises = state.selectedRows.map(hallId => {
-                const endpoint = `/api/hall/${hallId}`;
+                const hallToUpdate = state.allHalls.find(h => h.hallCode === hallId);
+                if (!hallToUpdate) {
+                    console.error(`Data for hall ${hallId} not found. Skipping update.`);
+                    return Promise.resolve();
+                }
+
+                // Construct the complete payload using the raw data from the state
+                const payload = {
+                    name: hallToUpdate.name,
+                    type: hallToUpdate.type,
+                    capacity: hallToUpdate.capacity,
+                    floor: hallToUpdate.floor,
+                    zone: hallToUpdate.zone,
+                    belongs_to: hallToUpdate.belongs_to,
+                    school_id: hallToUpdate.school_id,
+                    department_id: hallToUpdate.department_id,
+                    features: hallToUpdate.features,
+                    // The only changed values
+                    availability: newStatus,
+                    reason_for_unavailability: newStatus ? null : reason
+                };
+
+                const endpoint = `api/hall/${hallId}`;
                 return fetchFromAPI(endpoint, {
                     method: 'PUT',
                     body: JSON.stringify(payload)
-                }, false); // The PUT response might not have a body, so don't force JSON parsing of the response.
+                }, false);
             });
 
-            // Wait for all updates to complete
             await Promise.all(updatePromises);
 
             alert(`Successfully updated status for ${state.selectedRows.length} hall(s).`);
             closeModal();
-            
-            // Re-initialize to fetch the latest data and refresh the view
             await initialize(); 
 
         } catch (error) {
             console.error('Failed to update hall status:', error);
-            alert(`An error occurred while updating status: ${error.message}. Please try again.`);
+            alert(`An error occurred while updating status:\n${error.message}`);
         } finally {
-            // Restore button state regardless of success or failure
             submitBtn.disabled = false;
             submitBtn.innerHTML = originalBtnHTML;
         }
@@ -357,7 +400,7 @@ window.HallDetailsView = (function() {
 
     /**
      * Handles the submission of the modify features modal.
-     * It constructs a PUT request to the /api/hall/:id endpoint.
+     * It constructs a full payload for the PUT request.
      */
     async function handleFeaturesUpdate() {
         const submitBtn = document.getElementById('submit-features-update');
@@ -372,26 +415,43 @@ window.HallDetailsView = (function() {
             if (!hallId) {
                 throw new Error("No hall selected for feature update.");
             }
+            
+            const hallToUpdate = state.allHalls.find(h => h.hallCode === hallId);
+            if (!hallToUpdate) {
+                throw new Error("Could not find the hall data to update.");
+            }
 
-            const payload = { features: selectedFeatures };
-            const endpoint = `/api/hall/${hallId}`;
+            // Construct the complete payload using the raw data from the state
+            const payload = {
+                name: hallToUpdate.name,
+                type: hallToUpdate.type,
+                capacity: hallToUpdate.capacity,
+                floor: hallToUpdate.floor,
+                zone: hallToUpdate.zone,
+                belongs_to: hallToUpdate.belongs_to,
+                school_id: hallToUpdate.school_id,
+                department_id: hallToUpdate.department_id,
+                availability: hallToUpdate.availability,
+                reason_for_unavailability: hallToUpdate.reason_for_unavailability,
+                // The only changed value
+                features: selectedFeatures 
+            };
+            
+            const endpoint = `api/hall/${hallId}`;
 
             await fetchFromAPI(endpoint, {
                 method: 'PUT',
                 body: JSON.stringify(payload)
-            }, false); // The PUT response might not have a body, so don't force JSON parsing of the response.
+            }, false);
 
             alert(`Successfully updated features for hall ${hallId}.`);
             closeModal();
-            
-            // Re-initialize to fetch the latest data and refresh the view
             await initialize();
 
         } catch (error) {
             console.error('Failed to update hall features:', error);
-            alert(`An error occurred while updating features: ${error.message}. Please try again.`);
+            alert(`An error occurred while updating features:\n${error.message}`);
         } finally {
-            // Restore button state regardless of success or failure
             submitBtn.disabled = false;
             submitBtn.innerHTML = originalBtnHTML;
         }
@@ -406,7 +466,9 @@ window.HallDetailsView = (function() {
 
         document.getElementById('multiselect-toggle')?.addEventListener('change', (e) => {
             state.multiSelection = e.target.checked;
-            state.selectedRows = state.multiSelection ? state.selectedRows : [];
+            if (!state.multiSelection) {
+                state.selectedRows = [];
+            }
             renderHallTable();
         }, { signal });
         
