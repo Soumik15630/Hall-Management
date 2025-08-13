@@ -791,7 +791,7 @@ window.FinalBookingFormView = (function() {
         }
 
         return `
-            <section class="bg-slate-900/70 p-4 sm:p-6 rounded-lg shadow-md border border-slate-700">
+            <section id="time-slot-selector-section" class="bg-slate-900/70 p-4 sm:p-6 rounded-lg shadow-md border border-slate-700">
                 <h3 class="text-xl font-semibold text-white mb-4 border-b border-slate-700 pb-2">
                     <i class="fas fa-calendar-alt mr-2"></i>
                     Date & Time Selection
@@ -857,33 +857,20 @@ window.FinalBookingFormView = (function() {
         if (isIndividual) {
             const calendarContainer = document.getElementById('calendar-section');
             if (calendarContainer) {
-                // *** FIX APPLIED HERE: PART 1 ***
-                // Before re-rendering, we get the current horizontal scroll position.
                 const oldScroller = calendarContainer.querySelector('.overflow-x-auto');
                 const scrollLeft = oldScroller ? oldScroller.scrollLeft : 0;
 
-                // Re-render the entire calendar section
                 calendarContainer.innerHTML = renderCalendar();
 
-                // *** FIX APPLIED HERE: PART 2 ***
-                // After re-rendering, we find the new scroll container and restore its position.
                 const newScroller = calendarContainer.querySelector('.overflow-x-auto');
                 if (newScroller) {
                     newScroller.scrollLeft = scrollLeft;
                 }
             }
             
-            const timeSelectorContainer = document.querySelector('#individual-booking-section .space-y-8');
-            if (timeSelectorContainer) {
-                 const newTimeSelectorContent = renderTimeSlotSelector();
-                 const match = newTimeSelectorContent.match(/<section[^>]*>(.*)<\/section>/s);
-                 if (match && match[1]) {
-                    // This logic seems fragile, ensure it targets the correct element.
-                    // Assuming the second child is the time slot selector section.
-                    if (timeSelectorContainer.children[1]) {
-                        timeSelectorContainer.children[1].innerHTML = match[1];
-                    }
-                 }
+            const timeSelectorSection = document.getElementById('time-slot-selector-section');
+            if (timeSelectorSection) {
+                timeSelectorSection.outerHTML = renderTimeSlotSelector();
             }
         } else {
             // Update semester UI elements
@@ -1089,12 +1076,9 @@ window.FinalBookingFormView = (function() {
 
             const result = await response.json();
             alert(result.message || 'Booking request submitted successfully!');
-            resetForm();
-
-            if (state.hallIdFromUrl) {
-                state.availabilityData = await fetchHallAvailability(state.hallIdFromUrl);
-                render();
-            }
+            
+            // Redirect to the browse book page after successful submission
+            window.location.hash = 'browsebook';
 
         } catch (error) {
             alert(error.message || 'Failed to submit booking request. Please try again.');

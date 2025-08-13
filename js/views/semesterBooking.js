@@ -84,26 +84,35 @@ window.SemesterBookingView = (function() {
         return await window.apiCache.fetch('employees', () => fetchFromAPI(AppConfig.endpoints.allemp));
     }
 
+    /**
+     * MODIFIED FUNCTION
+     * The original code spread the `hall` object last, which caused the correct `unique_id`
+     * to be overwritten by the original (and incorrect) `id` from the API.
+     * By spreading the `hall` object first and then defining `id`, we ensure
+     * the correct, long UUID is always used.
+     */
     async function fetchHallsForView() {
-        // CORRECTED: Fetch all three endpoints to correctly map names from IDs.
+        // Fetch all necessary data in parallel
         const [rawHalls, schools, departments] = await Promise.all([
             fetchFromAPI(AppConfig.endpoints.allHall),
             fetchRawSchools(),
             fetchRawDepartments()
         ]);
         
+        // Create maps for efficient lookups
         const schoolMap = new Map(schools.map(s => [s.unique_id, s.school_name]));
         const departmentMap = new Map(departments.map(d => [d.unique_id, d.department_name]));
 
+        // Map over the raw hall data to create a clean, consistent hall object
         return rawHalls.map(hall => ({
-            id: hall.unique_id,
+            ...hall, // Spread the original hall object first to get all its properties
+            id: hall.unique_id, // Explicitly set/overwrite 'id' with the correct UUID
             name: hall.name,
             hallCode: hall.unique_id,
             type: mapHallType(hall.type),
             capacity: hall.capacity,
             school: schoolMap.get(hall.school_id) || 'N/A',
             department: departmentMap.get(hall.department_id) || 'N/A',
-            ...hall
         }));
     }
     
@@ -311,13 +320,6 @@ window.SemesterBookingView = (function() {
         optionsContainer.innerHTML = filteredEmployees.map(emp => `<div class="p-2 cursor-pointer hover:bg-slate-700" data-value="${emp.email}" data-name="${emp.name}">${emp.name}</div>`).join('');
     }
 
-    /**
-     * MODIFIED FUNCTION
-     * Handles clicks within the hall list panel.
-     * If the "View Details" button is clicked, it navigates to the hall details page.
-     * Otherwise, it selects the hall for booking on the current page.
-     * This ensures the correct hall ID is used for navigation, preventing errors.
-     */
     function handleHallClick(e) {
         const card = e.target.closest('.semester-hall-card');
         if (!card) return;

@@ -3,9 +3,12 @@ window.HallBookingDetailsView = (function() {
     // --- STATE MANAGEMENT ---
     let state = {
         hall: null,
-        availabilityData: [], // Will hold all bookings (approved, pending)
+        availabilityData: [],
         selectedSlots: [], // Format: [{ date: 'YYYY-MM-DD', time: 'HH:MM' }]
         currentDate: new Date(),
+        isDragging: false,
+        dragSelectionMode: 'add',
+        dragDate: null,
     };
     let abortController;
     let tooltipTimeout;
@@ -15,7 +18,6 @@ window.HallBookingDetailsView = (function() {
     // --- UTILITY FUNCTIONS FOR IST TIME HANDLING ---
     function getTodayISTString() {
         const now = new Date();
-        // Use en-CA format (YYYY-MM-DD) for easy string comparison
         const year = now.toLocaleString('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric' });
         const month = now.toLocaleString('en-CA', { timeZone: 'Asia/Kolkata', month: '2-digit' });
         const day = now.toLocaleString('en-CA', { timeZone: 'Asia/Kolkata', day: '2-digit' });
@@ -24,9 +26,8 @@ window.HallBookingDetailsView = (function() {
 
     function getCurrentISTTimeString() {
         const now = new Date();
-        // Use en-GB format (HH:MM:SS)
         const timeString = now.toLocaleTimeString('en-GB', { timeZone: 'Asia/Kolkata', hour12: false });
-        return timeString.substring(0, 5); // Returns time as 'HH:mm'
+        return timeString.substring(0, 5);
     }
 
     function isSlotInPast(dateString, time) {
@@ -41,9 +42,9 @@ window.HallBookingDetailsView = (function() {
 
     // --- API & DATA HANDLING ---
     async function fetchFromAPI(endpoint, options = {}) {
-        const headers = getAuthHeaders(); // Assuming this function exists globally
+        const headers = getAuthHeaders();
         if (!headers) {
-            logout(); // Assuming this function exists globally
+            logout();
             throw new Error("User not authenticated");
         }
         const fullUrl = AppConfig.apiBaseUrl + endpoint;
@@ -57,7 +58,6 @@ window.HallBookingDetailsView = (function() {
         if (!text) return null;
         try {
             const parsed = JSON.parse(text);
-            // The API might return data directly or within a 'data' property
             return parsed.data || parsed;
         } catch (e) {
             console.error("Failed to parse API response:", text);
@@ -69,34 +69,51 @@ window.HallBookingDetailsView = (function() {
         if (!state.availabilityData || state.availabilityData.length === 0) {
             return [];
         }
-        
         const slotDateTime = new Date(`${dateString}T${time}:00.000Z`);
-
         return state.availabilityData.filter(b => {
             if (!b || !b.start_time || !b.end_time) return false;
-            
             try {
                 const bookingStartDateTime = new Date(b.start_time);
                 const bookingEndDateTime = new Date(b.end_time);
                 return slotDateTime >= bookingStartDateTime && slotDateTime < bookingEndDateTime;
             } catch (e) {
-                console.error("Error parsing booking dates", e);
                 return false;
             }
         });
     }
+
+    function isSlotAvailable(dateString, time) {
+        if (isSlotInPast(dateString, time)) return false;
+        return getBookingsForSlot(dateString, time).length === 0;
+    }
     
-    function formatTimeForDisplay(time) {
-        const [hour, minute] = time.split(':');
-        const h = parseInt(hour);
-        const suffix = h >= 12 ? 'PM' : 'AM';
-        const displayHour = h % 12 === 0 ? 12 : h % 12;
-        return `${String(displayHour).padStart(2, '0')}:${minute} ${suffix}`;
+    // --- SELECTION LOGIC ---
+    function validateSingleDayBooking(newSlot) {
+        if (state.selectedSlots.length === 0) return true;
+        const existingDate = state.selectedSlots[0].date;
+        return newSlot.date === existingDate;
+    }
+
+    function autoFillContiguousSlots(targetSlot) {
+        const currentSelectedForDate = state.selectedSlots.filter(slot => slot.date === targetSlot.date);
+        if (currentSelectedForDate.length === 0) return;
+
+        const timeIndices = currentSelectedForDate.map(slot => timeSlots.indexOf(slot.time)).sort((a, b) => a - b);
+        const minIndex = Math.min(...timeIndices);
+        const maxIndex = Math.max(...timeIndices);
+
+        for (let i = minIndex; i <= maxIndex; i++) {
+            const timeSlot = timeSlots[i];
+            const slotExists = state.selectedSlots.some(slot => slot.date === targetSlot.date && slot.time === timeSlot);
+            if (!slotExists && isSlotAvailable(targetSlot.date, timeSlot)) {
+                state.selectedSlots.push({ date: targetSlot.date, time: timeSlot });
+            }
+        }
     }
 
     // --- TOOLTIP MANAGEMENT ---
     function createTooltip(content, targetElement) {
-        removeTooltip(); // Remove any existing tooltip
+        removeTooltip();
         const tooltip = document.createElement('div');
         tooltip.id = 'booking-tooltip';
         tooltip.className = 'absolute z-50 p-3 bg-slate-900 border border-slate-700 rounded-lg shadow-xl text-sm max-w-xs w-max';
@@ -109,12 +126,9 @@ window.HallBookingDetailsView = (function() {
         let top = targetRect.bottom + window.scrollY + 5;
         let left = targetRect.left + window.scrollX + (targetRect.width / 2) - (tooltipRect.width / 2);
 
-        // Adjust if off-screen
         if (left < 0) left = 5;
         if (left + tooltipRect.width > window.innerWidth) left = window.innerWidth - tooltipRect.width - 5;
-        if (top + tooltipRect.height > window.innerHeight + window.scrollY) {
-            top = targetRect.top + window.scrollY - tooltipRect.height - 5;
-        }
+        if (top + tooltipRect.height > window.innerHeight + window.scrollY) top = targetRect.top + window.scrollY - tooltipRect.height - 5;
 
         tooltip.style.top = `${top}px`;
         tooltip.style.left = `${left}px`;
@@ -122,16 +136,16 @@ window.HallBookingDetailsView = (function() {
 
     function removeTooltip() {
         const existingTooltip = document.getElementById('booking-tooltip');
-        if (existingTooltip) {
-            existingTooltip.remove();
-        }
+        if (existingTooltip) existingTooltip.remove();
     }
 
     // --- RENDERING LOGIC ---
     function render() {
         if (!state.hall) return;
         renderHallInfo();
+        // This function now performs the full initial render
         rerenderCalendar();
+        // This sets up all event listeners for the view
         setupEventHandlers();
     }
 
@@ -169,10 +183,22 @@ window.HallBookingDetailsView = (function() {
         document.getElementById('current-month-year').textContent = `${currentDate.toLocaleString('default', { month: 'long' })} ${year}`;
 
         return `
+            <style>
+                .slot { width: 100%; height: 2.5rem; border-radius: 0.25rem; cursor: pointer; transition: all 0.2s; border: 1px solid transparent; }
+                .slot:disabled { cursor: not-allowed; }
+                .slot-available-weekday { background-color: rgba(22, 101, 52, 0.8); border-color: rgba(22, 101, 52, 1); }
+                .slot-available-weekday:hover { background-color: rgba(21, 128, 61, 0.8); }
+                .slot-available-weekend { background-color: rgba(74, 222, 128, 0.6); border-color: rgba(74, 222, 128, 0.8); }
+                .slot-available-weekend:hover { background-color: rgba(74, 222, 128, 0.7); }
+                .slot-booked { background-color: rgba(220, 38, 38, 0.8); border-color: rgba(220, 38, 38, 1); cursor: pointer !important; }
+                .slot-pending { background-color: rgba(234, 179, 8, 0.8); border-color: rgba(234, 179, 8, 1); cursor: pointer !important; }
+                .slot-past { background-color: rgba(71, 85, 105, 0.5); border-color: rgba(71, 85, 105, 0.7); opacity: 0.6; }
+                .slot-selected { background-color: rgba(59, 130, 246, 1) !important; border-color: rgba(96, 165, 250, 1) !important; transform: scale(1.05); }
+            </style>
             <table class="w-full border-collapse">
                 <thead>
                     <tr class="sticky top-0 bg-slate-800/50 backdrop-blur-sm">
-                        <th class="p-2 w-24"></th> <!-- Time column -->
+                        <th class="p-2 w-24"></th>
                         ${Array.from({ length: daysInMonth }, (_, i) => `
                             <th class="text-center p-2">
                                 <div class="font-semibold">${i + 1}</div>
@@ -181,16 +207,16 @@ window.HallBookingDetailsView = (function() {
                         `).join('')}
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-700/50">
+                <tbody class="divide-y divide-slate-700/50" id="calendar-body">
                     ${timeSlots.map(time => `
                         <tr class="divide-x divide-slate-700/50">
-                            <td class="text-right text-sm text-slate-300 p-2 whitespace-nowrap">${formatTimeForDisplay(time)}</td>
+                            <td class="text-right text-sm text-slate-300 p-2 whitespace-nowrap">${new Date('1970-01-01T' + time).toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit', hour12: true})}</td>
                             ${Array.from({ length: daysInMonth }, (_, i) => {
                                 const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(i + 1).padStart(2, '0')}`;
                                 const { classes, status, isClickable } = getSlotStatus(dateString, time);
                                 return `
                                     <td class="p-1">
-                                        <button class="w-full h-10 rounded transition-all duration-200 ${classes}" 
+                                        <button class="slot ${classes}" 
                                                 data-date="${dateString}" 
                                                 data-time="${time}"
                                                 data-status="${status}"
@@ -207,36 +233,40 @@ window.HallBookingDetailsView = (function() {
 
     function getSlotStatus(dateString, time) {
         if (state.selectedSlots.some(s => s.date === dateString && s.time === time)) {
-            return { classes: 'bg-cyan-500 ring-2 ring-cyan-200', status: 'selected', isClickable: true };
+            return { classes: 'slot-selected', status: 'selected', isClickable: true };
         }
-
         if (isSlotInPast(dateString, time)) {
-            return { classes: 'bg-slate-700/50 cursor-not-allowed', status: 'past', isClickable: false };
+            return { classes: 'slot-past', status: 'past', isClickable: false };
         }
-
         const bookings = getBookingsForSlot(dateString, time);
         if (bookings.length > 0) {
-            if (bookings.some(b => b.status === 'APPROVED')) {
-                return { classes: 'bg-red-600/80 cursor-pointer', status: 'booked', isClickable: true };
-            }
-            if (bookings.some(b => b.status === 'PENDING')) {
-                return { classes: 'bg-yellow-500/80 hover:bg-yellow-400/80 cursor-pointer', status: 'pending', isClickable: true };
-            }
-            // Fallback for bookings without a status field
-            return { classes: 'bg-red-600/80 cursor-pointer', status: 'booked', isClickable: true };
+            if (bookings.some(b => b.status === 'APPROVED')) return { classes: 'slot-booked', status: 'booked', isClickable: true };
+            if (bookings.some(b => b.status === 'PENDING')) return { classes: 'slot-pending', status: 'pending', isClickable: true };
+            return { classes: 'slot-booked', status: 'booked', isClickable: true };
         }
-        
-        const dateParts = dateString.split('-').map(Number);
-        const dayOfWeek = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]).getDay();
-
+        const dayOfWeek = new Date(dateString + 'T00:00:00').getDay();
         if (dayOfWeek === 0 || dayOfWeek === 6) {
-            return { classes: 'bg-green-400/60 hover:bg-green-500/70', status: 'available-weekend', isClickable: true };
+            return { classes: 'slot-available-weekend', status: 'available-weekend', isClickable: true };
         }
-
-        return { classes: 'bg-green-700/80 hover:bg-green-600/80', status: 'available', isClickable: true };
+        return { classes: 'slot-available-weekday', status: 'available', isClickable: true };
+    }
+    
+    // --- NEW EFFICIENT UI UPDATE FUNCTION ---
+    function updateCalendarUI() {
+        document.querySelectorAll('#calendar-body .slot').forEach(slotEl => {
+            const { date, time } = slotEl.dataset;
+            const { classes, status, isClickable } = getSlotStatus(date, time);
+            slotEl.className = `slot ${classes}`;
+            slotEl.dataset.status = status;
+            if (isClickable) {
+                slotEl.removeAttribute('disabled');
+            } else {
+                slotEl.setAttribute('disabled', '');
+            }
+        });
     }
 
-    // --- EVENT HANDLERS ---
+    // --- REFACTORED EVENT HANDLERS ---
     function setupEventHandlers() {
         if (abortController) abortController.abort();
         abortController = new AbortController();
@@ -245,55 +275,59 @@ window.HallBookingDetailsView = (function() {
         const viewContainer = document.getElementById('hall-booking-details-view');
         if (!viewContainer) return;
 
+        // General clicks for nav buttons etc.
         viewContainer.addEventListener('click', e => {
             const button = e.target.closest('button');
             if (!button) return;
-
             if (button.id === 'prev-month-btn') {
                 state.currentDate.setMonth(state.currentDate.getMonth() - 1);
-                rerenderCalendar();
+                rerenderCalendar(); // Full re-render for month change
             } else if (button.id === 'next-month-btn') {
                 state.currentDate.setMonth(state.currentDate.getMonth() + 1);
-                rerenderCalendar();
+                rerenderCalendar(); // Full re-render for month change
             } else if (button.id === 'book-hall-btn') {
                 handleBookHall();
-            } else if (button.dataset.date && button.dataset.time) {
-                handleSlotClick(button);
-            }
-        }, { signal });
-
-        const grid = viewContainer.querySelector('#booking-calendar-grid');
-        if (!grid) return;
-
-        grid.addEventListener('mouseover', e => {
-            const slot = e.target.closest('button[data-status="booked"], button[data-status="pending"]');
-            if (slot) {
-                clearTimeout(tooltipTimeout);
-                tooltipTimeout = setTimeout(() => showSlotTooltip(slot), 200);
-            }
-        }, { signal });
-
-        grid.addEventListener('mouseout', e => {
-            const slot = e.target.closest('button[data-status="booked"], button[data-status="pending"]');
-            if (slot) {
-                clearTimeout(tooltipTimeout);
-                tooltipTimeout = setTimeout(removeTooltip, 300);
             }
         }, { signal });
         
-        document.body.addEventListener('mouseover', e => {
-            if (e.target.closest('#booking-tooltip')) clearTimeout(tooltipTimeout);
-        }, { signal });
-        
-        document.body.addEventListener('mouseout', e => {
-             if (e.target.closest('#booking-tooltip')) removeTooltip();
-        }, { signal });
+        // Drag and selection listeners
+        const calendarBody = document.getElementById('calendar-body');
+        if (calendarBody) {
+            calendarBody.addEventListener('mousedown', handleDragStart, { signal });
+        }
+        // Listen on document to catch events if mouse leaves the calendar body
+        document.addEventListener('mouseover', handleDragOver, { signal });
+        document.addEventListener('mouseup', handleDragStop, { signal });
+
+        // Tooltip listeners
+        const grid = viewContainer.querySelector('.w-full.border-collapse');
+        if (grid) {
+            grid.addEventListener('mouseover', e => {
+                const slot = e.target.closest('button[data-status="booked"], button[data-status="pending"]');
+                if (slot) {
+                    clearTimeout(tooltipTimeout);
+                    tooltipTimeout = setTimeout(() => showSlotTooltip(slot), 200);
+                }
+            }, { signal });
+            grid.addEventListener('mouseout', e => {
+                const slot = e.target.closest('button[data-status="booked"], button[data-status="pending"]');
+                if (slot) {
+                    clearTimeout(tooltipTimeout);
+                    tooltipTimeout = setTimeout(removeTooltip, 300);
+                }
+            }, { signal });
+        }
+        document.body.addEventListener('mouseover', e => { if (e.target.closest('#booking-tooltip')) clearTimeout(tooltipTimeout); }, { signal });
+        document.body.addEventListener('mouseout', e => { if (e.target.closest('#booking-tooltip')) removeTooltip(); }, { signal });
     }
 
     function rerenderCalendar() {
-        const calendarGrid = document.getElementById('booking-calendar-grid');
-        if (calendarGrid) {
-            calendarGrid.innerHTML = renderCalendarGrid();
+        const calendarGridContainer = document.getElementById('booking-calendar-grid');
+        if (calendarGridContainer) {
+            calendarGridContainer.innerHTML = renderCalendarGrid();
+            // After re-rendering, event listeners on the body need to be re-established
+            // by calling the main setup function again.
+            setupEventHandlers();
         }
     }
 
@@ -301,53 +335,83 @@ window.HallBookingDetailsView = (function() {
         const { date, time, status } = slotEl.dataset;
         const bookings = getBookingsForSlot(date, time);
         if (bookings.length === 0) return;
-
         const booking = bookings[0];
-        
+        let content;
         if (status === 'booked') {
-            const content = `
-                <div class="font-bold text-red-400 mb-2">Slot Booked</div>
-                <div class="space-y-1">
-                    <div><span class="text-slate-400">By:</span> <span class="text-white">${booking.user.name}</span></div>
-                    <div><span class="text-slate-400">Dept:</span> <span class="text-white">${booking.user.department}</span></div>
-                    <div><span class="text-slate-400">Purpose:</span> <span class="text-white">${booking.purpose}</span></div>
-                </div>`;
-            createTooltip(content, slotEl);
+            content = `<div class="font-bold text-red-400 mb-2">Slot Booked</div>
+                       <div class="space-y-1">
+                           <div><span class="text-slate-400">By:</span> <span class="text-white">${booking.user.name}</span></div>
+                           <div><span class="text-slate-400">Dept:</span> <span class="text-white">${booking.user.department}</span></div>
+                           <div><span class="text-slate-400">Purpose:</span> <span class="text-white">${booking.purpose}</span></div>
+                       </div>`;
         } else if (status === 'pending') {
-            const content = `
-                <div class="font-bold text-yellow-400 mb-2">Pending Requests (${bookings.length})</div>
-                <ul class="space-y-2 list-disc list-inside">
-                    ${bookings.map(b => `<li><span class="text-white">${b.user.name}</span> <span class="text-slate-400">(${b.user.department})</span></li>`).join('')}
-                </ul>
-                <div class="text-xs text-slate-500 mt-2">This slot can still be selected.</div>`;
-            createTooltip(content, slotEl);
+            content = `<div class="font-bold text-yellow-400 mb-2">Pending Requests (${bookings.length})</div>
+                       <ul class="space-y-2 list-disc list-inside">
+                           ${bookings.map(b => `<li><span class="text-white">${b.user.name}</span> <span class="text-slate-400">(${b.user.department})</span></li>`).join('')}
+                       </ul>
+                       <div class="text-xs text-slate-500 mt-2">This slot can still be selected.</div>`;
         }
+        if (content) createTooltip(content, slotEl);
     }
 
-    function handleSlotClick(slotEl) {
-        const { status } = slotEl.dataset;
+    function handleDragStart(e) {
+        const slotEl = e.target.closest('button.slot');
+        if (!slotEl || slotEl.disabled) return;
+        e.preventDefault();
 
+        const { date, time, status } = slotEl.dataset;
         if (status === 'booked' || status === 'pending') {
             showSlotTooltip(slotEl);
-        }
-        
-        if (status === 'past' || status === 'booked') {
             return;
         }
 
-        const { date, time } = slotEl.dataset;
-        const existingIndex = state.selectedSlots.findIndex(s => s.date === date && s.time === time);
-        if (existingIndex > -1) {
-            state.selectedSlots.splice(existingIndex, 1);
-        } else {
-             const existingDates = [...new Set(state.selectedSlots.map(slot => slot.date))];
-             if(existingDates.length > 0 && !existingDates.includes(date)) {
-                 showNotification("You can only pre-select slots for one day at a time. Please clear your selection to choose a different day.");
-                 return;
-             }
-            state.selectedSlots.push({ date, time });
+        if (!validateSingleDayBooking({ date, time })) {
+            const existingDate = state.selectedSlots[0].date;
+            showNotification(`You can only book slots for one day. Please clear your selection for ${new Date(existingDate+'T00:00:00').toLocaleDateString()} to choose a different date.`);
+            return;
         }
-        rerenderCalendar();
+
+        state.isDragging = true;
+        state.dragDate = date;
+        const isSelected = slotEl.classList.contains('slot-selected');
+        state.dragSelectionMode = isSelected ? 'remove' : 'add';
+
+        const existingIndex = state.selectedSlots.findIndex(s => s.date === date && s.time === time);
+        if (state.dragSelectionMode === 'add' && existingIndex === -1) {
+            state.selectedSlots.push({ date, time });
+        } else if (state.dragSelectionMode === 'remove' && existingIndex > -1) {
+            state.selectedSlots.splice(existingIndex, 1);
+        }
+        updateCalendarUI();
+    }
+
+    function handleDragOver(e) {
+        if (!state.isDragging) return;
+        const slotEl = e.target.closest('button.slot');
+        if (slotEl && !slotEl.disabled && slotEl.dataset.date === state.dragDate) {
+            const { date, time } = slotEl.dataset;
+            const isSelected = state.selectedSlots.some(s => s.date === date && s.time === time);
+            if (state.dragSelectionMode === 'add' && !isSelected) {
+                state.selectedSlots.push({ date, time });
+                updateCalendarUI();
+            } else if (state.dragSelectionMode === 'remove' && isSelected) {
+                const index = state.selectedSlots.findIndex(s => s.date === date && s.time === time);
+                if (index > -1) {
+                    state.selectedSlots.splice(index, 1);
+                    updateCalendarUI();
+                }
+            }
+        }
+    }
+
+    function handleDragStop() {
+        if (!state.isDragging) return;
+        state.isDragging = false;
+        if (state.dragSelectionMode === 'add' && state.selectedSlots.length > 0) {
+            const lastSelected = state.selectedSlots[state.selectedSlots.length - 1];
+            autoFillContiguousSlots(lastSelected);
+        }
+        updateCalendarUI();
     }
     
     function showNotification(message) {
@@ -355,9 +419,7 @@ window.HallBookingDetailsView = (function() {
         notification.className = 'fixed top-5 right-5 bg-red-500 text-white py-2 px-4 rounded-lg shadow-lg animate-pulse';
         notification.textContent = message;
         document.body.appendChild(notification);
-        setTimeout(() => {
-            notification.remove();
-        }, 4000);
+        setTimeout(() => notification.remove(), 4000);
     }
 
     function handleBookHall() {
@@ -367,11 +429,14 @@ window.HallBookingDetailsView = (function() {
         }
         sessionStorage.setItem('finalBookingSlots', JSON.stringify(state.selectedSlots));
         sessionStorage.setItem('finalBookingHall', JSON.stringify(state.hall));
-        window.location.hash = `#final-booking-form-view?id=${state.hall?.id}`;
+        sessionStorage.setItem('finalBookingAvailability', JSON.stringify(state.availabilityData));
+        window.location.hash = `#final-booking-form-view?id=${state.hall?.id || state.hall?.unique_id}`;
     }
 
     function cleanup() {
         if (abortController) abortController.abort();
+        document.removeEventListener('mouseover', handleDragOver);
+        document.removeEventListener('mouseup', handleDragStop);
         removeTooltip();
     }
 
@@ -380,15 +445,14 @@ window.HallBookingDetailsView = (function() {
             state.selectedSlots = [];
             sessionStorage.removeItem('finalBookingSlots');
             sessionStorage.removeItem('finalBookingHall');
+            sessionStorage.removeItem('finalBookingAvailability');
 
             const [hallData, availabilityData] = await Promise.all([
                 fetchFromAPI(`api/hall/${hallId}`),
                 fetchFromAPI(`api/booking/hall/${hallId}`)
             ]);
             
-            if (!hallData) {
-                throw new Error(`Hall data not found for ID: ${hallId}`);
-            }
+            if (!hallData) throw new Error(`Hall data not found for ID: ${hallId}`);
 
             const processedHallData = {
                 ...hallData,
@@ -401,11 +465,10 @@ window.HallBookingDetailsView = (function() {
                 }
             };
             
-            // UPDATED: Process the availability data to create a consistent, safe structure.
             const processedAvailabilityData = (availabilityData || []).map(b => ({
                 start_time: b.start_time,
                 end_time: b.end_time,
-                status: b.status || 'APPROVED', // Default to APPROVED if status is missing
+                status: b.status || 'APPROVED',
                 purpose: b.bookingRequest?.purpose || b.purpose || 'N/A',
                 class_code: b.bookingRequest?.class_code || b.class_code || null,
                 user: {
@@ -415,9 +478,9 @@ window.HallBookingDetailsView = (function() {
             }));
 
             state = {
+                ...state,
                 hall: processedHallData,
-                availabilityData: processedAvailabilityData, // Use the processed data
-                selectedSlots: [],
+                availabilityData: processedAvailabilityData,
                 currentDate: new Date(),
             };
             render();
