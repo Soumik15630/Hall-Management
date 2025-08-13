@@ -46,7 +46,7 @@
         <div class="container mx-auto" x-data="manageS_D">
             <!-- Desktop Header -->
             <div class="hidden md:flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-                 <h2 class="text-3xl font-bold text-white">Manage Schools & Departments</h2>
+                     <h2 class="text-3xl font-bold text-white">Manage Schools & Departments</h2>
                 <div class="flex items-center space-x-3 bg-[rgba(0,0,0,0.2)] p-2 rounded-lg">
                     <a href="addSD.html" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-plus"></i><span x-text="`Add ${activeView === 'schools' ? 'School' : 'Department'}`"></span></a>
                     <button @click="modifySelectedItem()" :disabled="selectedItems.length !== 1" class="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-edit"></i><span>Modify</span></button>
@@ -72,7 +72,7 @@
                         <button @click="viewMode = 'table'" :class="{'bg-indigo-600 text-white': viewMode === 'table', 'text-gray-300 hover:bg-white/10': viewMode !== 'table'}" class="px-3 py-1.5 rounded-md transition-colors"><i class="fas fa-list"></i></button>
                     </div>
                 </div>
-                 <div class="flex items-center space-x-2 text-white text-sm mt-3">
+                   <div class="flex items-center space-x-2 text-white text-sm mt-3">
                     <span>Multi-Select:</span>
                     <label class="toggle-switch scale-90"><input type="checkbox" x-model="multipleSelectionEnabled"><span class="toggle-slider"></span></label>
                 </div>
@@ -80,43 +80,43 @@
             
             <!-- Desktop Filter Bar -->
             <div class="hidden md:block bg-white/10 p-4 rounded-lg mb-6">
-                 <div class="flex flex-wrap items-center justify-between gap-4 text-white">
-                    <div class="flex items-center gap-4 flex-wrap">
-                        <div class="flex items-center gap-2 bg-gray-900/20 p-1 rounded-lg">
-                            <button @click="activeView = 'schools'" :class="{'bg-indigo-600 text-white': activeView === 'schools', 'text-gray-300 hover:bg-white/10': activeView !== 'schools'}" class="px-3 py-1 rounded-md transition-colors text-sm font-semibold">Schools</button>
-                            <button @click="activeView = 'departments'" :class="{'bg-indigo-600 text-white': activeView === 'departments', 'text-gray-300 hover:bg-white/10': activeView !== 'departments'}" class="px-3 py-1 rounded-md transition-colors text-sm font-semibold">Departments</button>
-                        </div>
-                        <button @click="modals.filter = true" class="px-3 py-1 rounded-full text-sm flex items-center gap-2 filter-button" :class="{'active': isAnyFilterActive}"><i class="fas fa-filter"></i> Filter</button>
-                        
-                        <button x-show="selectedItems.length > 0" @click="deselectAll()" x-transition class="px-3 py-1 rounded-full text-sm flex items-center gap-2 filter-button bg-yellow-400 text-black hover:bg-yellow-500">
-                            <i class="fas fa-eraser"></i> Deselect All
-                        </button>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <div class="relative" @click.away="modals.sortOptionsOpen = false">
-                            <button @click="modals.sortOptionsOpen = !modals.sortOptionsOpen" class="px-3 py-1 rounded-full text-sm flex items-center gap-2 filter-button bg-gray-900/20">
-                                <i class="fas fa-sort-amount-down"></i> Sort
+                     <div class="flex flex-wrap items-center justify-between gap-4 text-white">
+                        <div class="flex items-center gap-4 flex-wrap">
+                            <div class="flex items-center gap-2 bg-gray-900/20 p-1 rounded-lg">
+                                <button @click="activeView = 'schools'" :class="{'bg-indigo-600 text-white': activeView === 'schools', 'text-gray-300 hover:bg-white/10': activeView !== 'schools'}" class="px-3 py-1 rounded-md transition-colors text-sm font-semibold">Schools</button>
+                                <button @click="activeView = 'departments'" :class="{'bg-indigo-600 text-white': activeView === 'departments', 'text-gray-300 hover:bg-white/10': activeView !== 'departments'}" class="px-3 py-1 rounded-md transition-colors text-sm font-semibold">Departments</button>
+                            </div>
+                            <button @click="modals.filter = true" class="px-3 py-1 rounded-full text-sm flex items-center gap-2 filter-button" :class="{'active': isAnyFilterActive}"><i class="fas fa-filter"></i> Filter</button>
+                            
+                            <button x-show="selectedItems.length > 0" @click="deselectAll()" x-transition class="px-3 py-1 rounded-full text-sm flex items-center gap-2 filter-button bg-yellow-400 text-black hover:bg-yellow-500">
+                                <i class="fas fa-eraser"></i> Deselect All
                             </button>
-                            <div x-show="modals.sortOptionsOpen" x-transition class="absolute right-0 mt-2 w-52 bg-white text-gray-800 rounded-md shadow-lg z-20">
-                                <a @click="applySort('name')" href="#" class="block px-4 py-2 text-sm hover:bg-gray-100" :class="{'font-bold text-indigo-600': sort.key === 'name'}">
-                                    Sort by Name
-                                    <i x-show="sort.key === 'name' && sort.direction === 'asc'" class="fas fa-arrow-up ml-2"></i>
-                                    <i x-show="sort.key === 'name' && sort.direction === 'desc'" class="fas fa-arrow-down ml-2"></i>
-                                </a>
-                                <a @click="applySort('date')" href="#" class="block px-4 py-2 text-sm hover:bg-gray-100" :class="{'font-bold text-indigo-600': sort.key === 'date'}">
-                                    Sort by Date Added
-                                    <i x-show="sort.key === 'date' && sort.direction === 'asc'" class="fas fa-arrow-up ml-2"></i>
-                                    <i x-show="sort.key === 'date' && sort.direction === 'desc'" class="fas fa-arrow-down ml-2"></i>
-                                </a>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="relative" @click.away="modals.sortOptionsOpen = false">
+                                <button @click="modals.sortOptionsOpen = !modals.sortOptionsOpen" class="px-3 py-1 rounded-full text-sm flex items-center gap-2 filter-button bg-gray-900/20">
+                                    <i class="fas fa-sort-amount-down"></i> Sort
+                                </button>
+                                <div x-show="modals.sortOptionsOpen" x-transition class="absolute right-0 mt-2 w-52 bg-white text-gray-800 rounded-md shadow-lg z-20">
+                                    <a @click="applySort('name')" href="#" class="block px-4 py-2 text-sm hover:bg-gray-100" :class="{'font-bold text-indigo-600': sort.key === 'name'}">
+                                        Sort by Name
+                                        <i x-show="sort.key === 'name' && sort.direction === 'asc'" class="fas fa-arrow-up ml-2"></i>
+                                        <i x-show="sort.key === 'name' && sort.direction === 'desc'" class="fas fa-arrow-down ml-2"></i>
+                                    </a>
+                                    <a @click="applySort('date')" href="#" class="block px-4 py-2 text-sm hover:bg-gray-100" :class="{'font-bold text-indigo-600': sort.key === 'date'}">
+                                        Sort by Date Added
+                                        <i x-show="sort.key === 'date' && sort.direction === 'asc'" class="fas fa-arrow-up ml-2"></i>
+                                        <i x-show="sort.key === 'date' && sort.direction === 'desc'" class="fas fa-arrow-down ml-2"></i>
+                                    </a>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center gap-1 bg-gray-900/20 p-1 rounded-lg">
+                                <button @click="viewMode = 'card'" :class="{'bg-indigo-600 text-white': viewMode === 'card', 'text-gray-300 hover:bg-white/10': viewMode !== 'card'}" class="px-3 py-1 rounded-md transition-colors"><i class="fas fa-th-large"></i></button>
+                                <button @click="viewMode = 'table'" :class="{'bg-indigo-600 text-white': viewMode === 'table', 'text-gray-300 hover:bg-white/10': viewMode !== 'table'}" class="px-3 py-1 rounded-md transition-colors"><i class="fas fa-list"></i></button>
                             </div>
                         </div>
-
-                        <div class="flex items-center gap-1 bg-gray-900/20 p-1 rounded-lg">
-                            <button @click="viewMode = 'card'" :class="{'bg-indigo-600 text-white': viewMode === 'card', 'text-gray-300 hover:bg-white/10': viewMode !== 'card'}" class="px-3 py-1 rounded-md transition-colors"><i class="fas fa-th-large"></i></button>
-                            <button @click="viewMode = 'table'" :class="{'bg-indigo-600 text-white': viewMode === 'table', 'text-gray-300 hover:bg-white/10': viewMode !== 'table'}" class="px-3 py-1 rounded-md transition-colors"><i class="fas fa-list"></i></button>
-                        </div>
                     </div>
-                </div>
             </div>
 
             <!-- Floating Action Button (Mobile Only) -->
@@ -159,8 +159,8 @@
                         <h3 class="text-xl font-bold mb-4 border-b pb-2 text-indigo-600">Filter Schools</h3>
                         <div class="space-y-4 text-sm">
                             <div class="relative" @click.away="modals.schoolFilterOpen = false">
-                                <label class="font-semibold">School Name:</label>
-                                <input type="text" x-model="filters.school_nameSearchTerm" @focus="modals.schoolFilterOpen = true" placeholder="Type to search school..." class="w-full p-2 border rounded mt-1">
+                                <label class="font-semibold text-gray-700">School Name:</label>
+                                <input type="text" x-model="filters.school_nameSearchTerm" @focus="modals.schoolFilterOpen = true" @input.debounce.300ms="filters.schoolId = ''" placeholder="Type to search school..." class="w-full p-2 border rounded mt-1">
                                 <div x-show="modals.schoolFilterOpen" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
                                     <template x-for="school in filteredSchoolsForFilter" :key="school.unique_id"><div @click="selectSchoolForFilter(school.unique_id)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="school.school_name"></div></template>
                                 </div>
@@ -169,18 +169,18 @@
                         </div>
                     </div>
                     <div x-show="activeView === 'departments'">
-                         <h3 class="text-xl font-bold mb-4 border-b pb-2 text-indigo-600">Filter Departments</h3>
+                           <h3 class="text-xl font-bold mb-4 border-b pb-2 text-indigo-600">Filter Departments</h3>
                         <div class="space-y-4 text-sm">
                             <div class="relative" @click.away="modals.schoolFilterOpen = false">
                                 <label class="font-semibold">School Name:</label>
-                                <input type="text" x-model="filters.dept_schoolSearchTerm" @focus="modals.schoolFilterOpen = true" placeholder="Type to search school..." class="w-full p-2 border rounded mt-1">
+                                <input type="text" x-model="filters.dept_schoolSearchTerm" @focus="modals.schoolFilterOpen = true" @input.debounce.300ms="filters.dept_schoolId = ''" placeholder="Type to search school..." class="w-full p-2 border rounded mt-1">
                                 <div x-show="modals.schoolFilterOpen" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
                                     <template x-for="school in filteredSchoolsForFilter" :key="school.unique_id"><div @click="selectSchoolForFilter(school.unique_id)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="school.school_name"></div></template>
                                 </div>
                             </div>
                              <div class="relative" @click.away="modals.departmentFilterOpen = false">
                                 <label class="font-semibold">Department Name:</label>
-                                <input type="text" x-model="filters.dept_nameSearchTerm" @focus="modals.departmentFilterOpen = true" placeholder="Type to search department..." class="w-full p-2 border rounded mt-1">
+                                <input type="text" x-model="filters.dept_nameSearchTerm" @focus="modals.departmentFilterOpen = true" @input.debounce.300ms="filters.departmentId = ''" placeholder="Type to search department..." class="w-full p-2 border rounded mt-1">
                                 <div x-show="modals.departmentFilterOpen" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto">
                                     <template x-for="dept in filteredDepartmentsForFilter" :key="dept.unique_id"><div @click="selectDepartmentForFilter(dept.unique_id)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="dept.department_name"></div></template>
                                 </div>
@@ -366,8 +366,6 @@
             sort: { key: 'date', direction: 'desc' },
 
             // --- AUTHENTICATION LOGIC ---
-             
-
             async fetchWithAuth(url, options = {}) {
                 const headers = getAuthHeaders();
                 if (!headers) {
@@ -391,12 +389,20 @@
                     logout();
                     return;
                 }
-                this.loadData(); 
+                // Load schools initially
+                this.loadSchools(); 
+
                 this.$watch('multipleSelectionEnabled', (value) => { if (!value) this.selectedItems = []; }); 
-                this.$watch('activeView', () => { 
+                
+                // Watch for changes in activeView to load departments
+                this.$watch('activeView', (newView) => { 
                     this.selectedItems = []; 
                     this.resetFilters(); 
+                    if (newView === 'departments' && this.departments.length === 0) {
+                        this.loadDepartments();
+                    }
                 });
+
                 this.$watch('modals.filterOverlayOpen', (value) => {
                     if (value) {
                         document.body.style.overflow = 'hidden';
@@ -404,6 +410,47 @@
                         document.body.style.overflow = '';
                     }
                 });
+            },
+
+            // Function to load only schools
+            async loadSchools() {
+                this.isLoading = true;
+                this.errorMessage = '';
+                try {
+                    const schoolResponse = await this.fetchWithAuth(AppConfig.apiBaseUrl + AppConfig.endpoints.allschool);
+                    if (!schoolResponse.ok) throw new Error(`Schools API Error: ${schoolResponse.statusText}`);
+                    const schoolsData = await schoolResponse.json();
+                    this.schools = schoolsData.map(s => ({...s, created_at: s.created_at || new Date().toISOString()}));
+                } catch (error) {
+                    this.errorMessage = `An error occurred while loading schools: ${error.message}. Please try again later.`;
+                    console.error('Error loading schools:', error);
+                } finally {
+                    this.isLoading = false;
+                }
+            },
+
+            // Function to load only departments
+            async loadDepartments() {
+                this.isLoading = true;
+                this.errorMessage = '';
+                try {
+                    const departmentResponse = await this.fetchWithAuth(AppConfig.apiBaseUrl + AppConfig.endpoints.alldept);
+                    if (!departmentResponse.ok) throw new Error(`Departments API Error: ${departmentResponse.statusText}`);
+                    const departmentsData = await departmentResponse.json();
+                    
+                    // Ensure school names are available for departments by re-mapping if schools are loaded
+                    const schoolMap = new Map(this.schools.map(s => [s.unique_id, s.school_name]));
+                    this.departments = departmentsData.map(d => ({
+                        ...d, 
+                        school_name: schoolMap.get(d.school_id) || 'N/A', 
+                        created_at: d.created_at || new Date().toISOString() 
+                    }));
+                } catch (error) {
+                    this.errorMessage = `An error occurred while loading departments: ${error.message}. Please try again later.`;
+                    console.error('Error loading departments:', error);
+                } finally {
+                    this.isLoading = false;
+                }
             },
 
             get filteredSchools() {
@@ -493,28 +540,6 @@
                 }
                 this.modals.departmentFilterOpen = false;
             },
-            async loadData() {
-                this.isLoading = true;
-                this.errorMessage = '';
-                try {
-                    const [schoolResponse, departmentResponse] = await Promise.all([
-                        this.fetchWithAuth(AppConfig.apiBaseUrl + AppConfig.endpoints.allschool),
-                        this.fetchWithAuth(AppConfig.apiBaseUrl + AppConfig.endpoints.alldept)
-                    ]);
-                    if (!schoolResponse.ok) throw new Error(`Schools API Error: ${schoolResponse.statusText}`);
-                    if (!departmentResponse.ok) throw new Error(`Departments API Error: ${departmentResponse.statusText}`);
-                    const schoolsData = await schoolResponse.json();
-                    const departmentsData = await departmentResponse.json();
-                    this.schools = schoolsData.map(s => ({...s, created_at: s.created_at || new Date().toISOString()}));
-                    const schoolMap = new Map(this.schools.map(s => [s.unique_id, s.school_name]));
-                    this.departments = departmentsData.map(d => ({...d, school_name: schoolMap.get(d.school_id) || 'N/A', created_at: d.created_at || new Date().toISOString() }));
-                } catch (error) {
-                    this.errorMessage = `An error occurred: ${error.message}. Please try again later.`;
-                    console.error('Error loading data:', error);
-                } finally {
-                    this.isLoading = false;
-                }
-            },
             toggleItemSelection(itemId) {
                 if (this.multipleSelectionEnabled) {
                     const index = this.selectedItems.indexOf(itemId);
@@ -538,7 +563,7 @@
             async deleteSelectedItems() {
                 this.modals.confirmDelete = false;
                 const type = this.activeView === 'schools' ? 'school' : 'department';
-                const endpoint = `${AppConfig.apiBaseUrl}${AppConfig.endpoints.school}`;
+                const endpoint = `${AppConfig.apiBaseUrl}${AppConfig.endpoints[type]}`; // Use dynamic endpoint based on type
                 const promises = this.selectedItems.map(id => 
                     this.fetchWithAuth(`${endpoint}/${id}`, { method: 'DELETE' })
                 );
@@ -550,7 +575,12 @@
                     }
                     this.showNotification(true, 'Success', `${this.selectedItems.length} item(s) deleted successfully.`);
                     this.selectedItems = [];
-                    await this.loadData();
+                    // Reload data based on the active view after deletion
+                    if (this.activeView === 'schools') {
+                        await this.loadSchools();
+                    } else {
+                        await this.loadDepartments();
+                    }
                 } catch (error) {
                     console.error('Deletion error:', error);
                     this.showNotification(false, 'Deletion Failed', error.message);

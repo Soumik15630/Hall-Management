@@ -16,10 +16,7 @@
             background-image: linear-gradient(to right, #14555F, #0B1940);
             background-attachment: fixed;
         }
-        .scrollable-dropdown::-webkit-scrollbar { width: 8px; }
-        .scrollable-dropdown::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
-        .scrollable-dropdown::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
-        .scrollable-dropdown::-webkit-scrollbar-thumb:hover { background: #555; }
+        /* Removed scrollable-dropdown styles for features dropdown as it will now be a grid */
         select:not([multiple]) {
             -webkit-appearance: none;
             -moz-appearance: none;
@@ -93,15 +90,22 @@
                             <div class="md:col-span-2 relative" @click.away="dropdowns.features = false">
                                 <label class="block text-gray-600 text-sm font-medium mb-2">FEATURES</label>
                                 <button type="button" @click="toggleDropdown('features')" class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800 text-left flex justify-between items-center"><span class="truncate" x-text="selectedFeatures.length === 0 ? 'Click to add features' : selectedFeatures.map(f => featuresOptions.find(o => o.value === f)?.label || f).join(', ')"></span><i class="fas fa-chevron-down text-sm" :class="{ 'rotate-180': dropdowns.features }"></i></button>
-                                <div x-show="dropdowns.features" x-transition class="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto scrollable-dropdown">
-                                    <template x-for="feature in featuresOptions" :key="feature.value"><label class="flex items-center px-4 py-2 hover:bg-gray-100 cursor-pointer text-gray-800"><input type="checkbox" :value="feature.value" x-model="selectedFeatures" class="mr-2 h-4 w-4 text-indigo-500 bg-gray-100 border-gray-300 focus:ring-indigo-500 rounded"><span x-text="feature.label"></span></label></template>
+                                <!-- Modified features dropdown to be a grid -->
+                                <div x-show="dropdowns.features" x-transition class="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg p-2">
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <template x-for="feature in featuresOptions" :key="feature.value">
+                                            <label class="flex items-center px-2 py-2 hover:bg-gray-100 cursor-pointer text-gray-800 rounded-md">
+                                                <input type="checkbox" :value="feature.value" x-model="selectedFeatures" class="mr-2 h-4 w-4 text-indigo-500 bg-gray-100 border-gray-300 focus:ring-indigo-500 rounded">
+                                                <span x-text="feature.label" class="text-sm"></span>
+                                            </label>
+                                        </template>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </section>
                     
                     <!-- Section 3: Ownership -->
-                     
                     <section class="bg-white p-6 rounded-lg shadow-md" aria-labelledby="ownership-heading">
                         <h3 id="ownership-heading" class="text-xl font-semibold text-gray-800 mb-4 border-b border-gray-200 pb-2">Ownership & Availability</h3>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -158,7 +162,7 @@
 
     <script>
         document.addEventListener('alpine:init', () => {
-             Alpine.store('modal', {
+            Alpine.store('modal', {
                 show: false,
                 isSuccess: false,
                 message: '',
@@ -183,18 +187,17 @@
                 isAvailable: 'yes', unavailabilityReason: '',
                 dropdowns: { features: false, school: false, department: false, deptSchool: false, general: false },
                 searchTerms: { school: '', department: '', deptSchool: '', general: '' },
-                isLoading: { schools: true, departments: true, hall: true },
+                isLoading: { schools: false, departments: false, hall: false }, // Set to false initially as data is fetched on click
                 // --- Options now loaded from config.js ---
                 floorOptions: AppConfig.formOptions.floors,
                 zoneOptions: AppConfig.formOptions.zones,
                 featuresOptions: AppConfig.formOptions.features,
                 generalOptions: AppConfig.formOptions.generalSections,
                 unavailabilityOptions: AppConfig.formOptions.unavailabilityReasons,
-                schoolOptions: [], departmentOptions: [],
+                schoolOptions: [], 
+                departmentOptions: [],
                 
                 // --- AUTHENTICATION LOGIC ---
-                 
-
                 async fetchWithAuth(url, options = {}) {
                     const headers = getAuthHeaders();
                     if (!headers) {
@@ -213,14 +216,14 @@
                 },
                 // --- END AUTHENTICATION LOGIC ---
 
-                async init() {
+                init() {
                     if (!getAuthHeaders()) {
                         console.error("No auth token found. Redirecting to login.");
                         logout();
                         return;
                     }
-                    
-                    await Promise.all([this.fetchSchools(), this.fetchDepartments()]);
+                    // Initial load of data for the form, not filters
+                    // Schools and Departments will be fetched only when the dropdown is focused/opened
                 },
 
 
@@ -261,7 +264,22 @@
                 },
                 
                 getLabelById(options, id) { const option = options.find(o => o.value === id); return option ? option.label : null; },
-                toggleDropdown(key) { this.dropdowns[key] = !this.dropdowns[key]; },
+                
+                // Modified toggleDropdown to fetch data when opened
+                toggleDropdown(key) { 
+                    this.dropdowns[key] = !this.dropdowns[key]; 
+                    if (this.dropdowns[key]) {
+                        if (key === 'school' || key === 'deptSchool') {
+                            if (this.schoolOptions.length === 0 && !this.isLoading.schools) {
+                                this.fetchSchools();
+                            }
+                        } else if (key === 'department') {
+                            if (this.departmentOptions.length === 0 && !this.isLoading.departments) {
+                                this.fetchDepartments();
+                            }
+                        }
+                    }
+                },
                 
                 selectOption(type, value) {
                     if (type === 'school') { this.selectedSchoolId = value; this.searchTerms.school = this.getLabelById(this.schoolOptions, value); } 
@@ -287,7 +305,23 @@
                 },
 
                 resetForm() {
-                    this.loadHallData(); // Reload original data
+                    // Reset all form fields and selections
+                    this.hallType = '';
+                    this.selectedFeatures = [];
+                    this.selectedBelongsTo = '';
+                    this.selectedSchoolId = null;
+                    this.selectedDepartmentId = null;
+                    this.selectedDeptSchoolId = null;
+                    this.selectedGeneralOptionId = null;
+                    this.isAvailable = 'yes';
+                    this.unavailabilityReason = '';
+                    this.searchTerms = { school: '', department: '', deptSchool: '', general: '' };
+
+                    // Reset HTML form elements manually
+                    const form = document.getElementById('addHallForm');
+                    if (form) {
+                        form.reset();
+                    }
                 },
 
                 async submitForm() {
