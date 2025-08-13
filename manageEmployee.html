@@ -47,20 +47,20 @@
         <div class="container mx-auto" x-data="manageEmployees">
             <!-- Desktop Header -->
             <div class="hidden md:flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-                     <div>
-                        <h2 class="text-3xl font-bold text-white">Manage Employees</h2>
-                        <p class="text-sm text-gray-300 mt-1" x-text="selectionCountText"></p>
-                    </div>
-                    <div class="flex items-center space-x-3 bg-[rgba(0,0,0,0.2)] p-2 rounded-lg">
-                        <a href="addEmployee.html" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-plus"></i><span>Add Employee</span></a>
-                        <button @click="modifySelectedItem()" :disabled="selectedItems.length !== 1" class="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-edit"></i><span>Modify</span></button>
-                        <button @click="confirmDeletion()" :disabled="selectedItems.length === 0" class="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-trash-alt"></i><span>Delete</span></button>
-                        <button @click="resetFilters" :class="isAnyFilterActive ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-500 hover:bg-gray-600'" class="text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-undo"></i></button>
-                        <div class="flex items-center space-x-2 text-white pl-2">
-                            <span>Multi-Select:</span>
-                            <label class="toggle-switch"><input type="checkbox" x-model="multipleSelectionEnabled"><span class="toggle-slider"></span></label>
-                        </div>
-                    </div>
+                      <div>
+                          <h2 class="text-3xl font-bold text-white">Manage Employees</h2>
+                          <p class="text-sm text-gray-300 mt-1" x-text="selectionCountText"></p>
+                      </div>
+                      <div class="flex items-center space-x-3 bg-[rgba(0,0,0,0.2)] p-2 rounded-lg">
+                          <a href="addEmployee.html" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-plus"></i><span>Add Employee</span></a>
+                          <button @click="modifySelectedItem()" :disabled="selectedItems.length !== 1" class="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-edit"></i><span>Modify</span></button>
+                          <button @click="confirmDeletion()" :disabled="selectedItems.length === 0" class="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-trash-alt"></i><span>Delete</span></button>
+                          <button @click="resetFilters" :class="isAnyFilterActive ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-500 hover:bg-gray-600'" class="text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-undo"></i></button>
+                          <div class="flex items-center space-x-2 text-white pl-2">
+                              <span>Multi-Select:</span>
+                              <label class="toggle-switch"><input type="checkbox" x-model="multipleSelectionEnabled"><span class="toggle-slider"></span></label>
+                          </div>
+                      </div>
             </div>
 
             <!-- Mobile Header -->
@@ -82,42 +82,42 @@
             <!-- Desktop Filter Bar -->
             <div class="hidden md:block bg-white/10 p-4 rounded-lg mb-6">
                      <div class="flex flex-wrap items-center justify-between gap-4 text-white">
-                        <div class="flex items-center gap-4 flex-wrap">
-                            <span class="font-semibold">Filters:</span>
-                            <button @click="modals.filter = true" class="px-3 py-1 rounded-full text-sm flex items-center gap-2 filter-button" :class="{'active': isAnyFilterActive}"><i class="fas fa-filter"></i> Filter Employees</button>
-                            <button x-show="selectedItems.length > 0" @click="deselectAll()" x-transition class="px-3 py-1 rounded-full text-sm flex items-center gap-2 filter-button bg-yellow-400 text-black hover:bg-yellow-500">
-                                <i class="fas fa-eraser"></i> Deselect All
-                            </button>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <div class="relative" @click.away="modals.sortOptionsOpen = false">
-                                <button @click="modals.sortOptionsOpen = !modals.sortOptionsOpen" class="px-3 py-1 rounded-full text-sm flex items-center gap-2 filter-button bg-gray-900/20">
-                                    <i class="fas fa-sort-amount-down"></i> Sort
-                                </button>
-                                <div x-show="modals.sortOptionsOpen" x-transition class="absolute right-0 mt-2 w-52 bg-white text-gray-800 rounded-md shadow-lg z-20">
-                                    <a @click="applySort('name')" href="#" class="block px-4 py-2 text-sm hover:bg-gray-100" :class="{'font-bold text-indigo-600': sort.key === 'name'}">
-                                        Sort by Name
-                                        <i x-show="sort.key === 'name' && sort.direction === 'asc'" class="fas fa-arrow-up ml-2"></i>
-                                        <i x-show="sort.key === 'name' && sort.direction === 'desc'" class="fas fa-arrow-down ml-2"></i>
-                                    </a>
-                                    <a @click="applySort('date')" href="#" class="block px-4 py-2 text-sm hover:bg-gray-100" :class="{'font-bold text-indigo-600': sort.key === 'date'}">
-                                        Sort by Date Added
-                                        <i x-show="sort.key === 'date' && sort.direction === 'asc'" class="fas fa-arrow-up ml-2"></i>
-                                        <i x-show="sort.key === 'date' && sort.direction === 'desc'" class="fas fa-arrow-down ml-2"></i>
-                                    </a>
-                                </div>
-                            </div>
-                            <div class="flex items-center gap-1 bg-gray-900/20 p-1 rounded-lg">
-                                <button @click="viewMode = 'card'" :class="{'bg-indigo-600 text-white': viewMode === 'card', 'text-gray-300 hover:bg-white/10': viewMode !== 'card'}" class="px-3 py-1 rounded-md transition-colors"><i class="fas fa-th-large"></i></button>
-                                <button @click="viewMode = 'table'" :class="{'bg-indigo-600 text-white': viewMode === 'table', 'text-gray-300 hover:bg-white/10': viewMode !== 'table'}" class="px-3 py-1 rounded-md transition-colors"><i class="fas fa-list"></i></button>
-                            </div>
-                        </div>
-                    </div>
+                         <div class="flex items-center gap-4 flex-wrap">
+                             <span class="font-semibold">Filters:</span>
+                             <button @click="modals.filter = true" class="px-3 py-1 rounded-full text-sm flex items-center gap-2 filter-button" :class="{'active': isAnyFilterActive}"><i class="fas fa-filter"></i> Filter Employees</button>
+                             <button x-show="selectedItems.length > 0" @click="deselectAll()" x-transition class="px-3 py-1 rounded-full text-sm flex items-center gap-2 filter-button bg-yellow-400 text-black hover:bg-yellow-500">
+                                 <i class="fas fa-eraser"></i> Deselect All
+                             </button>
+                         </div>
+                         <div class="flex items-center gap-2">
+                             <div class="relative" @click.away="modals.sortOptionsOpen = false">
+                                 <button @click="modals.sortOptionsOpen = !modals.sortOptionsOpen" class="px-3 py-1 rounded-full text-sm flex items-center gap-2 filter-button bg-gray-900/20">
+                                     <i class="fas fa-sort-amount-down"></i> Sort
+                                 </button>
+                                 <div x-show="modals.sortOptionsOpen" x-transition class="absolute right-0 mt-2 w-52 bg-white text-gray-800 rounded-md shadow-lg z-20">
+                                     <a @click="applySort('name')" href="#" class="block px-4 py-2 text-sm hover:bg-gray-100" :class="{'font-bold text-indigo-600': sort.key === 'name'}">
+                                         Sort by Name
+                                         <i x-show="sort.key === 'name' && sort.direction === 'asc'" class="fas fa-arrow-up ml-2"></i>
+                                         <i x-show="sort.key === 'name' && sort.direction === 'desc'" class="fas fa-arrow-down ml-2"></i>
+                                     </a>
+                                     <a @click="applySort('date')" href="#" class="block px-4 py-2 text-sm hover:bg-gray-100" :class="{'font-bold text-indigo-600': sort.key === 'date'}">
+                                         Sort by Date Added
+                                         <i x-show="sort.key === 'date' && sort.direction === 'asc'" class="fas fa-arrow-up ml-2"></i>
+                                         <i x-show="sort.key === 'date' && sort.direction === 'desc'" class="fas fa-arrow-down ml-2"></i>
+                                     </a>
+                                 </div>
+                             </div>
+                             <div class="flex items-center gap-1 bg-gray-900/20 p-1 rounded-lg">
+                                 <button @click="viewMode = 'card'" :class="{'bg-indigo-600 text-white': viewMode === 'card', 'text-gray-300 hover:bg-white/10': viewMode !== 'card'}" class="px-3 py-1 rounded-md transition-colors"><i class="fas fa-th-large"></i></button>
+                                 <button @click="viewMode = 'table'" :class="{'bg-indigo-600 text-white': viewMode === 'table', 'text-gray-300 hover:bg-white/10': viewMode !== 'table'}" class="px-3 py-1 rounded-md transition-colors"><i class="fas fa-list"></i></button>
+                             </div>
+                         </div>
+                     </div>
             </div>
 
             <!-- Floating Action Button (Mobile Only) -->
             <div class="fixed bottom-24 right-4 z-30 md:hidden">
-                <a href="employee.html" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform transform hover:scale-110 active:scale-95">
+                <a href="addEmployee.html" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform transform hover:scale-110 active:scale-95">
                     <i class="fas fa-plus text-xl"></i>
                 </a>
             </div>
@@ -271,31 +271,32 @@
             
             <div x-show="modals.confirmDelete" @click.away="modals.confirmDelete = false" style="display: none;" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                      <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-sm text-center">
-                            <h3 class="text-lg font-semibold text-gray-800">Confirm Deletion</h3>
-                            <p class="text-gray-600 my-4">Are you sure you want to delete the selected item(s)? This action cannot be undone.</p>
-                            <div class="flex justify-center gap-4">
-                                <button @click="modals.confirmDelete = false" class="px-4 py-2 rounded-lg text-gray-600 bg-gray-100 hover:bg-gray-200">Cancel</button>
-                                <button @click="deleteSelectedItems()" class="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">Delete</button>
-                            </div>
+                             <h3 class="text-lg font-semibold text-gray-800">Confirm Deletion</h3>
+                             <p class="text-gray-600 my-4">Are you sure you want to delete the selected item(s)? This action cannot be undone.</p>
+                             <div class="flex justify-center gap-4">
+                                 <button @click="modals.confirmDelete = false" class="px-4 py-2 rounded-lg text-gray-600 bg-gray-100 hover:bg-gray-200">Cancel</button>
+                                 <button @click="deleteSelectedItems()" class="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">Delete</button>
+                             </div>
                      </div>
             </div>
 
              <div x-show="notification.show" @click.away="notification.show = false" style="display: none;" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm text-center">
-                            <div class="flex-shrink-0 mx-auto mb-4">
-                                   <i class="fas text-5xl" :class="{ 'fa-check-circle text-green-500': notification.success, 'fa-times-circle text-red-500': !notification.success }"></i>
-                            </div>
-                            <h3 class="text-lg font-medium text-gray-900" x-text="notification.title"></h3>
-                            <div class="mt-2">
-                                   <p class="text-sm text-gray-600" x-text="notification.message" style="word-wrap: break-word;"></p>
-                            </div>
-                            <div class="mt-4">
-                                   <button @click="notification.show = false" class="bg-indigo-600 text-white font-bold py-2 px-6 rounded-md hover:bg-indigo-700">OK</button>
-                            </div>
-                    </div>
+                     <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm text-center">
+                             <div class="flex-shrink-0 mx-auto mb-4">
+                                     <i class="fas text-5xl" :class="{ 'fa-check-circle text-green-500': notification.success, 'fa-times-circle text-red-500': !notification.success }"></i>
+                             </div>
+                             <h3 class="text-lg font-medium text-gray-900" x-text="notification.title"></h3>
+                             <div class="mt-2">
+                                     <p class="text-sm text-gray-600" x-text="notification.message" style="word-wrap: break-word;"></p>
+                             </div>
+                             <div class="mt-4">
+                                     <button @click="notification.show = false" class="bg-indigo-600 text-white font-bold py-2 px-6 rounded-md hover:bg-indigo-700">OK</button>
+                             </div>
+                     </div>
              </div>
 
-            <div x-show="isLoading || errorMessage" class="p-4 text-center text-white"><span x-show="isLoading"><i class="fas fa-spinner fa-spin mr-2"></i>Loading Data...</span><span x-show="errorMessage" class="text-red-400" x-text="errorMessage"></span></div>
+            <div x-show="isLoading" class="p-4 text-center text-white"><i class="fas fa-spinner fa-spin mr-2"></i>Loading Data...</div>
+            <div x-show="errorMessage" class="p-4 text-center text-red-400" x-text="errorMessage"></div>
 
             <div x-show="!isLoading && !errorMessage" x-cloak>
                 <div x-show="viewMode === 'card'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -358,11 +359,13 @@
             employees: [],
             schoolOptions: [], // Will be populated when filter is opened
             departmentOptions: [], // Will be populated when filter is opened
+            // The 'sectionOptions' are loaded directly from the AppConfig file for the 'Administration' filter
             sectionOptions: AppConfig.formOptions.generalSections,
             designationOptions: AppConfig.formOptions.designations,
             selectedItems: [],
             multipleSelectionEnabled: false,
-            isLoading: true,
+            isLoading: true, // Main loading state for employees
+            isLoadingFilters: { schools: false, departments: false }, // Separate loading states for filter options
             errorMessage: '',
             viewMode: 'card',
             modals: { filter: false, schoolFilterOpen: false, departmentFilterOpen: false, sectionFilterOpen: false, confirmDelete: false, employeeFilterOpen: false, sortOptionsOpen: false, filterOverlayOpen: false },
@@ -374,7 +377,6 @@
             sort: { key: 'date', direction: 'desc' },
 
             // --- AUTHENTICATION LOGIC ---
-            // Assumes getAuthHeaders() and logout() are defined in config.js or layout.js
             async fetchWithAuth(url, options = {}) {
                 const headers = getAuthHeaders();
                 if (!headers) {
@@ -404,12 +406,7 @@
                 // Watch for desktop filter modal to open and fetch schools/departments
                 this.$watch('modals.filter', (value) => {
                     if (value) {
-                        if (this.schoolOptions.length === 0 && !this.isLoading.schools) {
-                            this.fetchSchoolsForFilter();
-                        }
-                        if (this.departmentOptions.length === 0 && !this.isLoading.departments) {
-                            this.fetchDepartmentsForFilter();
-                        }
+                        this.loadFilterOptions();
                     }
                 });
 
@@ -417,19 +414,24 @@
                 this.$watch('modals.filterOverlayOpen', (value) => {
                     if (value) {
                         document.body.style.overflow = 'hidden';
-                        if (this.schoolOptions.length === 0 && !this.isLoading.schools) {
-                            this.fetchSchoolsForFilter();
-                        }
-                        if (this.departmentOptions.length === 0 && !this.isLoading.departments) {
-                            this.fetchDepartmentsForFilter();
-                        }
+                        this.loadFilterOptions();
                     } else {
                         document.body.style.overflow = '';
                     }
                 });
             },
 
-            // Renamed from loadData to emphasize it only loads employees
+            // New function to lazy-load filter options
+            loadFilterOptions() {
+                if (this.schoolOptions.length === 0 && !this.isLoadingFilters.schools) {
+                    this.fetchSchoolsForFilter();
+                }
+                if (this.departmentOptions.length === 0 && !this.isLoadingFilters.departments) {
+                    this.fetchDepartmentsForFilter();
+                }
+            },
+
+            // Updated to only load employees and use nested data
             async loadEmployees() { 
                 this.isLoading = true;
                 this.errorMessage = '';
@@ -443,36 +445,21 @@
 
                     const employeeData = await employeeResponse.json();
                     
-                    // Fetch all schools and departments to ensure comprehensive mapping
-                    const [schoolResponse, departmentResponse] = await Promise.all([
-                        this.fetchWithAuth(AppConfig.apiBaseUrl + AppConfig.endpoints.allschool),
-                        this.fetchWithAuth(AppConfig.apiBaseUrl + AppConfig.endpoints.alldept)
-                    ]);
-
-                    if (!schoolResponse.ok) throw new Error(`Schools API Error: ${schoolResponse.statusText}`);
-                    if (!departmentResponse.ok) throw new Error(`Departments API Error: ${departmentResponse.statusText}`);
-                    
-                    const schoolsData = await schoolResponse.json();
-                    const departmentsData = await departmentResponse.json();
-
-                    // Create maps for quick lookup using the complete data
-                    const schoolMap = new Map(schoolsData.map(s => [s.unique_id, s.school_name]));
-                    const departmentMap = new Map(departmentsData.map(d => [d.unique_id, d.department_name]));
-
                     this.employees = employeeData.map(emp => {
                         let primaryOwner = 'N/A', secondaryOwner = '';
 
                         if (emp.belongs_to === 'ADMINISTRATION') {
                             primaryOwner = 'Administration';
+                            // Here, we map the section value (e.g., 'ENGINEERING_WING') to its display label (e.g., 'Engineering Wing')
                             const section = this.sectionOptions.find(s => s.value === emp.section);
                             secondaryOwner = section ? section.label : (emp.section || '');
                         } else if (emp.belongs_to === 'SCHOOL') {
-                            // Use the comprehensive schoolMap for lookup
-                            primaryOwner = schoolMap.get(emp.school_id) || 'Unknown School'; 
+                            // Use nested school data directly from the response
+                            primaryOwner = emp.school ? emp.school.school_name : 'Unknown School'; 
                         } else if (emp.belongs_to === 'DEPARTMENT') {
-                            // Use the comprehensive schoolMap and departmentMap for lookup
-                            primaryOwner = schoolMap.get(emp.school_id) || 'Unknown School'; 
-                            secondaryOwner = departmentMap.get(emp.department_id) || 'Unknown Department'; 
+                            // Use nested school and department data directly
+                            primaryOwner = emp.school ? emp.school.school_name : 'Unknown School'; 
+                            secondaryOwner = emp.department ? emp.department.department_name : 'Unknown Department'; 
                         }
                         return {
                             ...emp,
@@ -492,7 +479,7 @@
 
             // New function to fetch all schools for filter dropdown
             async fetchSchoolsForFilter() { 
-                this.isLoading.schools = true; 
+                this.isLoadingFilters.schools = true; 
                 try { 
                     const response = await this.fetchWithAuth(AppConfig.apiBaseUrl + AppConfig.endpoints.allschool);
                     if (!response.ok) {
@@ -502,16 +489,16 @@
                     const d = await response.json(); 
                     this.schoolOptions = d.filter(s => s && s.unique_id && s.school_name).map(s => ({ value: s.unique_id, label: s.school_name })); 
                 } catch (e) { 
-                    this.errorMessage = `Could not load school filter data: ${e.message}`; 
-                    console.error('Error loading school filter data:', e);
+                    // Do not show a blocking error message for filter data
+                    console.error('Could not load school filter data:', e.message);
                 } finally { 
-                    this.isLoading.schools = false; 
+                    this.isLoadingFilters.schools = false; 
                 } 
             },
 
             // New function to fetch all departments for filter dropdown
             async fetchDepartmentsForFilter() { 
-                this.isLoading.departments = true; 
+                this.isLoadingFilters.departments = true; 
                 try { 
                     const response = await this.fetchWithAuth(AppConfig.apiBaseUrl + AppConfig.endpoints.alldept);
                     if (!response.ok) {
@@ -521,10 +508,9 @@
                     const d = await response.json(); 
                     this.departmentOptions = d.filter(t => t && t.unique_id && t.department_name && t.school_id).map(t => ({ value: t.unique_id, label: t.department_name, schoolId: t.school_id })); 
                 } catch (e) { 
-                    this.errorMessage = `Could not load department filter data: ${e.message}`; 
-                    console.error('Error loading department filter data:', e);
+                    console.error('Could not load department filter data:', e.message);
                 } finally { 
-                    this.isLoading.departments = false; 
+                    this.isLoadingFilters.departments = false; 
                 } 
             },
 
@@ -583,9 +569,17 @@
                     const f = this.filters;
                     if (f.employeeName && emp.employee_name.toLowerCase() !== f.employeeName.toLowerCase()) return false;
                     if (f.designation && emp.designation !== f.designation) return false;
-                    if (f.ownerType === 'administration' && emp.belongs_to !== 'ADMINISTRATION') return false;
-                    if (f.ownerType === 'school' && emp.belongs_to !== 'SCHOOL') return false;
-                    if (f.ownerType === 'department' && emp.belongs_to !== 'DEPARTMENT') return false;
+                    
+                    // Match the 'belongs_to' field with the selected ownerType
+                    if (f.ownerType) {
+                        const belongsToMapping = {
+                            'administration': 'ADMINISTRATION',
+                            'school': 'SCHOOL',
+                            'department': 'DEPARTMENT'
+                        };
+                        if (emp.belongs_to !== belongsToMapping[f.ownerType]) return false;
+                    }
+
                     if (f.schoolId && emp.school_id !== f.schoolId) return false;
                     if (f.departmentId && emp.department_id !== f.departmentId) return false;
                     if (f.section && emp.section !== f.section) return false;
@@ -706,11 +700,6 @@
                 this.notification.show = true;
                 setTimeout(() => this.notification.show = false, 5000);
             },
-            
-            // Set initial loading states for filter options to false
-            isLoading: { schools: false, departments: false }, 
-            schoolOptions: [], // Initialize as empty
-            departmentOptions: [], // Initialize as empty
         }));
     });
     </script>
