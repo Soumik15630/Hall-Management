@@ -69,6 +69,20 @@
         [x-cloak] { 
             display: none !important; 
         }
+
+        @keyframes slide-right {
+          0%, 100% {
+            transform: translateX(-15px);
+            opacity: 0.8;
+          }
+          50% {
+            transform: translateX(15px);
+            opacity: 1;
+          }
+        }
+        .scroll-indicator-arrow {
+          animation: slide-right 2.5s ease-in-out infinite;
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
@@ -131,53 +145,63 @@
                             </button>
                         </div>
 
-                        <!-- Calendar Grid -->
-                        <div class="calendar-grid">
-                            <!-- Top-left empty cell -->
-                            <div></div>
+                        <!-- Calendar Grid Wrapper for Scroll Indicator -->
+                        <div class="relative">
+                            <!-- Scroll Indicator Overlay -->
+                            <div x-show="showScrollIndicator" x-transition:leave="transition ease-in duration-500" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+                                 class="absolute inset-0 bg-gray-900 bg-opacity-60 flex flex-col items-center justify-center text-white z-10 rounded-lg pointer-events-none">
+                                <i class="fas fa-arrows-alt-h text-5xl mb-4 scroll-indicator-arrow"></i>
+                                <p class="text-lg font-semibold">Scroll sideways for more dates</p>
+                            </div>
 
-                            <!-- Date Headers (Horizontally scrollable) -->
-                            <div class="overflow-x-auto hide-scrollbar"
-                                 x-ref="headerScroller"
-                                 @scroll="$refs.bodyScroller.scrollLeft = $refs.headerScroller.scrollLeft">
-                                <div :style="`display: grid; grid-template-columns: repeat(${calendar.days.length}, minmax(50px, 1fr)); gap: 4px;`" class="pb-2">
-                                    <template x-for="day in calendar.days" :key="`${calendar.year}-${calendar.month}-${day.date}`">
-                                        <div class="text-center">
-                                            <div class="text-sm font-semibold" 
-                                                 :class="{
-                                                     'date-header-day': day.dayName === 'Sun',
-                                                     'date-header-saturday': day.dayName === 'Sat'
-                                                 }" 
-                                                 x-text="day.date"></div>
-                                            <div class="text-xs text-gray-500" 
-                                                 :class="{
-                                                     'date-header-day': day.dayName === 'Sun',
-                                                     'date-header-saturday': day.dayName === 'Sat'
-                                                 }" 
-                                                 x-text="day.dayName"></div>
+                            <!-- Calendar Grid -->
+                            <div class="calendar-grid" @wheel="hideScrollIndicator" @touchstart="hideScrollIndicator">
+                                <!-- Top-left empty cell -->
+                                <div></div>
+
+                                <!-- Date Headers (Horizontally scrollable) -->
+                                <div class="overflow-x-auto hide-scrollbar"
+                                     x-ref="headerScroller"
+                                     @scroll="$refs.bodyScroller.scrollLeft = $refs.headerScroller.scrollLeft; hideScrollIndicator()">
+                                    <div :style="`display: grid; grid-template-columns: repeat(${calendar.days.length}, minmax(50px, 1fr)); gap: 4px;`" class="pb-2">
+                                        <template x-for="day in calendar.days" :key="`${calendar.year}-${calendar.month}-${day.date}`">
+                                            <div class="text-center">
+                                                <div class="text-sm font-semibold" 
+                                                     :class="{
+                                                         'date-header-day': day.dayName === 'Sun',
+                                                         'date-header-saturday': day.dayName === 'Sat'
+                                                     }" 
+                                                     x-text="day.date"></div>
+                                                <div class="text-xs text-gray-500" 
+                                                     :class="{
+                                                         'date-header-day': day.dayName === 'Sun',
+                                                         'date-header-saturday': day.dayName === 'Sat'
+                                                     }" 
+                                                     x-text="day.dayName"></div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+
+                                <!-- Time Labels (Vertically aligned) -->
+                                <div class="grid grid-cols-1 gap-1 pr-4">
+                                    <template x-for="time in timeSlots" :key="time">
+                                        <div class="text-sm text-right text-gray-600 h-10 flex items-center justify-end" x-text="formatTimeForDisplay(time)"></div>
+                                    </template>
+                                </div>
+
+                                <!-- Calendar Body (Scrolls with header) -->
+                                <div class="grid grid-cols-1 overflow-x-auto"
+                                     x-ref="bodyScroller"
+                                     @scroll="$refs.headerScroller.scrollLeft = $refs.bodyScroller.scrollLeft; hideScrollIndicator()">
+                                    <template x-for="time in timeSlots" :key="time">
+                                        <div :style="`display: grid; grid-template-columns: repeat(${calendar.days.length}, minmax(50px, 1fr)); gap: 4px;`">
+                                            <template x-for="day in calendar.days" :key="`${calendar.year}-${calendar.month}-${day.date}-${time}`">
+                                                <div class="slot" :class="getSlotClasses(day, time)" :title="getSlotTooltip(day, time)"></div>
+                                            </template>
                                         </div>
                                     </template>
                                 </div>
-                            </div>
-
-                            <!-- Time Labels (Vertically aligned) -->
-                            <div class="grid grid-cols-1 gap-1 pr-4">
-                                <template x-for="time in timeSlots" :key="time">
-                                    <div class="text-sm text-right text-gray-600 h-10 flex items-center justify-end" x-text="formatTimeForDisplay(time)"></div>
-                                </template>
-                            </div>
-
-                            <!-- Calendar Body (Scrolls with header) -->
-                            <div class="grid grid-cols-1 overflow-x-auto"
-                                 x-ref="bodyScroller"
-                                 @scroll="$refs.headerScroller.scrollLeft = $refs.bodyScroller.scrollLeft">
-                                <template x-for="time in timeSlots" :key="time">
-                                    <div :style="`display: grid; grid-template-columns: repeat(${calendar.days.length}, minmax(50px, 1fr)); gap: 4px;`">
-                                        <template x-for="day in calendar.days" :key="`${calendar.year}-${calendar.month}-${day.date}-${time}`">
-                                            <div class="slot" :class="getSlotClasses(day, time)" :title="getSlotTooltip(day, time)"></div>
-                                        </template>
-                                    </div>
-                                </template>
                             </div>
                         </div>
 
@@ -214,6 +238,8 @@
             calendar: { year: 0, month: 0, monthName: '', days: [] },
             processedBookings: {},
             timeSlots: ['09:30', '10:30', '11:30', '12:30', '13:30', '14:30', '15:30', '16:30'],
+            showScrollIndicator: true,
+            scrollIndicatorTimeout: null,
 
             async init() {
                 const urlParams = new URLSearchParams(window.location.search);
@@ -231,10 +257,23 @@
                     await this.fetchPendingBookings(hallId);
                     await this.fetchScheduleData(hallId);
                     this.generateCalendar();
+
+                    // Set timeout to hide the scroll indicator
+                    this.scrollIndicatorTimeout = setTimeout(() => {
+                        this.showScrollIndicator = false;
+                    }, 5000); // Hide after 5 seconds
+
                 } catch (error) {
                     this.errorMessage = `Failed to load hall details: ${error.message}`;
                 } finally {
                     this.isLoading = false;
+                }
+            },
+
+            hideScrollIndicator() {
+                if (this.showScrollIndicator) {
+                    clearTimeout(this.scrollIndicatorTimeout); // Clear the auto-hide timeout
+                    this.showScrollIndicator = false;
                 }
             },
 
