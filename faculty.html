@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard - Hall Booking</title>
+    <title>Faculty Dashboard - Hall Booking Schedule</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Assume config.js contains AppConfig -->
     <script src="config.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -13,16 +14,6 @@
             font-family: 'Montserrat', sans-serif;
             background-image: linear-gradient(to right, #14555F, #0B1940);
             background-attachment: fixed;
-        }
-        .scrollable-dropdown::-webkit-scrollbar {
-            width: 8px;
-        }
-        .scrollable-dropdown::-webkit-scrollbar-track {
-            background: #2d3748;
-        }
-        .scrollable-dropdown::-webkit-scrollbar-thumb {
-            background: #4a5568;
-            border-radius: 10px;
         }
         .calendar-grid, .day-view-grid {
             display: grid;
@@ -55,9 +46,6 @@
             position: relative;
         }
         .calendar-event, .day-event {
-            background-color: #0B1940;
-            color: white;
-            border-left: 3px solid #14555F;
             border-radius: 4px;
             padding: 4px 8px;
             font-size: 0.8rem;
@@ -71,9 +59,6 @@
             z-index: 10;
         }
         .month-event {
-             background-color: #e0e7ff;
-             color: #3730a3;
-             border-left: 3px solid #4f46e5;
              font-size: 0.75rem;
              padding: 0 4px;
              border-radius: 2px;
@@ -81,6 +66,26 @@
              white-space: nowrap;
              overflow: hidden;
              text-overflow: ellipsis;
+        }
+        .event-confirmed {
+            background-color: #10B981; /* Emerald-500 */
+            border-left: 3px solid #059669; /* Emerald-600 */
+            color: white;
+        }
+        .event-pending {
+            background-color: #FBBF24; /* Amber-400 */
+            border-left: 3px solid #F59E0B; /* Amber-500 */
+            color: white;
+        }
+        .month-event-confirmed {
+            background-color: #D1FAE5; /* Emerald-100 */
+            color: #065F46; /* Emerald-800 */
+            border-left: 3px solid #10B981; /* Emerald-500 */
+        }
+        .month-event-pending {
+            background-color: #FEF3C7; /* Amber-100 */
+            color: #92400E; /* Amber-800 */
+            border-left: 3px solid #FBBF24; /* Amber-400 */
         }
         .highlight-today {
             background-color: rgba(255, 255, 255, 0.1);
@@ -93,6 +98,7 @@
 <body class="min-h-screen flex flex-col">
 
     <div id="nav-placeholder"></div>
+    <!-- Assume layout.js is present -->
     <script src="layout.js"></script>
     
     <!-- Main Content: Calendar View -->
@@ -103,7 +109,7 @@
                 <div class="flex items-center space-x-2">
                     <button @click="navigate('prev')" class="p-2 rounded hover:bg-gray-200 text-gray-600"><i class="fas fa-chevron-left"></i></button>
                     <button @click="navigate('next')" class="p-2 rounded hover:bg-gray-200 text-gray-600"><i class="fas fa-chevron-right"></i></button>
-                    <button @click="goToToday()" class="px-4 py-2 border rounded-md text-gray-700 hover:bg-gray-100 transition-colors" :class="{'bg-blue-100 border-blue-300 font-semibold text-blue-700': !isViewingToday}">Today</button>
+                    <button @click="goToToday()" class="px-4 py-2 border rounded-md text-gray-700 hover:bg-gray-100 transition-colors">Today</button>
                 </div>
                 <h3 class="text-2xl font-semibold text-gray-800" x-text="headerDate"></h3>
                 <div class="flex items-center border border-gray-300 rounded-md">
@@ -127,7 +133,7 @@
                             <div class="text-center font-semibold p-2 border-b" :class="{'text-blue-600': day.isToday}" x-text="day.label"></div>
                             <div class="relative h-full border-t">
                                 <template x-for="event in getEventsForDay(day.date)" :key="event.id">
-                                     <div class="calendar-event" :style="getEventStyle(event)" x-text="event.title"></div>
+                                     <div class="calendar-event" :style="getEventStyle(event)" x-text="event.title" :class="event.status.toUpperCase().includes('PENDING') ? 'event-pending' : 'event-confirmed'"></div>
                                 </template>
                             </div>
                         </div>
@@ -146,7 +152,7 @@
                             <span :class="{'text-gray-400': !day.isCurrentMonth}" x-text="day.dayNumber"></span>
                             <div class="mt-1">
                                 <template x-for="event in getVisibleEvents(day.date, 2)" :key="event.id">
-                                    <div class="month-event" x-text="event.title"></div>
+                                    <div class="month-event" x-text="event.title" :class="event.status.toUpperCase().includes('PENDING') ? 'month-event-pending' : 'month-event-confirmed'"></div>
                                 </template>
                                 <template x-if="getMoreEventsCount(day.date, 2) > 0">
                                     <div class="text-xs text-blue-600 mt-1 cursor-pointer hover:underline" x-text="'+' + getMoreEventsCount(day.date, 2) + ' more'"></div>
@@ -160,7 +166,7 @@
             <!-- Day View -->
             <template x-if="view === 'day'">
                 <div>
-                    <div class="text-center font-semibold p-2 border-b text-lg" x-text="currentDayName"></div>
+                    <div class="text-center font-semibold p-2 border-b text-lg" x-text="headerDate"></div>
                     <div class="day-view-grid border-t border-gray-200">
                         <div class="time-slot text-right pr-2 border-r border-gray-200">
                              <template x-for="time in timeSlots" :key="time">
@@ -169,7 +175,7 @@
                         </div>
                         <div class="day-column relative border-t">
                              <template x-for="event in getEventsForDay(currentDateISO)" :key="event.id">
-                                 <div class="day-event" :style="getEventStyle(event)" x-text="event.title"></div>
+                                 <div class="day-event" :style="getEventStyle(event)" x-text="event.title" :class="event.status.toUpperCase().includes('PENDING') ? 'event-pending' : 'event-confirmed'"></div>
                             </template>
                         </div>
                     </div>
@@ -190,25 +196,118 @@
                 weekDays: [],
                 monthDays: [],
                 timeSlots: ['9:30AM', '10:30AM', '11:30AM', '12:30PM', '1:30PM', '2:30PM', '3:30PM', '4:30PM'],
-                events: [
-                    { id: 1, date: '2025-08-01', startTime: '11:30', endTime: '12:30', title: 'SH 321 - II IT' },
-                    { id: 2, date: '2025-08-01', startTime: '15:30', endTime: '16:30', title: 'SH 321 - II IT' },
-                    { id: 5, date: '2025-08-04', startTime: '11:30', endTime: '12:30', title: 'SH 321 - II IT' },
-                    { id: 6, date: '2025-08-04', startTime: '14:30', endTime: '15:30', title: 'SH 346 - II IT' },
-                    { id: 7, date: '2025-08-04', startTime: '15:30', endTime: '16:30', title: 'SH 321 - II IT' },
-                    { id: 8, date: '2025-08-05', startTime: '09:30', endTime: '10:30', title: 'SH 346 - II IT' },
-                    { id: 9, date: '2025-08-06', startTime: '14:30', endTime: '15:30', title: 'SH 321 - II floor(B.Tech.II year) - CSES_303' },
-                    { id: 10, date: '2025-08-06', startTime: '15:30', endTime: '16:30', title: 'SH 321 - II floor(B.Tech.II year) - CSES_303' },
-                ],
+                events: [],
+                schoolOptions: [],
+                departmentOptions: [],
+                isLoading: { schools: true, departments: true, bookings: true },
 
-                init() {
+                async init() {
                     if (!getAuthHeaders()) {
-                        console.log("No auth token, redirecting...");
                         logout();
                         return;
                     }
+                    await this.fetchSchools();
+                    await this.fetchDepartments();
+                    await this.fetchBookings();
+
                     this.$watch('view', () => this.updateCalendar());
                     this.updateCalendar();
+                },
+
+                async fetchWithAuth(url, options = {}) {
+                    const headers = getAuthHeaders();
+                    if (!headers) {
+                        logout();
+                        throw new Error('User not authenticated');
+                    }
+                    const config = { ...options, headers: {...headers, ...options.headers} };
+                    const response = await fetch(url, config);
+                    if (response.status === 401) {
+                        logout();
+                        throw new Error('Authentication failed');
+                    }
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({ message: 'An unknown error occurred' }));
+                        throw new Error(errorData.message || `HTTP error! Status: ${response.status}`);
+                    }
+                    return response.json();
+                },
+
+                async fetchSchools() { 
+                    this.isLoading.schools = true; 
+                    try {
+                        const url = AppConfig.apiBaseUrl + AppConfig.endpoints.allschool;
+                        const data = await this.fetchWithAuth(url);
+                        this.schoolOptions = data.map(s => ({ value: s.unique_id, label: s.school_name }));
+                    } catch (e) { console.error("Could not load schools:", e.message); } 
+                    finally { this.isLoading.schools = false; } 
+                },
+
+                async fetchDepartments() { 
+                    this.isLoading.departments = true; 
+                    try {
+                        const url = AppConfig.apiBaseUrl + AppConfig.endpoints.alldept;
+                        const data = await this.fetchWithAuth(url);
+                        this.departmentOptions = data.map(d => ({ value: d.unique_id, label: d.department_name, schoolId: d.school_id }));
+                    } catch (e) { console.error("Could not load departments:", e.message); } 
+                    finally { this.isLoading.departments = false; } 
+                },
+
+                async fetchBookings() {
+                    this.isLoading.bookings = true;
+                    try {
+                        const url = AppConfig.apiBaseUrl + AppConfig.endpoints.myBookings;
+                        const result = await this.fetchWithAuth(url);
+
+                        if (result.success) {
+                            this.events = result.data
+                                .filter(item => item.status && (item.status.toUpperCase() === 'CONFIRMED' || item.status.toUpperCase().includes('PENDING')))
+                                .flatMap(item => {
+                                    if (item.booking_type === 'SEMESTER' && item.days_of_week && item.days_of_week.length > 0) {
+                                        return this.expandRecurringEvent(item);
+                                    } else {
+                                        return [{
+                                            id: item.id,
+                                            date: new Date(item.start_date).toISOString().split('T')[0],
+                                            startTime: item.start_time,
+                                            endTime: item.end_time,
+                                            title: `${item.hall?.name || 'Unknown Hall'} - ${item.purpose}`,
+                                            status: item.status
+                                        }];
+                                    }
+                                });
+                        }
+                    } catch (error) {
+                        console.error('Failed to fetch bookings:', error.message);
+                    } finally {
+                        this.isLoading.bookings = false;
+                        this.updateCalendar();
+                    }
+                },
+
+                expandRecurringEvent(booking) {
+                    const expandedEvents = [];
+                    const dayMap = { "SUNDAY": 0, "MONDAY": 1, "TUESDAY": 2, "WEDNESDAY": 3, "THURSDAY": 4, "FRIDAY": 5, "SATURDAY": 6 };
+                    const targetDays = booking.days_of_week.map(day => dayMap[day.toUpperCase()]);
+
+                    let currentDate = new Date(booking.start_date);
+                    const endDate = new Date(booking.end_date);
+
+                    while (currentDate <= endDate) {
+                        if (targetDays.includes(currentDate.getDay())) {
+                            const dateStr = currentDate.toISOString().split('T')[0];
+                            expandedEvents.push({
+                                id: `${booking.id}-${dateStr}`,
+                                date: dateStr,
+                                startTime: booking.start_time,
+                                endTime: booking.end_time,
+                                title: `${booking.hall?.name || 'Unknown Hall'} - ${booking.purpose}`,
+                                status: booking.status
+                            });
+                        }
+                        currentDate.setDate(currentDate.getDate() + 1);
+                    }
+                    return expandedEvents;
                 },
 
                 updateCalendar() {
@@ -236,31 +335,8 @@
                     return '';
                 },
 
-                get currentDayName() {
-                    return this.currentDate.toLocaleDateString('en-US', { weekday: 'long' });
-                },
-
                 get currentDateISO() {
                     return this.currentDate.toISOString().split('T')[0];
-                },
-
-                get isViewingToday() {
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-
-                    if (this.view === 'day') {
-                        const current = new Date(this.currentDate);
-                        current.setHours(0, 0, 0, 0);
-                        return current.getTime() === today.getTime();
-                    }
-                    if (this.view === 'week') {
-                        return this.weekDays.some(day => day.date === today.toISOString().split('T')[0]);
-                    }
-                    if (this.view === 'month') {
-                        return this.currentDate.getFullYear() === today.getFullYear() &&
-                               this.currentDate.getMonth() === today.getMonth();
-                    }
-                    return false;
                 },
 
                 generateWeek() {
