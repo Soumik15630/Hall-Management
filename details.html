@@ -26,17 +26,17 @@
         }
         .slot {
             width: 100%;
-            height: 2rem;
+            height: 2.5rem;
             border-radius: 0.25rem;
             cursor: default;
             transition: all 0.2s ease-in-out;
         }
         .slot-available-weekday { 
-            background-color: #bbf7d0; /* Darker green for weekdays */
+            background-color: #bbf7d0;
             border: 1px solid #16a34a; 
         }
         .slot-available-weekend { 
-            background-color: #dcfce7; /* Lighter green for weekends */
+            background-color: #dcfce7;
             border: 1px solid #86efac; 
         }
         .slot-booked { 
@@ -58,7 +58,6 @@
             color: #f97316; /* Orange for Saturdays */
         }
         
-        /* Hide scrollbar for the header, body will show it */
         .hide-scrollbar::-webkit-scrollbar {
             display: none;
         }
@@ -132,60 +131,59 @@
                             </button>
                         </div>
 
-                        <!-- Enhanced Calendar Grid - Full Month View -->
-                        <div class="w-full">
-                            <!-- Calendar Table Layout -->
-                            <div class="border border-gray-300 rounded-lg overflow-hidden">
-                                <!-- Header Row -->
-                                <div class="bg-gray-100 border-b border-gray-300">
-                                    <div class="grid gap-0" :style="`grid-template-columns: 80px repeat(${calendar.days.length}, 1fr);`">
-                                        <div class="p-2 border-r border-gray-300 font-semibold text-center bg-gray-200">Time</div>
-                                        <template x-for="day in calendar.days" :key="`${calendar.year}-${calendar.month}-${day.date}`">
-                                            <div class="p-2 text-center border-r border-gray-300 last:border-r-0" :class="{'bg-red-50': day.dayName === 'Sun', 'bg-orange-50': day.dayName === 'Sat'}">
-                                                <div class="text-sm font-semibold" 
-                                                     :class="{
-                                                        'date-header-day': day.dayName === 'Sun',
-                                                        'date-header-saturday': day.dayName === 'Sat'
-                                                     }" 
-                                                     x-text="day.date"></div>
-                                                <div class="text-xs" 
-                                                     :class="{
-                                                        'date-header-day': day.dayName === 'Sun',
-                                                        'date-header-saturday': day.dayName === 'Sat'
-                                                     }" 
-                                                     x-text="day.dayName"></div>
-                                            </div>
-                                        </template>
-                                    </div>
-                                </div>
-                                
-                                <!-- Calendar Body -->
-                                <div class="bg-white">
-                                    <template x-for="time in timeSlots" :key="time">
-                                        <div class="border-b border-gray-200 last:border-b-0">
-                                            <div class="grid gap-0 h-12" :style="`grid-template-columns: 80px repeat(${calendar.days.length}, 1fr);`">
-                                                <!-- Time Label -->
-                                                <div class="p-2 border-r border-gray-300 bg-gray-50 flex items-center justify-center">
-                                                    <span class="text-xs font-medium" x-text="formatTimeForDisplay(time)"></span>
-                                                </div>
-                                                <!-- Time Slots -->
-                                                <template x-for="day in calendar.days" :key="`${calendar.year}-${calendar.month}-${day.date}-${time}`">
-                                                    <div class="border-r border-gray-300 last:border-r-0 flex items-center justify-center p-1" :class="{'bg-gray-50': day.isWeekend}">
-                                                        <div class="w-full h-8 rounded" 
-                                                             :class="getSlotClasses(day, time)" 
-                                                             :title="getSlotTooltip(day, time)">
-                                                        </div>
-                                                    </div>
-                                                </template>
-                                            </div>
+                        <!-- Calendar Grid -->
+                        <div class="calendar-grid">
+                            <!-- Top-left empty cell -->
+                            <div></div>
+
+                            <!-- Date Headers (Horizontally scrollable) -->
+                            <div class="overflow-x-auto hide-scrollbar"
+                                 x-ref="headerScroller"
+                                 @scroll="$refs.bodyScroller.scrollLeft = $refs.headerScroller.scrollLeft">
+                                <div :style="`display: grid; grid-template-columns: repeat(${calendar.days.length}, minmax(50px, 1fr)); gap: 4px;`" class="pb-2">
+                                    <template x-for="day in calendar.days" :key="`${calendar.year}-${calendar.month}-${day.date}`">
+                                        <div class="text-center">
+                                            <div class="text-sm font-semibold" 
+                                                 :class="{
+                                                     'date-header-day': day.dayName === 'Sun',
+                                                     'date-header-saturday': day.dayName === 'Sat'
+                                                 }" 
+                                                 x-text="day.date"></div>
+                                            <div class="text-xs text-gray-500" 
+                                                 :class="{
+                                                     'date-header-day': day.dayName === 'Sun',
+                                                     'date-header-saturday': day.dayName === 'Sat'
+                                                 }" 
+                                                 x-text="day.dayName"></div>
                                         </div>
                                     </template>
                                 </div>
                             </div>
+
+                            <!-- Time Labels (Vertically aligned) -->
+                            <div class="grid grid-cols-1 gap-1 pr-4">
+                                <template x-for="time in timeSlots" :key="time">
+                                    <div class="text-sm text-right text-gray-600 h-10 flex items-center justify-end" x-text="formatTimeForDisplay(time)"></div>
+                                </template>
+                            </div>
+
+                            <!-- Calendar Body (Scrolls with header) -->
+                            <div class="grid grid-cols-1 overflow-x-auto"
+                                 x-ref="bodyScroller"
+                                 @scroll="$refs.headerScroller.scrollLeft = $refs.bodyScroller.scrollLeft">
+                                <template x-for="time in timeSlots" :key="time">
+                                    <div :style="`display: grid; grid-template-columns: repeat(${calendar.days.length}, minmax(50px, 1fr)); gap: 4px;`">
+                                        <template x-for="day in calendar.days" :key="`${calendar.year}-${calendar.month}-${day.date}-${time}`">
+                                            <div class="slot" :class="getSlotClasses(day, time)" :title="getSlotTooltip(day, time)"></div>
+                                        </template>
+                                    </div>
+                                </template>
+                            </div>
                         </div>
 
+
                         <!-- Updated Legend -->
-                        <div class="flex justify-center items-center space-x-4 mt-4 text-sm">
+                        <div class="flex flex-wrap justify-center items-center space-x-4 mt-4 text-sm">
                             <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 slot-available-weekday"></span> Available (Weekday)</div>
                             <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 slot-available-weekend"></span> Available (Weekend)</div>
                             <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 slot-pending"></span> Pending</div>
@@ -230,6 +228,7 @@
 
                 try {
                     await this.fetchHallData(hallId);
+                    await this.fetchPendingBookings(hallId);
                     await this.fetchScheduleData(hallId);
                     this.generateCalendar();
                 } catch (error) {
@@ -268,16 +267,37 @@
                 };
             },
 
+            async fetchPendingBookings(hallId) {
+                const url = AppConfig.apiBaseUrl + AppConfig.endpoints.pendingBook + hallId;
+                const pendingData = await this.fetchWithAuth(url);
+                if (pendingData && pendingData.data) {
+                    pendingData.data.forEach(booking => {
+                        let currentTime = new Date(booking.start_time);
+                        const endDate = new Date(booking.end_time);
+                        while (currentTime < endDate) {
+                            const dateKey = currentTime.toISOString().split('T')[0];
+                            const hours = String(currentTime.getUTCHours()).padStart(2, '0');
+                            const minutes = String(currentTime.getUTCMinutes()).padStart(2, '0');
+                            const timeKey = `${hours}:${minutes}`;
+
+                            if (this.timeSlots.includes(timeKey)) {
+                                if (!this.processedBookings[dateKey]) this.processedBookings[dateKey] = {};
+                                this.processedBookings[dateKey][timeKey] = 'pending';
+                            }
+                            
+                            currentTime.setUTCHours(currentTime.getUTCHours() + 1);
+                        }
+                    });
+                }
+            },
+
             async fetchScheduleData(hallId) {
                 const url = AppConfig.apiBaseUrl + AppConfig.endpoints.getHallSchedule + hallId;
                 const scheduleData = await this.fetchWithAuth(url);
-                this.processedBookings = {};
                 if (scheduleData && scheduleData.data) {
                     scheduleData.data.forEach(booking => {
                         let currentTime = new Date(booking.start_time);
                         const endDate = new Date(booking.end_time);
-                        // A booking from 09:30 to 10:30 covers the 09:30 slot.
-                        // The loop should run as long as currentTime is LESS than the endDate.
                         while (currentTime < endDate) {
                             const dateKey = currentTime.toISOString().split('T')[0];
                             const hours = String(currentTime.getUTCHours()).padStart(2, '0');
@@ -303,19 +323,13 @@
                 this.calendar.days = [];
                 
                 for (let i = 1; i <= daysInMonth; i++) {
-                    // Create date objects in UTC to prevent timezone-related shifts.
                     const dateObj = new Date(Date.UTC(this.calendar.year, this.calendar.month, i));
-                    
                     this.calendar.days.push({
                         date: i,
-                        // Generate the date key (e.g., "2024-08-08") from the UTC object.
-                        // This ensures it matches the keys created from booking data.
                         fullDate: dateObj.toISOString().split('T')[0],
-                        // Get day name and index using UTC methods for consistency.
                         dayName: dateObj.toLocaleString('en-US', { weekday: 'short', timeZone: 'UTC' }),
-                        dayIndex: dateObj.getUTCDay(), // 0 = Sunday, 6 = Saturday
-                        isWeekend: dateObj.getUTCDay() === 0 || dateObj.getUTCDay() === 6,
-                        dateObject: dateObj
+                        dayIndex: dateObj.getUTCDay(),
+                        isWeekend: dateObj.getUTCDay() === 0 || dateObj.getUTCDay() === 6
                     });
                 }
             },
@@ -324,7 +338,6 @@
                 if (direction === 'next') {
                     this.currentDate.setMonth(this.currentDate.getMonth() + 1);
                 } else {
-                    // Prevent navigating to past months.
                     const today = new Date();
                     today.setDate(1);
                     today.setHours(0, 0, 0, 0);
@@ -337,14 +350,14 @@
 
             getSlotStatus(day, time) {
                 const now = new Date();
-                // Construct the full UTC datetime for the specific slot to check against the current time.
-                const slotDateTime = new Date(`${day.fullDate}T${time}:00Z`);
+                const [hour, minute] = time.split(':');
+                const slotDateTime = new Date(day.fullDate);
+                slotDateTime.setUTCHours(hour, minute, 0, 0);
 
                 if (slotDateTime < now) {
                     return 'past';
                 }
                 
-                // Check for bookings using matching UTC-based keys.
                 const bookingStatus = this.processedBookings[day.fullDate]?.[time];
                 if (bookingStatus) {
                     return bookingStatus;
@@ -355,7 +368,6 @@
 
             getSlotClasses(day, time) {
                 const status = this.getSlotStatus(day, time);
-                
                 return {
                     'slot-past': status === 'past',
                     'slot-booked': status === 'booked',
@@ -367,7 +379,6 @@
 
             getSlotTooltip(day, time) {
                 const status = this.getSlotStatus(day, time);
-                // Create a date object from the UTC date string for proper local formatting in the tooltip.
                 const localDate = new Date(`${day.fullDate}T00:00:00Z`).toLocaleDateString(undefined, { timeZone: 'UTC' });
                 const displayTime = this.formatTimeForDisplay(time);
                 
@@ -386,7 +397,7 @@
                 const h = parseInt(hour);
                 const suffix = h >= 12 ? 'pm' : 'am';
                 let displayHour = h % 12;
-                if (displayHour === 0) { // For 12am and 12pm
+                if (displayHour === 0) { 
                     displayHour = 12;
                 }
                 return `${String(displayHour)}:${minute} ${suffix}`;
