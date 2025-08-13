@@ -443,20 +443,21 @@
 
                 // Determines the status of a specific time slot
                 getSlotStatus(day, time) {
-                    const today = new Date(); 
-                    today.setHours(0, 0, 0, 0);
-                    
-                    const slotDate = new Date(this.calendar.year, this.calendar.month, day.date);
-                    slotDate.setHours(0, 0, 0, 0);
-                    
+                    const now = new Date();
+                    const [hour, minute] = time.split(':');
+                    const slotDateTime = new Date(this.calendar.year, this.calendar.month, day.date, hour, minute);
+
+                    // If the slot's date and time is in the past, mark it as 'past'.
+                    if (slotDateTime < now) return 'past';
+
                     const dateString = `${this.calendar.year}-${String(this.calendar.month + 1).padStart(2, '0')}-${String(day.date).padStart(2, '0')}`;
                     
-                    if (slotDate < today) return 'past';
-
                     // Check for semester booking selection
                     if (this.bookingType === 'SEMESTER' && this.startDate && this.endDate && this.selectedDays.length > 0 && this.selectedTimes.length > 0) {
                         const start = new Date(this.startDate); start.setHours(0,0,0,0);
                         const end = new Date(this.endDate); end.setHours(0,0,0,0);
+                        const slotDate = new Date(this.calendar.year, this.calendar.month, day.date);
+                        slotDate.setHours(0, 0, 0, 0);
                         const selectedDayIndexes = this.selectedDays.map(d => this.daysOfWeek.findIndex(dw => dw.value === d));
                         
                         if (slotDate >= start && slotDate <= end && selectedDayIndexes.includes(day.dayIndex) && this.selectedTimes.includes(time)) {
