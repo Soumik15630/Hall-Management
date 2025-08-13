@@ -856,14 +856,33 @@ window.FinalBookingFormView = (function() {
 
         if (isIndividual) {
             const calendarContainer = document.getElementById('calendar-section');
-            if (calendarContainer) calendarContainer.innerHTML = renderCalendar();
+            if (calendarContainer) {
+                // *** FIX APPLIED HERE: PART 1 ***
+                // Before re-rendering, we get the current horizontal scroll position.
+                const oldScroller = calendarContainer.querySelector('.overflow-x-auto');
+                const scrollLeft = oldScroller ? oldScroller.scrollLeft : 0;
+
+                // Re-render the entire calendar section
+                calendarContainer.innerHTML = renderCalendar();
+
+                // *** FIX APPLIED HERE: PART 2 ***
+                // After re-rendering, we find the new scroll container and restore its position.
+                const newScroller = calendarContainer.querySelector('.overflow-x-auto');
+                if (newScroller) {
+                    newScroller.scrollLeft = scrollLeft;
+                }
+            }
             
             const timeSelectorContainer = document.querySelector('#individual-booking-section .space-y-8');
             if (timeSelectorContainer) {
                  const newTimeSelectorContent = renderTimeSlotSelector();
                  const match = newTimeSelectorContent.match(/<section[^>]*>(.*)<\/section>/s);
                  if (match && match[1]) {
-                    timeSelectorContainer.children[1].innerHTML = match[1];
+                    // This logic seems fragile, ensure it targets the correct element.
+                    // Assuming the second child is the time slot selector section.
+                    if (timeSelectorContainer.children[1]) {
+                        timeSelectorContainer.children[1].innerHTML = match[1];
+                    }
                  }
             }
         } else {
@@ -1317,6 +1336,10 @@ window.FinalBookingFormView = (function() {
             state.selectedSlots.push(newSlot);
             autoFillContiguousSlots(newSlot);
         }
+        
+        // This ensures the calendar's main date object is synchronized with the
+        // date the user is interacting with, preventing the view from resetting.
+        state.currentDate = new Date(date + 'T00:00:00');
         
         state.currentSelectedDate = date;
         updateUI();
