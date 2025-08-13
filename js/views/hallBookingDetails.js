@@ -9,9 +9,11 @@ window.HallBookingDetailsView = (function() {
         isDragging: false,
         dragSelectionMode: 'add',
         dragDate: null,
+        isRendering: false, // Add flag to prevent race conditions
     };
     let abortController;
     let tooltipTimeout;
+    let renderTimeout;
     const timeSlots = ['09:30', '10:30', '11:30', '12:30', '13:30', '14:30', '15:30', '16:30'];
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -49,7 +51,10 @@ window.HallBookingDetailsView = (function() {
 
         // A tiny delay to allow the element to be in the DOM before starting the transition
         setTimeout(() => {
-            loader.classList.remove('opacity-0');
+            const loaderElement = document.getElementById('booking-loader');
+            if (loaderElement) {
+                loaderElement.classList.remove('opacity-0');
+            }
         }, 10);
     }
 
@@ -62,11 +67,12 @@ window.HallBookingDetailsView = (function() {
             loader.classList.add('opacity-0');
             // Remove the loader from the DOM after the transition completes
             setTimeout(() => {
-                loader.remove();
+                if (loader && loader.parentNode) {
+                    loader.remove();
+                }
             }, 300); // Should match the duration-300 class
         }
     }
-
 
     // --- UTILITY FUNCTIONS FOR IST TIME HANDLING ---
     function getTodayISTString() {
@@ -192,36 +198,77 @@ window.HallBookingDetailsView = (function() {
         if (existingTooltip) existingTooltip.remove();
     }
 
+    // --- SAFE RENDERING WITH RACE CONDITION PREVENTION ---
+    function safeRender(callback, delay = 0) {
+        // Clear any pending renders
+        if (renderTimeout) {
+            clearTimeout(renderTimeout);
+        }
+
+        renderTimeout = setTimeout(() => {
+            if (state.isRendering) {
+                // If already rendering, queue this render for later
+                safeRender(callback, 50);
+                return;
+            }
+            
+            state.isRendering = true;
+            
+            try {
+                callback();
+            } catch (error) {
+                console.error('Render error:', error);
+            } finally {
+                state.isRendering = false;
+            }
+        }, delay);
+    }
+
     // --- RENDERING LOGIC ---
     function render() {
         if (!state.hall) return;
-        renderHallInfo();
-        rerenderCalendar();
+        
+        safeRender(() => {
+            renderHallInfo();
+            rerenderCalendar();
+        });
     }
 
     function renderHallInfo() {
         const { hall } = state;
-        document.getElementById('booking-hall-details').innerHTML = `
-            <h3 class="text-lg font-bold text-blue-300 mb-3">Hall Details</h3>
-            <div class="space-y-2 text-sm">
-                <div><span class="text-slate-400">Name:</span> <span class="text-white font-semibold">${hall.name || 'N/A'}</span></div>
-                <div><span class="text-slate-400">Location:</span> <span class="text-white">${hall.location}</span></div>
-                <div><span class="text-slate-400">Capacity:</span> <span class="text-white">${hall.capacity || 'N/A'} people</span></div>
-                <div><span class="text-slate-400">Floor:</span> <span class="text-white">${hall.floor || 'N/A'}</span></div>
-            </div>`;
-        document.getElementById('booking-hall-features').innerHTML = `
-            <h3 class="text-lg font-bold text-green-300 mb-3">Features</h3>
-            ${hall.features && hall.features.length > 0 ?
-                `<div class="flex flex-wrap gap-2">${hall.features.map(f => `<span class="px-2 py-1 bg-green-900/50 text-green-200 rounded-full text-xs">${f}</span>`).join('')}</div>` :
-                '<p class="text-sm text-slate-400">No special features listed.</p>'}`;
-        document.getElementById('booking-hall-incharge').innerHTML = `
-            <h3 class="text-lg font-bold text-yellow-300 mb-3">Contact Information</h3>
-            <div class="space-y-2 text-sm">
-                <div><span class="text-slate-400">In-charge:</span> <span class="text-white">${hall.incharge.name}</span></div>
-                <div><span class="text-slate-400">Designation:</span> <span class="text-white">${hall.incharge.designation}</span></div>
-                <div><span class="text-slate-400">Email:</span> <span class="text-white">${hall.incharge.email}</span></div>
-                <div><span class="text-slate-400">Intercom:</span> <span class="text-white">${hall.incharge.intercom}</span></div>
-            </div>`;
+        const hallDetailsElement = document.getElementById('booking-hall-details');
+        const hallFeaturesElement = document.getElementById('booking-hall-features');
+        const hallInchargeElement = document.getElementById('booking-hall-incharge');
+
+        if (hallDetailsElement) {
+            hallDetailsElement.innerHTML = `
+                <h3 class="text-lg font-bold text-blue-300 mb-3">Hall Details</h3>
+                <div class="space-y-2 text-sm">
+                    <div><span class="text-slate-400">Name:</span> <span class="text-white font-semibold">${hall.name || 'N/A'}</span></div>
+                    <div><span class="text-slate-400">Location:</span> <span class="text-white">${hall.location}</span></div>
+                    <div><span class="text-slate-400">Capacity:</span> <span class="text-white">${hall.capacity || 'N/A'} people</span></div>
+                    <div><span class="text-slate-400">Floor:</span> <span class="text-white">${hall.floor || 'N/A'}</span></div>
+                </div>`;
+        }
+
+        if (hallFeaturesElement) {
+            hallFeaturesElement.innerHTML = `
+                <h3 class="text-lg font-bold text-green-300 mb-3">Features</h3>
+                ${hall.features && hall.features.length > 0 ?
+                    `<div class="flex flex-wrap gap-2">${hall.features.map(f => `<span class="px-2 py-1 bg-green-900/50 text-green-200 rounded-full text-xs">${f}</span>`).join('')}</div>` :
+                    '<p class="text-sm text-slate-400">No special features listed.</p>'}`;
+        }
+
+        if (hallInchargeElement) {
+            hallInchargeElement.innerHTML = `
+                <h3 class="text-lg font-bold text-yellow-300 mb-3">Contact Information</h3>
+                <div class="space-y-2 text-sm">
+                    <div><span class="text-slate-400">In-charge:</span> <span class="text-white">${hall.incharge.name}</span></div>
+                    <div><span class="text-slate-400">Designation:</span> <span class="text-white">${hall.incharge.designation}</span></div>
+                    <div><span class="text-slate-400">Email:</span> <span class="text-white">${hall.incharge.email}</span></div>
+                    <div><span class="text-slate-400">Intercom:</span> <span class="text-white">${hall.incharge.intercom}</span></div>
+                </div>`;
+        }
     }
 
     function renderCalendarGrid() {
@@ -230,10 +277,17 @@ window.HallBookingDetailsView = (function() {
         const month = currentDate.getMonth();
         const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-        document.getElementById('current-month-year').textContent = `${currentDate.toLocaleString('default', { month: 'long' })} ${year}`;
+        // Debug logging
+        console.log('Rendering calendar:', { year, month: month + 1, daysInMonth, currentDate });
+
+        const monthYearElement = document.getElementById('current-month-year');
+        if (monthYearElement) {
+            monthYearElement.textContent = `${currentDate.toLocaleString('default', { month: 'long' })} ${year}`;
+        }
 
         return `
             <style>
+                .calendar-container { min-width: 100%; overflow-x: auto; }
                 .slot { width: 100%; height: 2.5rem; border-radius: 0.25rem; cursor: pointer; transition: all 0.2s; border: 1px solid transparent; }
                 .slot:disabled { cursor: not-allowed; }
                 .slot-available-weekday { background-color: rgba(22, 101, 52, 0.8); border-color: rgba(22, 101, 52, 1); }
@@ -245,39 +299,46 @@ window.HallBookingDetailsView = (function() {
                 .slot-past { background-color: rgba(71, 85, 105, 0.5); border-color: rgba(71, 85, 105, 0.7); opacity: 0.6; }
                 .slot-selected { background-color: rgba(59, 130, 246, 1) !important; border-color: rgba(96, 165, 250, 1) !important; transform: scale(1.05); }
             </style>
-            <table class="w-full border-collapse">
-                <thead>
-                    <tr class="sticky top-0 bg-slate-800/50 backdrop-blur-sm">
-                        <th class="p-2 w-24"></th>
-                        ${Array.from({ length: daysInMonth }, (_, i) => `
-                            <th class="text-center p-2">
-                                <div class="font-semibold">${i + 1}</div>
-                                <div class="text-xs text-slate-400">${dayNames[new Date(year, month, i + 1).getDay()]}</div>
-                            </th>
-                        `).join('')}
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-700/50" id="calendar-body">
-                    ${timeSlots.map(time => `
-                        <tr class="divide-x divide-slate-700/50">
-                            <td class="text-right text-sm text-slate-300 p-2 whitespace-nowrap">${new Date('1970-01-01T' + time).toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit', hour12: true})}</td>
+            <div class="calendar-container">
+                <table class="w-full border-collapse" style="min-width: 800px;">
+                    <thead>
+                        <tr class="sticky top-0 bg-slate-800/50 backdrop-blur-sm">
+                            <th class="p-2 w-24"></th>
                             ${Array.from({ length: daysInMonth }, (_, i) => {
-                                const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(i + 1).padStart(2, '0')}`;
-                                const { classes, status, isClickable } = getSlotStatus(dateString, time);
+                                const dayNumber = i + 1;
+                                const dayOfWeek = new Date(year, month, dayNumber).getDay();
                                 return `
-                                    <td class="p-1">
-                                        <button class="slot ${classes}" 
-                                                data-date="${dateString}" 
-                                                data-time="${time}"
-                                                data-status="${status}"
-                                                ${!isClickable ? 'disabled' : ''}>
-                                        </button>
-                                    </td>`;
+                                    <th class="text-center p-2">
+                                        <div class="font-semibold">${dayNumber}</div>
+                                        <div class="text-xs text-slate-400">${dayNames[dayOfWeek]}</div>
+                                    </th>
+                                `;
                             }).join('')}
                         </tr>
-                    `).join('')}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700/50" id="calendar-body">
+                        ${timeSlots.map(time => `
+                            <tr class="divide-x divide-slate-700/50">
+                                <td class="text-right text-sm text-slate-300 p-2 whitespace-nowrap">${new Date('1970-01-01T' + time).toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit', hour12: true})}</td>
+                                ${Array.from({ length: daysInMonth }, (_, i) => {
+                                    const dayNumber = i + 1;
+                                    const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNumber).padStart(2, '0')}`;
+                                    const { classes, status, isClickable } = getSlotStatus(dateString, time);
+                                    return `
+                                        <td class="p-1">
+                                            <button class="slot ${classes}" 
+                                                    data-date="${dateString}" 
+                                                    data-time="${time}"
+                                                    data-status="${status}"
+                                                    ${!isClickable ? 'disabled' : ''}>
+                                            </button>
+                                        </td>`;
+                                }).join('')}
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
         `;
     }
 
@@ -302,25 +363,39 @@ window.HallBookingDetailsView = (function() {
     }
     
     function updateCalendarUI() {
-        document.querySelectorAll('#calendar-body .slot').forEach(slotEl => {
+        const slots = document.querySelectorAll('#calendar-body .slot');
+        slots.forEach(slotEl => {
             const { date, time } = slotEl.dataset;
-            const { classes, status, isClickable } = getSlotStatus(date, time);
-            slotEl.className = `slot ${classes}`;
-            slotEl.dataset.status = status;
-            if (isClickable) {
-                slotEl.removeAttribute('disabled');
-            } else {
-                slotEl.setAttribute('disabled', '');
+            if (date && time) {
+                const { classes, status, isClickable } = getSlotStatus(date, time);
+                slotEl.className = `slot ${classes}`;
+                slotEl.dataset.status = status;
+                if (isClickable) {
+                    slotEl.removeAttribute('disabled');
+                } else {
+                    slotEl.setAttribute('disabled', '');
+                }
             }
         });
     }
 
     function rerenderCalendar() {
         const calendarGridContainer = document.getElementById('booking-calendar-grid');
-        if (calendarGridContainer) {
-            calendarGridContainer.innerHTML = renderCalendarGrid();
-            setupDynamicListeners();
+        if (!calendarGridContainer) {
+            console.warn('Calendar grid container not found');
+            return;
         }
+        
+        safeRender(() => {
+            const gridHTML = renderCalendarGrid();
+            calendarGridContainer.innerHTML = gridHTML;
+            
+            // Use requestAnimationFrame to ensure DOM is painted before setting up listeners
+            requestAnimationFrame(() => {
+                setupDynamicListeners();
+                console.log('Calendar rendered successfully');
+            });
+        });
     }
 
     function showSlotTooltip(slotEl) {
@@ -408,13 +483,21 @@ window.HallBookingDetailsView = (function() {
     
     function showNotification(message) {
         const notification = document.createElement('div');
-        notification.className = 'fixed top-5 right-5 bg-red-500 text-white py-2 px-4 rounded-lg shadow-lg animate-pulse';
+        notification.className = 'fixed top-5 right-5 bg-red-500 text-white py-2 px-4 rounded-lg shadow-lg animate-pulse z-[200]';
         notification.textContent = message;
         document.body.appendChild(notification);
-        setTimeout(() => notification.remove(), 4000);
+        setTimeout(() => {
+            if (notification && notification.parentNode) {
+                notification.remove();
+            }
+        }, 4000);
     }
 
     function handleBookHall() {
+        // if (state.selectedSlots.length === 0) {
+        //     showNotification('Please select at least one time slot to book.');
+        //     return;
+        // }
         
         sessionStorage.setItem('finalBookingSlots', JSON.stringify(state.selectedSlots));
         sessionStorage.setItem('finalBookingHall', JSON.stringify(state.hall));
@@ -426,56 +509,74 @@ window.HallBookingDetailsView = (function() {
         if (abortController) {
             abortController.abort();
         }
+        if (renderTimeout) {
+            clearTimeout(renderTimeout);
+        }
+        if (tooltipTimeout) {
+            clearTimeout(tooltipTimeout);
+        }
         removeTooltip();
-        hideLoader(); // Ensure loader is removed on cleanup
+        hideLoader();
+        state.isRendering = false;
     }
 
     // --- DYNAMIC/DELEGATED EVENT HANDLER SETUP ---
     function setupDynamicListeners() {
+        if (!abortController || abortController.signal.aborted) {
+            return;
+        }
+        
         const { signal } = abortController;
         const viewContainer = document.getElementById('hall-booking-details-view');
         if (!viewContainer) return;
 
         const calendarBody = document.getElementById('calendar-body');
-        if(calendarBody) {
+        if (calendarBody) {
             calendarBody.addEventListener('mousedown', handleDragStart, { signal });
         }
-        document.addEventListener('mouseover', handleDragOver, { signal });
+        
+        // Use passive event listeners where possible
+        document.addEventListener('mouseover', handleDragOver, { signal, passive: true });
         document.addEventListener('mouseup', handleDragStop, { signal });
 
         const calendarGrid = document.getElementById('booking-calendar-grid');
-        if(calendarGrid) {
+        if (calendarGrid) {
             calendarGrid.addEventListener('mouseover', e => {
                 const slot = e.target.closest('button.slot[data-status="booked"], button.slot[data-status="pending"]');
                 if (slot) {
                     clearTimeout(tooltipTimeout);
                     tooltipTimeout = setTimeout(() => showSlotTooltip(slot), 200);
                 }
-            }, { signal });
+            }, { signal, passive: true });
+            
             calendarGrid.addEventListener('mouseout', e => {
                 const slot = e.target.closest('button.slot[data-status="booked"], button.slot[data-status="pending"]');
                 if (slot) {
                     clearTimeout(tooltipTimeout);
                     tooltipTimeout = setTimeout(removeTooltip, 300);
                 }
-            }, { signal });
+            }, { signal, passive: true });
         }
     }
 
-
     async function initialize(hallId) {
-        showLoader(); // Show loader at the very beginning
+        console.log('Initializing hall booking details for:', hallId);
+        showLoader();
 
         if (abortController) abortController.abort();
         abortController = new AbortController();
         const { signal } = abortController;
 
         try {
+            // Reset state
             state.selectedSlots = [];
+            state.isRendering = false;
             sessionStorage.removeItem('finalBookingSlots');
             sessionStorage.removeItem('finalBookingHall');
             sessionStorage.removeItem('finalBookingAvailability');
 
+            // Fetch data
+            console.log('Fetching hall and availability data...');
             const [hallData, availabilityData] = await Promise.all([
                 fetchFromAPI(`api/hall/${hallId}`),
                 fetchFromAPI(`api/booking/hall/${hallId}`)
@@ -483,9 +584,10 @@ window.HallBookingDetailsView = (function() {
             
             if (!hallData) throw new Error(`Hall data not found for ID: ${hallId}`);
 
+            // Process data
             const processedHallData = {
                 ...hallData,
-                id:  hallData.unique_id,
+                id: hallData.unique_id,
                 location: `${hallData.school?.school_name || ''}${hallData.department?.department_name ? ' - ' + hallData.department.department_name : ''}`.trim() || 'N/A',
                 incharge: {
                     name: hallData.department?.incharge_name || hallData.school?.incharge_name || hallData.incharge_name || 'N/A',
@@ -507,15 +609,25 @@ window.HallBookingDetailsView = (function() {
                 }
             }));
 
+            // Update state
             state = {
                 ...state,
                 hall: processedHallData,
                 availabilityData: processedAvailabilityData,
                 currentDate: new Date(),
+                isRendering: false,
             };
             
-            render();
+            console.log('Data processed, rendering...');
             
+            // Render with proper sequencing
+            await new Promise(resolve => {
+                render();
+                // Wait for next tick to ensure render is complete
+                setTimeout(resolve, 10);
+            });
+            
+            // Setup navigation event listeners
             const prevMonthBtn = document.getElementById('prev-month-btn');
             const nextMonthBtn = document.getElementById('next-month-btn');
             const bookHallBtn = document.getElementById('confirm-booking-btn');
@@ -538,8 +650,16 @@ window.HallBookingDetailsView = (function() {
                 bookHallBtn.addEventListener('click', handleBookHall, { signal });
             }
 
-            document.body.addEventListener('mouseover', e => { if (e.target.closest('#booking-tooltip')) clearTimeout(tooltipTimeout); }, { signal });
-            document.body.addEventListener('mouseout', e => { if (e.target.closest('#booking-tooltip')) removeTooltip(); }, { signal });
+            // Global tooltip management
+            document.body.addEventListener('mouseover', e => { 
+                if (e.target.closest('#booking-tooltip')) clearTimeout(tooltipTimeout); 
+            }, { signal, passive: true });
+            
+            document.body.addEventListener('mouseout', e => { 
+                if (e.target.closest('#booking-tooltip')) removeTooltip(); 
+            }, { signal, passive: true });
+
+            console.log('Initialization complete');
 
         } catch (error) {
             console.error('Error initializing hall booking details:', error);
@@ -553,24 +673,15 @@ window.HallBookingDetailsView = (function() {
                     </div>`;
             }
         } finally {
-            // This block ensures the loader is hidden after the browser has had a chance
-            // to paint the newly rendered calendar.
-            
-            // First, we wait for the next animation frame to let the browser process the DOM changes.
+            // Simple, reliable loader hiding with proper timing
+            // Wait for multiple animation frames to ensure DOM is fully painted
             requestAnimationFrame(() => {
-                const calendarGridContainer = document.getElementById('booking-calendar-grid');
-                if (calendarGridContainer) {
-                    // By reading a property like offsetHeight, we force the browser to
-                    // synchronously calculate the layout of the table. This is a key step
-                    // to ensure the table dimensions are correct before we make it visible.
-                    void calendarGridContainer.offsetHeight;
-                }
-
-                // After forcing the layout calculation, we wait for one more animation frame.
-                // This ensures the browser has had a chance to *paint* the calculated layout.
-                // Only then do we hide the loader for a smooth transition.
                 requestAnimationFrame(() => {
-                    hideLoader();
+                    // Double RAF ensures we're after the browser's paint cycle
+                    setTimeout(() => {
+                        hideLoader();
+                        console.log('Loader hidden');
+                    }, 100); // Small additional delay for safety
                 });
             });
         }
