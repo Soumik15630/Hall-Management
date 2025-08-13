@@ -538,7 +538,7 @@
             async deleteSelectedItems() {
                 this.modals.confirmDelete = false;
                 const type = this.activeView === 'schools' ? 'school' : 'department';
-                const endpoint = `${AppConfig.apiBaseUrl}/${type}`;
+                const endpoint = `${AppConfig.apiBaseUrl}${AppConfig.endpoints.school}`;
                 const promises = this.selectedItems.map(id => 
                     this.fetchWithAuth(`${endpoint}/${id}`, { method: 'DELETE' })
                 );

@@ -253,7 +253,7 @@
                 },
 
                 async submitForm() {
-                    const url = `${AppConfig.apiBaseUrl}/${this.type}/${this.id}`;
+                    const url = `${AppConfig.apiBaseUrl}${AppConfig.endpoints.school}/${this.id}`;
                     let payload = {};
 
                     if (this.type === 'school') {
