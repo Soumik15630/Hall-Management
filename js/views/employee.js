@@ -51,10 +51,20 @@ window.EmployeeView = (function() {
         }
         const fullUrl = AppConfig.apiBaseUrl + endpoint;
         const config = { ...options, headers };
+        if (options.body && !config.headers['Content-Type']) {
+            config.headers['Content-Type'] = 'application/json';
+        }
         const response = await fetch(fullUrl, config);
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`API Error on ${endpoint}: ${response.status} - ${errorText}`);
+             try {
+                const errorJson = JSON.parse(errorText);
+                console.error('API Error Response:', errorJson);
+                const errorMessages = errorJson.error.map(e => `${e.path.join('.')} - ${e.message}`).join('\n');
+                throw new Error(`API Error: ${response.status}\n${errorMessages}`);
+            } catch (e) {
+                 throw new Error(`API Error on ${endpoint}: ${response.status} - ${errorText}`);
+            }
         }
         if (isJson) {
             const text = await response.text();
@@ -65,7 +75,6 @@ window.EmployeeView = (function() {
         return response;
     }
 
-    // Use the cache for fetching schools and departments
     async function fetchRawSchools() {
         return await window.apiCache.fetch('schools', () => fetchFromAPI(AppConfig.endpoints.allschool));
     }
@@ -75,18 +84,15 @@ window.EmployeeView = (function() {
     }
 
     async function fetchEmployeeData() {
-        // CORRECTED: Fetch all three data sources as the employee API response is not self-contained.
         const [rawEmployees, schools, departments] = await Promise.all([
             fetchFromAPI(AppConfig.endpoints.allemp),
             fetchRawSchools(),
             fetchRawDepartments()
         ]);
         
-        // Create maps for quick lookups
         const schoolMap = new Map(schools.map(s => [s.unique_id, s.school_name]));
         const departmentMap = new Map(departments.map(d => [d.unique_id, d.department_name]));
 
-        // Map the school and department names to each employee
         return rawEmployees.map(emp => ({
             id: emp.unique_id,
             name: emp.employee_name,
@@ -95,8 +101,7 @@ window.EmployeeView = (function() {
             designation: emp.designation,
             department: departmentMap.get(emp.department_id) || 'N/A',
             school: schoolMap.get(emp.school_id) || 'N/A',
-            status: emp.status || 'Active',
-            // Store raw data for modification modals
+            status: emp.status || 'ACTIVE',
             raw_belongs_to: emp.belongs_to,
             raw_school_id: emp.school_id,
             raw_department_id: emp.department_id,
@@ -232,11 +237,26 @@ window.EmployeeView = (function() {
         document.getElementById('update-employee-name').value = employee.name;
         document.getElementById('update-employee-email').value = employee.email;
         document.getElementById('update-employee-phone').value = employee.phone || '';
-        document.getElementById('update-employee-designation').value = employee.designation;
         
+        const designationSelect = document.getElementById('update-employee-designation-select');
+        if (designationSelect) {
+            designationSelect.value = employee.designation;
+        }
+        
+        const status = employee.status || 'ACTIVE';
+        const statusRadio = document.querySelector(`input[name="update-employee-status"][value="${status}"]`);
+        if(statusRadio) statusRadio.checked = true;
+
         const belongsToSelect = document.getElementById('update-employee-belongs-to');
         belongsToSelect.value = state.modalState.belongsTo;
         belongsToSelect.dispatchEvent(new Event('change'));
+
+        if (state.modalState.belongsTo === 'ADMINISTRATION') {
+            document.getElementById('update-employee-section-select').value = state.modalState.section || '';
+        } else {
+            document.getElementById('update-employee-school-input').value = state.modalState.schoolSearchTerm || '';
+            document.getElementById('update-employee-department-input').value = state.modalState.departmentSearchTerm || '';
+        }
 
         openModal('update-employee-modal');
     }
@@ -245,20 +265,34 @@ window.EmployeeView = (function() {
     async function handleUpdateSubmit(e) {
         e.preventDefault();
         const form = e.target;
+        const belongsTo = form.querySelector('#update-employee-belongs-to').value;
+        
+        const designation = form.querySelector('#update-employee-designation-select').value;
+
         const payload = {
-            // id: state.modalState.employeeId,
             employee_name: form.querySelector('#update-employee-name').value,
             employee_email: form.querySelector('#update-employee-email').value,
             employee_mobile: form.querySelector('#update-employee-phone').value,
-            designation: form.querySelector('#update-employee-designation').value,
-            belongs_to: state.modalState.belongsTo,
-            school_id: state.modalState.schoolId || '',
-            department_id: state.modalState.departmentId || '',
-            section: state.modalState.section || ''
+            designation: designation,
+            status: form.querySelector('input[name="update-employee-status"]:checked')?.value || 'ACTIVE',
+            belongs_to: belongsTo,
+            school_id: (belongsTo === 'SCHOOL' || belongsTo === 'DEPARTMENT') ? state.modalState.schoolId : null,
+            department_id: belongsTo === 'DEPARTMENT' ? state.modalState.departmentId : null,
+            section: belongsTo === 'ADMINISTRATION' ? form.querySelector('#update-employee-section-select').value : null
         };
         
+        Object.keys(payload).forEach(key => {
+            if (payload[key] === null || payload[key] === '') {
+                delete payload[key];
+            }
+        });
+        
+        if (belongsTo === 'ADMINISTRATION' && !payload.section) {
+             payload.section = form.querySelector('#update-employee-section-select').value;
+        }
+
         try {
-            await updateEmployee(state.modalState.employeeId,payload);
+            await updateEmployee(state.modalState.employeeId, payload);
             alert('Employee updated successfully!');
             closeModal();
             await initialize();
@@ -323,6 +357,28 @@ window.EmployeeView = (function() {
         }, { signal });
 
         document.getElementById('update-employee-form')?.addEventListener('submit', handleUpdateSubmit, { signal });
+
+        document.getElementById('update-employee-belongs-to')?.addEventListener('change', (e) => {
+            const value = e.target.value;
+            state.modalState.belongsTo = value;
+
+            const sectionContainer = document.getElementById('update-employee-section-container');
+            const schoolContainer = document.getElementById('update-employee-school-container');
+            const deptContainer = document.getElementById('update-employee-department-container');
+
+            sectionContainer.style.display = 'none';
+            schoolContainer.style.display = 'none';
+            deptContainer.style.display = 'none';
+
+            if (value === 'ADMINISTRATION') {
+                sectionContainer.style.display = 'block';
+            } else if (value === 'SCHOOL') {
+                schoolContainer.style.display = 'block';
+            } else if (value === 'DEPARTMENT') {
+                schoolContainer.style.display = 'block';
+                deptContainer.style.display = 'block';
+            }
+        }, { signal });
     }
     
     function cleanup() {
@@ -335,11 +391,8 @@ window.EmployeeView = (function() {
 
     async function initialize() {
         try {
-            // Fetch all necessary data on initialization
             const data = await fetchEmployeeData();
             state.allEmployees = data;
-            
-            // Also store raw school/dept data if needed for modals
             state.allSchools = await fetchRawSchools();
             state.allDepartments = await fetchRawDepartments();
 

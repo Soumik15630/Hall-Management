@@ -1,6 +1,6 @@
 // finalBookingForm.js - Enhanced Implementation with Improved Time/Date Selection Logic and Week Navigation
 
-(function() {
+window.FinalBookingFormView = (function() {
     
     // --- STATE MANAGEMENT ---
     let state = {
@@ -134,9 +134,7 @@
                 ? { name: dept.incharge_name, designation: 'HOD', email: dept.incharge_email, intercom: dept.incharge_contact_number }
                 : (school ? { name: school.incharge_name, designation: 'Dean', email: school.incharge_email, intercom: school.incharge_contact_number } : {});
 
-            // Corrected mapping: Spread operator first, then explicit properties to ensure correct ID override.
             return { 
-                ...hall,
                 id: hall.unique_id || hall.id, 
                 unique_id: hall.unique_id || hall.id,
                 name: hall.name, 
@@ -145,7 +143,8 @@
                 floor: formatTitleCase(hall.floor),
                 zone: formatTitleCase(hall.zone),
                 features: Array.isArray(hall.features) ? hall.features.map(formatTitleCase) : [],
-                incharge: incharge
+                incharge: incharge,
+                ...hall 
             };
         });
 
@@ -156,16 +155,13 @@
 
     async function fetchHallAvailability(hallId) {
         try {
-            // MODIFIED: Now uses the getHallSchedule endpoint from AppConfig
-            const endpoint = `${AppConfig.endpoints.getHallSchedule}${hallId}`;
-            const bookings = await fetchFromAPI(endpoint);
+            const bookings = await fetchFromAPI(`api/booking/hall/${hallId}`);
             
             if (!Array.isArray(bookings)) {
-                console.error("Expected an array of bookings but received:", bookings);
                 return [];
             }
 
-            // Transform the booking data to match the state's expected format
+            // Transform the booking data to match our expected format
             return bookings.map(booking => ({
                 hall_id: hallId,
                 start_date: booking.start_time,
@@ -181,8 +177,6 @@
                 additional_info: booking.additional_info || booking.notes || ''
             }));
         } catch (error) {
-            console.error(`Failed to fetch hall schedule for hallId ${hallId}:`, error);
-            // Return an empty array on error so the UI can still render
             return [];
         }
     }
@@ -198,104 +192,20 @@
         });
     }
     
-    // --- CUSTOM MODAL & CONFIRMATION ---
-    function showCustomAlert(message, type = 'info') {
-        const modal = document.createElement('div');
-        modal.className = 'fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 transition-opacity duration-300';
+    async function addMultipleIndividualBookings(bookingRequests) {
+        const results = [];
         
-        const alertBox = document.createElement('div');
-        alertBox.className = 'bg-slate-800 rounded-lg p-6 max-w-sm w-full mx-4 border border-slate-700 shadow-2xl transform transition-all duration-300 scale-95 opacity-0';
-        
-        let iconColor = 'text-blue-400';
-        let icon = 'fa-info-circle';
-        if (type === 'success') {
-            iconColor = 'text-green-400';
-            icon = 'fa-check-circle';
-        } else if (type === 'error') {
-            iconColor = 'text-red-400';
-            icon = 'fa-times-circle';
+        // Submit bookings sequentially to avoid overwhelming the server
+        for (const request of bookingRequests) {
+            try {
+                const result = await addIndividualBooking(request);
+                results.push({ success: true, data: result, request });
+            } catch (error) {
+                results.push({ success: false, error: error.message, request });
+            }
         }
-
-        alertBox.innerHTML = `
-            <div class="flex items-start">
-                <div class="mr-4 ${iconColor}">
-                    <i class="fas ${icon} fa-2x"></i>
-                </div>
-                <div class="flex-1">
-                    <p class="text-white text-lg font-semibold mb-2">${type.charAt(0).toUpperCase() + type.slice(1)}</p>
-                    <p class="text-slate-300">${message}</p>
-                </div>
-            </div>
-            <div class="mt-6 flex justify-end">
-                <button class="close-alert-btn px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-semibold">OK</button>
-            </div>
-        `;
-
-        modal.appendChild(alertBox);
-        document.body.appendChild(modal);
-
-        setTimeout(() => {
-            modal.classList.add('opacity-100');
-            alertBox.classList.remove('scale-95', 'opacity-0');
-            alertBox.classList.add('scale-100', 'opacity-100');
-        }, 10);
-
-        const close = () => {
-            alertBox.classList.remove('scale-100', 'opacity-100');
-            alertBox.classList.add('scale-95', 'opacity-0');
-            modal.classList.remove('opacity-100');
-            setTimeout(() => document.body.removeChild(modal), 300);
-        };
-
-        alertBox.querySelector('.close-alert-btn').addEventListener('click', close);
-    }
-
-    function showCustomConfirm(message) {
-        return new Promise(resolve => {
-            const modal = document.createElement('div');
-            modal.className = 'fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 transition-opacity duration-300';
-            
-            const confirmBox = document.createElement('div');
-            confirmBox.className = 'bg-slate-800 rounded-lg p-6 max-w-sm w-full mx-4 border border-slate-700 shadow-2xl transform transition-all duration-300 scale-95 opacity-0';
-            
-            confirmBox.innerHTML = `
-                <div class="flex items-start">
-                    <div class="mr-4 text-yellow-400">
-                        <i class="fas fa-exclamation-triangle fa-2x"></i>
-                    </div>
-                    <div class="flex-1">
-                        <p class="text-white text-lg font-semibold mb-2">Confirmation</p>
-                        <p class="text-slate-300">${message}</p>
-                    </div>
-                </div>
-                <div class="mt-6 flex justify-end space-x-4">
-                    <button id="confirm-cancel-btn" class="px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-md font-semibold">Cancel</button>
-                    <button id="confirm-ok-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-semibold">OK</button>
-                </div>
-            `;
-
-            modal.appendChild(confirmBox);
-            document.body.appendChild(modal);
-
-            setTimeout(() => {
-                modal.classList.add('opacity-100');
-                confirmBox.classList.remove('scale-95', 'opacity-0');
-                confirmBox.classList.add('scale-100', 'opacity-100');
-            }, 10);
-
-            const close = (value) => {
-                confirmBox.classList.remove('scale-100', 'opacity-100');
-                confirmBox.classList.add('scale-95', 'opacity-0');
-                modal.classList.remove('opacity-100');
-                setTimeout(() => {
-                    document.body.removeChild(modal);
-                    resolve(value);
-                }, 300);
-            };
-
-            confirmBox.querySelector('#confirm-ok-btn').addEventListener('click', () => close(true));
-            confirmBox.querySelector('#confirm-cancel-btn').addEventListener('click', () => close(false));
-        });
+        
+        return results;
     }
 
     // --- ENHANCED VALIDATION LOGIC ---
@@ -304,6 +214,7 @@
             return { valid: true, message: '' };
         }
 
+        // Check if all existing slots are for the same date
         const existingDates = [...new Set(state.selectedSlots.map(slot => slot.date))];
         
         if (existingDates.length > 0 && !existingDates.includes(newSlot.date)) {
@@ -328,6 +239,7 @@
         const minIndex = Math.min(...timeIndices);
         const maxIndex = Math.max(...timeIndices);
 
+        // Fill all gaps between min and max
         for (let i = minIndex; i <= maxIndex; i++) {
             const timeSlot = timeSlots[i];
             const slotExists = state.selectedSlots.some(slot => 
@@ -341,8 +253,12 @@
     }
 
     function isSlotAvailable(dateString, time) {
-        if (isSlotInPast(dateString, time)) return false;
+        // Check if slot is in the past (IST)
+        if (isSlotInPast(dateString, time)) {
+            return false;
+        }
         
+        // Check if slot is already booked
         const booking = state.availabilityData.find(b => {
              const bookingDate = new Date(b.start_date).toISOString().split('T')[0];
              const bookingTime = new Date(b.start_date).toTimeString().substring(0,5);
@@ -445,27 +361,16 @@
 
     // --- RENDERING ---
     function render() {
-        const container = document.getElementById('final-booking-form-content');
+        const container = document.getElementById('final-booking-form-content'); 
         if (!container) return;
 
-        // Main form container
         container.innerHTML = `
             <div id="final-booking-form-container" class="container mx-auto max-w-7xl">
                 <div class="space-y-8">
-                    <!-- Hall Details Section -->
-                    <section id="hall-details-section" class="bg-slate-900/70 p-4 sm:p-6 rounded-lg shadow-md border border-slate-700">
-                        ${renderHallDetails()}
-                    </section>
-                    
-                    <!-- Calendar Section -->
                     <section id="calendar-section" class="bg-slate-900/70 p-4 sm:p-6 rounded-lg shadow-md border border-slate-700">
                         ${renderCalendar()}
                     </section>
-                    
-                    <!-- Time Slot Selector -->
                     ${renderTimeSlotSelector()}
-
-                    <!-- Booking Form -->
                     <form id="bookingForm" class="space-y-8">
                         <section class="bg-slate-900/70 p-4 sm:p-6 rounded-lg shadow-md border border-slate-700">
                             <h3 class="text-xl font-semibold text-white mb-4 border-b border-slate-700 pb-2">Booking Details</h3>
@@ -478,12 +383,14 @@
                                 <div>
                                     <label class="block text-slate-300 text-sm font-medium mb-2">SELECTED TIME SLOTS</label>
                                     <div id="selected-times-display" class="p-3 bg-slate-700 border border-slate-600 rounded-md text-white min-h-[48px] flex items-center">
-                                        ${state.selectedSlots.length > 0 ? state.selectedSlots.map(slot => formatTimeForDisplay(slot.time)).sort().join(', ') : 'No time slots selected' }
+                                        ${state.selectedSlots.length > 0 ? 
+                                            state.selectedSlots.map(slot => formatTimeForDisplay(slot.time)).join(', ') : 
+                                            'No time slots selected'
+                                        }
                                     </div>
                                 </div>
                             </div>
                         </section>
-
                         <section class="bg-slate-900/70 p-4 sm:p-6 rounded-lg shadow-md border border-slate-700">
                             <h3 class="text-xl font-semibold text-white mb-4 border-b border-slate-700 pb-2">Purpose of Booking</h3>
                             <div>
@@ -495,446 +402,912 @@
                                 <input type="text" id="class_code" placeholder="e.g., CS-501" class="block w-full p-3 bg-slate-700 border border-slate-600 rounded-md text-white focus:ring-blue-500 focus:border-blue-500">
                             </div>
                         </section>
-
-                        <section class="bg-slate-900/70 p-4 sm:p-6 rounded-lg shadow-md border border-slate-700">
-                            <div class="flex flex-col sm:flex-row justify-end items-center gap-4">
-                                <button type="button" id="reset-booking-btn" class="w-full sm:w-auto px-6 py-3 bg-slate-600 hover:bg-slate-700 text-white rounded-md font-semibold transition-colors">Clear Selection</button>
-                                <button type="submit" id="submit-booking-btn" class="w-full sm:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-semibold transition-colors">Submit Booking Request</button>
-                            </div>
-                        </section>
+                        <div class="flex justify-end space-x-4 pt-6">
+                            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-md shadow-lg transition-colors duration-300">SUBMIT REQUEST</button>
+                            <button type="button" id="reset-btn" class="bg-slate-600 hover:bg-slate-700 text-white font-bold py-3 px-8 rounded-md shadow-lg transition-colors duration-300">CLEAR</button>
+                        </div>
                     </form>
                 </div>
-            </div>
-        `;
-
-        updateSelectedInfo();
-        attachEventListeners();
-    }
-
-    function renderHallDetails() {
-        if (!state.hall) {
-            return '<p class="text-center text-slate-400">Loading hall details...</p>';
-        }
-        const { name, location, capacity, floor, zone, features, incharge } = state.hall;
-        return `
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 border-b border-slate-700 pb-4">
-                <div>
-                    <h2 class="text-2xl sm:text-3xl font-bold text-white">${name}</h2>
-                    <p class="text-slate-400 text-lg">${location}</p>
-                </div>
-                <div class="mt-4 md:mt-0 text-left md:text-right">
-                    <p class="text-slate-300"><i class="fas fa-users mr-2"></i>Capacity: ${capacity}</p>
-                    <p class="text-slate-300"><i class="fas fa-layer-group mr-2"></i>Floor: ${floor}</p>
-                    <p class="text-slate-300"><i class="fas fa-map-marker-alt mr-2"></i>Zone: ${zone}</p>
-                </div>
-            </div>
-            <div class="flex flex-wrap gap-2 mb-4">
-                ${features.map(f => `<span class="bg-blue-900/50 text-blue-300 text-xs font-semibold px-2.5 py-1 rounded-full">${f}</span>`).join('')}
-            </div>
-            ${incharge && incharge.name ? `
-            <div class="bg-slate-800/50 p-3 rounded-md border border-slate-700">
-                <p class="text-slate-300 font-semibold">In-charge: ${incharge.name} (${incharge.designation})</p>
-                <p class="text-sm text-slate-400">Email: ${incharge.email} | Intercom: ${incharge.intercom || 'N/A'}</p>
-            </div>
-            ` : ''}
-        `;
+            </div>`;
+        
+        updateUI();
+        setupEventHandlers();
     }
 
     function renderCalendar() {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const currentMonth = state.currentDate.getMonth();
-        const currentYear = state.currentDate.getFullYear();
-
-        let calendarHtml = `
-            <div class="flex justify-between items-center mb-4">
-                <button id="prev-week-btn" class="p-2 rounded-md hover:bg-slate-700"><i class="fas fa-chevron-left"></i></button>
-                <h3 class="text-xl font-semibold text-white">${state.currentDate.toLocaleString('default', { month: 'long' })} ${currentYear}</h3>
-                <button id="next-week-btn" class="p-2 rounded-md hover:bg-slate-700"><i class="fas fa-chevron-right"></i></button>
-            </div>
-            <div class="grid grid-cols-7 gap-1 text-center text-slate-400 text-sm mb-2">
-                <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
-            </div>
-            <div id="calendar-grid" class="grid grid-cols-7 gap-1">
-        `;
+        const monthName = state.currentDate.toLocaleString('default', { month: 'long' });
+        const year = state.currentDate.getFullYear();
+        const month = state.currentDate.getMonth();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const todayString = getTodayISTString();
         
-        const firstDayOfWeek = new Date(state.currentDate);
-        const dayOfWeek = firstDayOfWeek.getDay();
-        firstDayOfWeek.setDate(firstDayOfWeek.getDate() - dayOfWeek);
-
-        for (let i = 0; i < 7; i++) {
-            const day = new Date(firstDayOfWeek);
-            day.setDate(day.getDate() + i);
-            const dateString = day.toISOString().split('T')[0];
-            const isToday = day.getTime() === today.getTime();
-            const isSelected = state.currentSelectedDate === dateString;
-            const isPast = day < today;
+        const days = [];
+        for (let i = 1; i <= daysInMonth; i++) {
+            const dateObj = new Date(year, month, i);
+            const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+            const isToday = dateString === todayString;
             
-            let classes = 'p-2 rounded-lg cursor-pointer transition-colors text-center ';
-            if (isPast) {
-                classes += 'text-slate-600 cursor-not-allowed';
-            } else if (isSelected) {
-                classes += 'bg-blue-600 text-white font-bold';
-            } else if (isToday) {
-                classes += 'bg-slate-700 hover:bg-slate-600';
-            } else {
-                classes += 'hover:bg-slate-800';
-            }
-
-            calendarHtml += `
-                <div class="day-cell ${classes}" data-date="${dateString}">
-                    <span class="text-sm">${day.toLocaleString('default', { weekday: 'short' })}</span>
-                    <span class="block text-lg">${day.getDate()}</span>
-                </div>
-            `;
+            days.push({
+                date: i,
+                dateString: dateString,
+                dayName: dateObj.toLocaleString('default', { weekday: 'short' }),
+                isWeekend: dateObj.getDay() === 0 || dateObj.getDay() === 6,
+                hasSlots: state.selectedSlots.some(slot => slot.date === dateString),
+                isToday: isToday,
+                isPast: dateString < todayString,
+                todayLabel: isToday ? 'Today' : ''
+            });
         }
+        
+        let dayHeaders = days.map(day => 
+            `<div class="day-header ${day.hasSlots ? 'bg-blue-600/20 border border-blue-500/50' : ''} ${day.isToday ? 'bg-green-600/20 border border-green-500/50' : ''} ${day.isPast ? 'opacity-50' : ''}" 
+                  data-date="${day.dateString}" title="Click to select time slots for ${day.dayName}, ${day.date}">
+                <div class="text-sm font-semibold text-slate-300 ${day.isWeekend ? 'text-red-400' : ''} ${day.isToday ? 'text-green-400' : ''} ${day.isPast ? 'text-slate-500' : ''}">${day.date}</div>
+                <div class="text-xs text-slate-400 ${day.isWeekend ? 'text-red-400' : ''} ${day.isToday ? 'text-green-400' : ''} ${day.isPast ? 'text-slate-500' : ''}">${day.dayName}</div>
+                ${day.hasSlots ? '<div class="text-xs text-blue-400">●</div>' : ''}
+                ${day.isToday ? '<div class="text-xs text-green-400">Today</div>' : ''}
+            </div>`
+        ).join('');
 
-        calendarHtml += '</div>';
-        return calendarHtml;
+        const allSlotCells = timeSlots.flatMap(time => 
+            days.map(day => {
+                const classes = getSlotClasses(day.dateString, time);
+                const isDisabled = classes.includes('slot-past');
+                return `<button type="button" class="slot ${classes}" data-date="${day.dateString}" data-time="${time}" ${isDisabled ? 'disabled' : ''}></button>`;
+            })
+        ).join('');
+
+        return `
+            <h3 class="text-xl font-semibold text-white mb-4 border-b border-slate-700 pb-2">Hall Availability: ${state.hall?.name || ''}</h3>
+            <div class="flex justify-between items-center mb-4">
+                <button id="prev-month-btn" class="p-2 rounded-full hover:bg-slate-700 transition text-white">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <h4 class="text-lg font-bold text-white">${monthName} ${year}</h4>
+                <button id="next-month-btn" class="p-2 rounded-full hover:bg-slate-700 transition text-white">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+            <div class="mb-4 p-3 bg-amber-900/30 border border-amber-600/50 rounded-md">
+                <p class="text-amber-200 text-sm">
+                    <i class="fas fa-info-circle mr-2"></i>
+                    <strong>Note:</strong> You can only book slots for one day at a time. Times are displayed in IST. Past time slots are automatically disabled.
+                </p>
+                <p class="text-amber-100 text-xs mt-1">
+                    <i class="fas fa-clock mr-1"></i>
+                    Current IST Time: ${getCurrentISTTime().toLocaleString('en-IN', { 
+                        timeZone: 'Asia/Kolkata', 
+                        weekday: 'short',
+                        day: 'numeric', 
+                        month: 'short', 
+                        hour: '2-digit', 
+                        minute: '2-digit'
+                    })}
+                </p>
+            </div>
+            <div class="overflow-x-auto pb-4">
+                <div class="calendar-grid min-w-[1200px]">
+                    <div class="time-labels-col pr-2">
+                        ${timeSlots.map(time => `<div class="time-label">${formatTimeForDisplay(time)}</div>`).join('')}
+                    </div>
+                    <div class="calendar-content-col">
+                        <div class="calendar-header">${dayHeaders}</div>
+                        <div class="calendar-body">${allSlotCells}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="flex justify-center flex-wrap gap-x-4 gap-y-2 mt-4 text-sm text-slate-300">
+                <div class="flex items-center"><span class="h-4 w-4 mr-2 slot-available rounded-sm"></span>Available</div>
+                <div class="flex items-center"><span class="h-4 w-4 mr-2 slot-pending rounded-sm"></span>Pending</div>
+                <div class="flex items-center"><span class="h-4 w-4 mr-2 slot-booked rounded-sm"></span>Booked</div>
+                <div class="flex items-center"><span class="h-4 w-4 mr-2 slot-past rounded-sm"></span>Past/Unavailable</div>
+                <div class="flex items-center"><span class="h-4 w-4 mr-2 slot-selected rounded-sm"></span>Selected</div>
+            </div>
+            <style>
+                .calendar-grid {
+                    display: grid;
+                    grid-template-columns: auto 1fr;
+                    gap: 8px;
+                }
+                .time-labels-col {
+                    padding-top: 3.5rem; /* This is the buffer zone */
+                    display: grid;
+                    grid-template-rows: repeat(${timeSlots.length}, 2rem);
+                    gap: 4px;
+                }
+                .time-label {
+                    text-align: right;
+                    font-size: 0.75rem;
+                    color: #94a3b8; /* slate-400 */
+                    height: 2rem;
+                    display: flex;
+                    align-items: center;
+                    justify-content: flex-end;
+                }
+                .calendar-header {
+                    display: grid;
+                    grid-template-columns: repeat(${daysInMonth}, minmax(35px, 1fr));
+                    gap: 4px;
+                    margin-bottom: 4px;
+                    height: 3rem; /* Fixed height for alignment */
+                }
+                .day-header {
+                    padding: 4px 2px;
+                    border-radius: 4px;
+                    transition: all 0.2s ease-in-out;
+                    text-align: center;
+                    cursor: pointer;
+                }
+                .calendar-body {
+                    display: grid;
+                    grid-template-columns: repeat(${daysInMonth}, minmax(35px, 1fr));
+                    grid-template-rows: repeat(${timeSlots.length}, 2rem);
+                    gap: 4px;
+                }
+                .slot {
+                    width: 100%;
+                    height: 100%;
+                    border-radius: 0.25rem;
+                    cursor: pointer;
+                    transition: all 0.2s ease-in-out;
+                    border: 1px solid transparent;
+                }
+                .slot:disabled {
+                    cursor: not-allowed;
+                }
+                .slot-available { 
+                    background-color: rgba(34, 197, 94, 0.2); 
+                    border-color: rgba(34, 197, 94, 0.4); 
+                }
+                .slot-available:hover { 
+                    background-color: rgba(34, 197, 94, 0.3); 
+                }
+                .slot-booked { 
+                    background-color: rgba(239, 68, 68, 0.2); 
+                    border-color: rgba(239, 68, 68, 0.4); 
+                    cursor: pointer !important; 
+                }
+                .slot-booked:hover { 
+                    background-color: rgba(239, 68, 68, 0.3); 
+                }
+                .slot-pending { 
+                    background-color: rgba(251, 191, 36, 0.2); 
+                    border-color: rgba(251, 191, 36, 0.4); 
+                    cursor: pointer !important; 
+                }
+                .slot-pending:hover { 
+                    background-color: rgba(251, 191, 36, 0.3); 
+                }
+                .slot-past { 
+                    background-color: rgba(107, 114, 128, 0.2); 
+                    border-color: rgba(107, 114, 128, 0.4); 
+                    cursor: not-allowed; 
+                    opacity: 0.5;
+                }
+                .slot-selected { 
+                    background-color: rgba(59, 130, 246, 0.8) !important; 
+                    border-color: rgba(59, 130, 246, 1) !important; 
+                    color: white !important; 
+                }
+            </style>`;
     }
 
+    // Enhanced renderTimeSlotSelector with better week navigation styling
     function renderTimeSlotSelector() {
+        let content;
         if (!state.currentSelectedDate) {
-            return `
-                <section id="time-slot-section" class="bg-slate-900/70 p-4 sm:p-6 rounded-lg shadow-md border border-slate-700">
-                    <p class="text-center text-slate-400">Please select a date from the calendar to see available time slots.</p>
-                </section>
+            content = `
+                <div class="text-center text-slate-400 py-8">
+                    <p>Click on a date in the calendar above to select time slots</p>
+                </div>`;
+        } else {
+            const selectedDate = new Date(state.currentSelectedDate + "T00:00:00");
+            const todayString = getTodayISTString();
+            
+            const startOfWeek = new Date(selectedDate);
+            startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay()); 
+            
+            let dayButtons = '';
+            for (let i = 0; i < 7; i++) {
+                const day = new Date(startOfWeek);
+                day.setDate(day.getDate() + i);
+                
+                const year = day.getFullYear();
+                const month = String(day.getMonth() + 1).padStart(2, '0');
+                const date = String(day.getDate()).padStart(2, '0');
+                const dateString = `${year}-${month}-${date}`;
+                
+                const isSelected = dateString === state.currentSelectedDate;
+                const isPast = dateString < todayString;
+                const isToday = dateString === todayString;
+                const hasSlots = state.selectedSlots.some(slot => slot.date === dateString);
+                
+                let classes = 'day-selector-btn px-3 py-2 rounded border transition-all duration-200 text-center min-w-[60px]';
+                if (isSelected) {
+                    classes += ' bg-blue-600 text-white border-blue-500 shadow-lg transform scale-105';
+                } else if (isPast) {
+                    classes += ' bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed opacity-50';
+                } else if (isToday) {
+                    classes += ' bg-green-700/20 text-green-400 border-green-600 hover:bg-green-600/30';
+                } else {
+                    classes += ' bg-slate-700 text-slate-300 border-slate-600 hover:bg-slate-600 hover:border-slate-500';
+                }
+
+                if (hasSlots && !isSelected) {
+                    classes += ' ring-2 ring-blue-400/50';
+                }
+
+                dayButtons += `
+                    <button type="button" 
+                            class="${classes}"
+                            data-date="${dateString}"
+                            title="${day.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}${hasSlots ? ' (Has selected slots)' : ''}"
+                            ${isPast ? 'disabled' : ''}>
+                        <div class="font-semibold text-sm">${day.toLocaleString('default', { weekday: 'short' })}</div>
+                        <div class="text-xs mt-1">${date}</div>
+                        ${isToday ? '<div class="text-xs text-green-400">Today</div>' : ''}
+                        ${hasSlots ? '<div class="text-xs text-blue-400">●</div>' : ''}
+                    </button>`;
+            }
+
+            const dateDisplay = selectedDate.toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+
+            const selectedSlotsForDate = state.selectedSlots.filter(slot => slot.date === state.currentSelectedDate);
+            
+            const timeButtons = timeSlots.map(time => {
+                const isSelected = selectedSlotsForDate.some(slot => slot.time === time);
+                const isAvailable = isSlotAvailable(state.currentSelectedDate, time);
+                const isPast = isSlotInPast(state.currentSelectedDate, time);
+                
+                let classes, status;
+                if (isSelected) {
+                    classes = 'bg-blue-600 text-white border-blue-500 shadow-lg transform scale-105';
+                    status = 'Selected';
+                } else if (isPast) {
+                    classes = 'bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed opacity-50';
+                    status = 'Past';
+                } else if (!isAvailable) {
+                    const booking = getBookingForSlot(state.currentSelectedDate, time);
+                    status = booking?.status || 'Booked';
+                    classes = status === 'PENDING' 
+                        ? 'bg-yellow-800/30 text-yellow-400 border-yellow-700 cursor-pointer hover:bg-yellow-800/40'
+                        : 'bg-red-800/30 text-red-400 border-red-700 cursor-pointer hover:bg-red-800/40';
+                } else {
+                    classes = 'bg-slate-700 text-slate-300 border-slate-600 hover:bg-slate-600 hover:border-slate-500';
+                    status = 'Available';
+                }
+                
+                const isDisabled = isPast;
+                
+                return `
+                    <button type="button" 
+                            class="time-slot-btn px-4 py-3 rounded border transition-all duration-200 font-medium ${classes}"
+                            data-time="${time}" 
+                            title="${formatTimeForDisplay(time)} - ${status}"
+                            ${isDisabled ? 'disabled' : ''}>
+                        <div class="text-sm">${formatTimeForDisplay(time)}</div>
+                        <div class="text-xs opacity-75 mt-1">${status}</div>
+                    </button>`;
+            }).join('');
+
+            // Get week range for display
+            const weekStart = new Date(startOfWeek);
+            const weekEnd = new Date(startOfWeek);
+            weekEnd.setDate(weekEnd.getDate() + 6);
+            
+            const weekRangeDisplay = `${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+
+            content = `
+                <div class="mb-6">
+                    <div class="flex items-center justify-between mb-3">
+                        <p class="text-slate-300 font-medium">Select a Day</p>
+                        <p class="text-slate-400 text-sm">Week of ${weekRangeDisplay}</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button id="prev-week-btn" 
+                                title="Previous Week" 
+                                class="p-3 rounded-full hover:bg-slate-700 active:bg-slate-600 transition-all duration-200 text-white border border-slate-600 hover:border-slate-500">
+                            <i class="fas fa-chevron-left text-sm"></i>
+                        </button>
+                        <div class="grid grid-cols-7 gap-2 flex-grow">
+                            ${dayButtons}
+                        </div>
+                        <button id="next-week-btn" 
+                                title="Next Week" 
+                                class="p-3 rounded-full hover:bg-slate-700 active:bg-slate-600 transition-all duration-200 text-white border border-slate-600 hover:border-slate-500">
+                            <i class="fas fa-chevron-right text-sm"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <p class="text-slate-300 mb-2 font-medium">Select Time Slots for <span class="text-blue-400 font-semibold">${dateDisplay}</span></p>
+                     <p class="text-sm text-slate-400 mb-4">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        Click time slots to select/deselect. Gaps between selections will be auto-filled to maintain contiguity.
+                    </p>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        ${timeButtons}
+                    </div>
+                </div>
+
+                ${selectedSlotsForDate.length > 0 ? `
+                    <div class="mt-6 p-4 bg-blue-900/30 rounded-lg border border-blue-700">
+                        <div class="flex items-center justify-between mb-2">
+                            <p class="text-blue-300 font-medium">Selected Time Slots</p>
+                            <span class="text-blue-200 text-sm bg-blue-800/50 px-2 py-1 rounded">${selectedSlotsForDate.length} slot${selectedSlotsForDate.length > 1 ? 's' : ''}</span>
+                        </div>
+                        <p class="text-blue-200 text-sm">
+                            ${selectedSlotsForDate.map(slot => formatTimeForDisplay(slot.time)).sort().join(', ')}
+                        </p>
+                        <p class="text-blue-300/70 text-xs mt-2">
+                            <i class="fas fa-clock mr-1"></i>
+                            Duration: ${selectedSlotsForDate.length} hour${selectedSlotsForDate.length > 1 ? 's' : ''}
+                        </p>
+                    </div>
+                ` : ''}
             `;
         }
+
+        return `
+            <section class="bg-slate-900/70 p-4 sm:p-6 rounded-lg shadow-md border border-slate-700">
+                <h3 class="text-xl font-semibold text-white mb-4 border-b border-slate-700 pb-2">
+                    <i class="fas fa-calendar-alt mr-2"></i>
+                    Date & Time Selection
+                </h3>
+                ${content}
+            </section>`;
+    }
+    
+    function updateUI() {
+        const calendarContainer = document.getElementById('calendar-section');
+        if (calendarContainer) calendarContainer.innerHTML = renderCalendar();
         
-        let timeSlotsHtml = `
-            <section id="time-slot-section" class="bg-slate-900/70 p-4 sm:p-6 rounded-lg shadow-md border border-slate-700">
-                <h3 class="text-xl font-semibold text-white mb-4">Available Slots for ${formatDateForDisplay(state.currentSelectedDate)}</h3>
-                <div id="time-slots-grid" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-8 gap-3">
-        `;
-
-        timeSlots.forEach(time => {
-            const isSelected = state.selectedSlots.some(s => s.date === state.currentSelectedDate && s.time === time);
-            const isAvailable = isSlotAvailable(state.currentSelectedDate, time);
-            const booking = isAvailable ? null : getBookingForSlot(state.currentSelectedDate, time);
-            
-            let classes = 'time-slot-btn p-3 rounded-md text-center font-semibold transition-all duration-200 ';
-            let content = formatTimeForDisplay(time);
-            let disabled = false;
-
-            if (!isAvailable) {
-                classes += 'bg-red-800/50 text-red-300 cursor-pointer relative group';
-                content = `
-                    ${formatTimeForDisplay(time)}
-                    <div class="absolute bottom-full mb-2 w-max p-2 text-xs text-white bg-slate-900 rounded-md opacity-0 group-hover:opacity-100 transition-opacity z-10 border border-slate-700 shadow-lg">
-                        Booked by ${booking?.booked_by || 'Unknown'} for "${booking?.purpose || 'Private Event'}"
-                    </div>
-                `;
-            } else if (isSelected) {
-                classes += 'bg-green-600 text-white scale-105 shadow-lg';
-            } else {
-                classes += 'bg-slate-700 hover:bg-slate-600 cursor-pointer';
+        // Update time slot selector
+        const timeSelectorContainer = document.querySelector('#final-booking-form-container .space-y-8');
+        if (timeSelectorContainer) {
+            const existingTimeSelector = timeSelectorContainer.children[1];
+            if (existingTimeSelector) {
+                const newTimeSelectorContent = renderTimeSlotSelector();
+                const match = newTimeSelectorContent.match(/<section[^>]*>(.*)<\/section>/s);
+                if (match && match[1]) {
+                    existingTimeSelector.innerHTML = match[1];
+                } else {
+                     existingTimeSelector.innerHTML = newTimeSelectorContent;
+                }
             }
-            
-            timeSlotsHtml += `
-                <button type="button" class="${classes}" data-time="${time}" data-date="${state.currentSelectedDate}" ${disabled ? 'disabled' : ''}>
-                    ${content}
-                </button>
-            `;
-        });
+        }
+        
+        syncFormWithState();
+    }
 
-        timeSlotsHtml += '</div></section>';
-        return timeSlotsHtml;
+    function syncFormWithState() {
+        const startDateInput = document.getElementById('start_date');
+        const selectedTimesDisplay = document.getElementById('selected-times-display');
+        
+        if (state.selectedSlots.length > 0) {
+            const dates = [...new Set(state.selectedSlots.map(s => s.date))].sort();
+            if(startDateInput) startDateInput.value = dates[0];
+            
+            if(selectedTimesDisplay) {
+                const sortedTimes = state.selectedSlots
+                    .map(slot => formatTimeForDisplay(slot.time))
+                    .sort()
+                    .join(', ');
+                selectedTimesDisplay.textContent = sortedTimes;
+            }
+        } else {
+            const todayString = getTodayISTString();
+            if(startDateInput) startDateInput.value = todayString;
+            if(selectedTimesDisplay) {
+                selectedTimesDisplay.textContent = 'No time slots selected';
+            }
+        }
+        
+        const purposeInput = document.getElementById('purpose');
+        const classCodeInput = document.getElementById('class_code');
+        if (purposeInput) purposeInput.value = state.purpose;
+        if (classCodeInput) classCodeInput.value = state.classCode;
+    }
+
+    // --- LOGIC & HELPERS ---
+    function getSlotClasses(dateString, time) {
+        if (state.selectedSlots.some(s => s.date === dateString && s.time === time)) {
+            return 'slot-selected';
+        }
+        
+        // Check if slot is in the past using IST
+        if (isSlotInPast(dateString, time)) {
+            return 'slot-past';
+        }
+        
+        const booking = state.availabilityData.find(b => {
+             const bookingDate = new Date(b.start_date).toISOString().split('T')[0];
+             const bookingTime = new Date(b.start_date).toTimeString().substring(0,5);
+             return bookingDate === dateString && bookingTime === time;
+        });
+        
+        if (booking) {
+            return booking.status === 'APPROVED' ? 'slot-booked' : 'slot-pending';
+        }
+        return 'slot-available';
     }
 
     function formatTimeForDisplay(time) {
-        if (!time) return '';
         const [hour, minute] = time.split(':');
-        const h = parseInt(hour, 10);
-        const ampm = h >= 12 ? 'PM' : 'AM';
+        const h = parseInt(hour);
+        const suffix = h >= 12 ? 'PM' : 'AM';
         const displayHour = h % 12 === 0 ? 12 : h % 12;
-        return `${displayHour}:${minute} ${ampm}`;
-    }
-
-    function updateSelectedInfo() {
-        const startDateInput = document.getElementById('start_date');
-        const selectedTimesDisplay = document.getElementById('selected-times-display');
-
-        if (state.selectedSlots.length > 0) {
-            const sortedSlots = [...state.selectedSlots].sort((a, b) => a.time.localeCompare(b.time));
-            if (startDateInput) {
-                startDateInput.value = sortedSlots[0].date;
-            }
-            if (selectedTimesDisplay) {
-                selectedTimesDisplay.textContent = sortedSlots.map(slot => formatTimeForDisplay(slot.time)).join(', ');
-            }
-        } else {
-            if (startDateInput) startDateInput.value = '';
-            if (selectedTimesDisplay) selectedTimesDisplay.textContent = 'No time slots selected';
-        }
-    }
-
-    // --- EVENT HANDLING ---
-    function attachEventListeners() {
-        // Calendar navigation
-        document.getElementById('prev-week-btn')?.addEventListener('click', handlePrevWeek);
-        document.getElementById('next-week-btn')?.addEventListener('click', handleNextWeek);
-        
-        // Date selection
-        document.querySelectorAll('.day-cell').forEach(cell => {
-            if (!cell.classList.contains('text-slate-600')) {
-                 cell.addEventListener('click', handleDateSelect);
-            }
-        });
-        
-        // Time slot selection (with drag support)
-        const timeGrid = document.getElementById('time-slots-grid');
-        if (timeGrid) {
-            timeGrid.addEventListener('mousedown', handleTimeSlotMouseDown);
-            timeGrid.addEventListener('mouseover', handleTimeSlotMouseOver);
-            // Use window to capture mouseup even if it happens outside the grid
-            window.addEventListener('mouseup', handleTimeSlotMouseUp);
-        }
-
-        // Form submission and reset
-        document.getElementById('bookingForm')?.addEventListener('submit', handleFormSubmit);
-        document.getElementById('reset-booking-btn')?.addEventListener('click', resetForm);
-
-        // Booked slot details
-        document.querySelectorAll('.time-slot-btn.bg-red-800\\/50').forEach(btn => {
-            btn.addEventListener('click', handleBookedSlotClick);
-        });
-    }
-
-    function handlePrevWeek() {
-        state.currentDate.setDate(state.currentDate.getDate() - 7);
-        render();
-    }
-
-    function handleNextWeek() {
-        state.currentDate.setDate(state.currentDate.getDate() + 7);
-        render();
-    }
-
-    function handleDateSelect(event) {
-        const date = event.currentTarget.dataset.date;
-        state.currentSelectedDate = date;
-        render();
-    }
-
-    function handleTimeSlotMouseDown(event) {
-        const button = event.target.closest('.time-slot-btn');
-        if (!button || button.disabled || button.classList.contains('bg-red-800/50')) return;
-        
-        event.preventDefault(); // Prevent text selection while dragging
-        state.isDragging = true;
-        
-        const date = button.dataset.date;
-        const time = button.dataset.time;
-        state.dragDate = date;
-
-        const isSelected = state.selectedSlots.some(s => s.date === date && s.time === time);
-        state.dragSelectionMode = isSelected ? 'remove' : 'add';
-        
-        toggleSlotSelection({ date, time });
-        render(); // Re-render to show immediate feedback
-    }
-
-    function handleTimeSlotMouseOver(event) {
-        if (!state.isDragging) return;
-        const button = event.target.closest('.time-slot-btn');
-        if (!button || button.disabled || button.dataset.date !== state.dragDate) return;
-
-        const date = button.dataset.date;
-        const time = button.dataset.time;
-        const slot = { date, time };
-        const isSelected = state.selectedSlots.some(s => s.date === date && s.time === time);
-
-        if (state.dragSelectionMode === 'add' && !isSelected) {
-            const validation = validateSingleDayBooking(slot);
-            if(validation.valid) {
-                state.selectedSlots.push(slot);
-                autoFillContiguousSlots(slot);
-            }
-        } else if (state.dragSelectionMode === 'remove' && isSelected) {
-            state.selectedSlots = state.selectedSlots.filter(s => !(s.date === date && s.time === time));
-        }
-        render();
-    }
-
-    function handleTimeSlotMouseUp() {
-        if(state.isDragging) {
-            state.isDragging = false;
-            state.dragDate = null;
-            render(); // Final render after drag ends
-        }
-    }
-
-    function handleBookedSlotClick(event) {
-        const button = event.target.closest('.time-slot-btn');
-        if (!button) return;
-        const time = button.dataset.time;
-        const date = button.dataset.date;
-        const booking = getBookingForSlot(date, time);
-        if (booking) {
-            showBookingDetails(booking);
-        }
-    }
-
-    function toggleSlotSelection(slotToToggle) {
-        const { date, time } = slotToToggle;
-        const index = state.selectedSlots.findIndex(s => s.date === date && s.time === time);
-
-        if (index > -1) {
-            // Remove slot
-            state.selectedSlots.splice(index, 1);
-        } else {
-            // Add slot after validation
-            const validation = validateSingleDayBooking(slotToToggle);
-            if (validation.valid) {
-                 state.selectedSlots.push(slotToToggle);
-                 autoFillContiguousSlots(slotToToggle);
-            } else {
-                showCustomAlert(validation.message, 'error');
-            }
-        }
-    }
-
-    async function handleFormSubmit(event) {
-        event.preventDefault();
-        const submitButton = document.getElementById('submit-booking-btn');
-        submitButton.disabled = true;
-        submitButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Submitting...';
-
-        if (state.selectedSlots.length === 0) {
-            showCustomAlert('Please select at least one time slot before submitting.', 'error');
-            submitButton.disabled = false;
-            submitButton.innerHTML = 'Submit Booking Request';
-            return;
-        }
-
-        const purpose = document.getElementById('purpose').value.trim();
-        const classCode = document.getElementById('class_code').value.trim();
-
-        if (!purpose) {
-            showCustomAlert('Please provide a purpose for the booking.', 'error');
-            submitButton.disabled = false;
-            submitButton.innerHTML = 'Submit Booking Request';
-            return;
-        }
-        
-        // Sort slots to find the earliest start and latest end time
-        const sortedSlots = [...state.selectedSlots].sort((a, b) => {
-            if (a.date < b.date) return -1;
-            if (a.date > b.date) return 1;
-            if (a.time < b.time) return -1;
-            if (a.time > b.time) return 1;
-            return 0;
-        });
-
-        const bookingDate = sortedSlots[0].date;
-        const startTime = sortedSlots[0].time;
-        // Calculate end time by adding 1 hour to the last slot's start time
-        const lastSlotTime = sortedSlots[sortedSlots.length - 1].time;
-        const [hours, minutes] = lastSlotTime.split(':').map(Number);
-        const endDate = new Date(`${bookingDate}T${lastSlotTime}:00`);
-        endDate.setHours(hours + 1);
-        const endTime = endDate.toTimeString().substring(0, 5);
-
-        // MODIFIED: Payload structure updated to match backend expectation
-        const bookingDetails = {
-            hall_id: state.hall.id,
-            purpose: purpose,
-            booking_type: state.bookingType,
-            class_code: classCode || null,
-            // The date part of the booking, formatted as a UTC ISO string.
-            // new Date('YYYY-MM-DD') creates a date object at midnight UTC.
-            start_date: new Date(bookingDate).toISOString(),
-            end_date: new Date(bookingDate).toISOString(),
-            // The time parts of the booking
-            start_time: startTime,
-            end_time: endTime,
-        };
-
-        const confirmationMessage = `
-            You are about to book <strong>${state.hall.name}</strong> on 
-            <strong>${formatDateForDisplay(bookingDate)}</strong> from 
-            <strong>${formatTimeForDisplay(startTime)}</strong> to 
-            <strong>${formatTimeForDisplay(endTime)}</strong>.
-            <br/><br/>
-            Purpose: ${purpose}
-            <br/>
-            Please confirm.
-        `;
-        
-        const confirmed = await showCustomConfirm(confirmationMessage);
-
-        if (confirmed) {
-            try {
-                console.log("Submitting booking details:", bookingDetails);
-                const result = await addIndividualBooking(bookingDetails);
-                showCustomAlert('Booking request submitted successfully! You will be notified upon approval.', 'success');
-                resetForm();
-                // Optionally, re-fetch availability to show the new pending booking
-                state.availabilityData = await fetchHallAvailability(state.hall.id);
-                render();
-            } catch (error) {
-                console.error("Booking submission failed:", error);
-                showCustomAlert(`Booking failed: ${error.message}`, 'error');
-            }
-        }
-
-        submitButton.disabled = false;
-        submitButton.innerHTML = 'Submit Booking Request';
+        return `${String(displayHour).padStart(2, '0')}:${minute} ${suffix}`;
     }
 
     function resetForm() {
-        state.selectedSlots = [];
-        const purposeInput = document.getElementById('purpose');
-        const classCodeInput = document.getElementById('class_code');
-        if (purposeInput) purposeInput.value = '';
-        if (classCodeInput) classCodeInput.value = '';
+        const { hall, availabilityData } = state;
+        state = { 
+            hall, 
+            availabilityData, 
+            selectedSlots: [], 
+            currentDate: new Date(), 
+            bookingType: 'INDIVIDUAL', 
+            purpose: '', 
+            classCode: '', 
+            isDragging: false, 
+            dragSelectionMode: 'add', 
+            dragDate: null,
+            currentSelectedDate: null
+        };
         render();
     }
 
-    function cleanup() {
-        if (abortController) {
-            abortController.abort();
-        }
-        // Remove global event listeners
-        window.removeEventListener('mouseup', handleTimeSlotMouseUp);
-        const container = document.getElementById('final-booking-form-content');
-        if (container) {
-            container.innerHTML = '';
+    async function submitBooking() {
+        try {
+            const purposeInput = document.getElementById('purpose');
+            const classCodeInput = document.getElementById('class_code');
+            
+            // Validation checks (matching book.html exactly)
+            if (!state.hall?.id) {
+                alert('Hall ID is missing.');
+                return;
+            }
+            
+            if (state.selectedSlots.length === 0) {
+                alert('Please select at least one time slot.');
+                return;
+            }
+            
+            if (!purposeInput?.value.trim()) {
+                alert('Please provide a purpose for the booking.');
+                purposeInput?.focus();
+                return;
+            }
+
+            // Since we now only allow single-day bookings, this is simplified
+            const selectedDate = state.selectedSlots[0].date;
+            const times = state.selectedSlots.map(slot => slot.time).sort();
+            
+            // Calculate end time exactly like book.html
+            const lastSlotStartTime = times[times.length - 1];
+            const [hour, minute] = lastSlotStartTime.split(':').map(Number);
+
+            const tempDate = new Date();
+            tempDate.setHours(hour, minute, 0, 0);
+            tempDate.setHours(tempDate.getHours() + 1);
+
+            const endHour = String(tempDate.getHours()).padStart(2, '0');
+            const endMinute = String(tempDate.getMinutes()).padStart(2, '0');
+            const actualEndTime = `${endHour}:${endMinute}`;
+
+            // Create payload exactly like book.html
+            const payload = {
+                hall_id: state.hall.id, // Keep as original type from hall data
+                purpose: purposeInput.value.trim(),
+                booking_type: state.bookingType,
+                start_date: new Date(selectedDate).toISOString(),
+                end_date: new Date(selectedDate).toISOString(),
+                start_time: times[0],
+                end_time: actualEndTime,
+            };
+
+            // Add optional class_code if provided
+            if (classCodeInput?.value.trim()) {
+                payload.class_code = classCodeInput.value.trim();
+            }
+            
+            // Show loading state
+            const submitBtn = document.querySelector('button[type="submit"]');
+            const originalText = submitBtn.textContent;
+            submitBtn.textContent = 'Submitting...';
+            submitBtn.disabled = true;
+
+            try {
+                // Use the exact same API call approach as book.html
+                const url = AppConfig.apiBaseUrl + AppConfig.endpoints.bookingRequest;
+                const response = await fetch(url, { 
+                    method: 'POST', 
+                    headers: getAuthHeaders(), 
+                    body: JSON.stringify(payload) 
+                });
+                
+                if (!response.ok) {
+                    if (response.status === 401) { 
+                        logout(); 
+                        return; 
+                    }
+                    let errorMsg = `Request failed: ${response.statusText}`;
+                    try {
+                        const errorResult = await response.json();
+                        if (errorResult.message) errorMsg = errorResult.message;
+                    } catch (e) { 
+                        console.error("Could not parse error response.", e); 
+                    }
+                    throw new Error(errorMsg);
+                }
+                
+                const result = await response.json();
+                alert(result.message || 'Booking request submitted successfully!');
+                resetForm();
+                
+                // Refresh availability data after successful submission
+                if (state.hall?.id) {
+                    state.availabilityData = await fetchHallAvailability(state.hall.id);
+                    render();
+                }
+                
+            } finally {
+                submitBtn.textContent = originalText;
+                submitBtn.disabled = false;
+            }
+            
+        } catch (error) {
+            alert(error.message || 'Failed to submit booking request. Please try again.');
+            console.error('Booking submission error:', error);
         }
     }
 
-    // --- INITIALIZATION ---
-    async function initialize(hallId) {
-        cleanup();
+    // --- EVENT HANDLERS ---
+    function setupEventHandlers() {
+        if (abortController) abortController.abort();
         abortController = new AbortController();
+        const { signal } = abortController;
+        const container = document.getElementById('final-booking-form-container');
+        if (!container) return;
         
-        const container = document.getElementById('final-booking-form-content');
-        if (container) {
-            container.innerHTML = `
-                <div class="text-center py-20">
-                    <i class="fas fa-spinner fa-spin fa-3x text-blue-400"></i>
-                    <p class="mt-4 text-slate-400">Loading booking information...</p>
-                </div>`;
+        container.addEventListener('click', handleContainerClick, { signal });
+        container.addEventListener('input', e => {
+            if (e.target.id === 'purpose') state.purpose = e.target.value;
+            if (e.target.id === 'class_code') state.classCode = e.target.value;
+        }, { signal });
+        
+        const calendarSection = container.querySelector('#calendar-section');
+        if (calendarSection) {
+            calendarSection.addEventListener('mousedown', handleDragStart, { signal });
+            calendarSection.addEventListener('mouseenter', handleDragOver, { signal, capture: true });
         }
+        window.addEventListener('mouseup', handleDragStop, { signal });
+    }
+
+    function handleContainerClick(e) {
+        const target = e.target.closest('button');
+        if (!target) return;
         
-        try {
-            const allHalls = await fetchAllHalls();
-            const hall = allHalls.find(h => h.id === hallId);
+        if (target.id === 'prev-month-btn') { 
+            state.currentDate.setMonth(state.currentDate.getMonth() - 1); 
+            updateUI(); 
+        } 
+        else if (target.id === 'next-month-btn') { 
+            state.currentDate.setMonth(state.currentDate.getMonth() + 1); 
+            updateUI(); 
+        }
+        else if (target.id === 'prev-week-btn') {
+            if (state.currentSelectedDate) {
+                const newDate = new Date(state.currentSelectedDate + 'T00:00:00');
+                newDate.setDate(newDate.getDate() - 7);
+                const year = newDate.getFullYear();
+                const month = String(newDate.getMonth() + 1).padStart(2, '0');
+                const day = String(newDate.getDate()).padStart(2, '0');
+                const newDateString = `${year}-${month}-${day}`;
+                
+                // Check if user has selected slots and warn before changing week
+                if (state.selectedSlots.length > 0) {
+                    const confirmChange = confirm('Changing the week will keep your selected time slots. The date selection will move to the new week. Continue?');
+                    if (!confirmChange) return;
+                }
+                
+                state.currentSelectedDate = newDateString;
+                state.currentDate = newDate;
+                updateUI();
+            }
+        }
+        else if (target.id === 'next-week-btn') {
+            if (state.currentSelectedDate) {
+                const newDate = new Date(state.currentSelectedDate + 'T00:00:00');
+                newDate.setDate(newDate.getDate() + 7);
+                const year = newDate.getFullYear();
+                const month = String(newDate.getMonth() + 1).padStart(2, '0');
+                const day = String(newDate.getDate()).padStart(2, '0');
+                const newDateString = `${year}-${month}-${day}`;
+                
+                // Check if user has selected slots and warn before changing week
+                if (state.selectedSlots.length > 0) {
+                    const confirmChange = confirm('Changing the week will keep your selected time slots. The date selection will move to the new week. Continue?');
+                    if (!confirmChange) return;
+                }
+                
+                state.currentSelectedDate = newDateString;
+                state.currentDate = newDate;
+                updateUI();
+            }
+        }
+        else if (target.classList.contains('day-header') || target.classList.contains('day-selector-btn')) {
+            const selectedDate = target.dataset.date;
+            if (selectedDate && !target.disabled) {
+                if (state.selectedSlots.length > 0) {
+                    const existingDate = state.selectedSlots[0].date;
+                    if (existingDate !== selectedDate) {
+                        const confirmChange = confirm(`You have selected time slots for ${formatDateForDisplay(existingDate)}. Selecting a different date will clear your current selection. Continue?`);
+                        if (!confirmChange) return;
+                        state.selectedSlots = [];
+                    }
+                }
+                state.currentSelectedDate = selectedDate;
+                state.currentDate = new Date(selectedDate + 'T00:00:00');
+                updateUI();
+            }
+        }
+        else if (target.classList.contains('time-slot-btn')) {
+            handleTimeSlotClick(target);
+        }
+        else if (target.classList.contains('slot')) {
+            handleSlotClick(target);
+        }
+        else if (target.id === 'reset-btn') {
+            const confirmReset = confirm('Are you sure you want to clear all selections?');
+            if (confirmReset) resetForm();
+        }
+        else if (target.closest('form')?.id === 'bookingForm' && target.type === 'submit') { 
+            e.preventDefault(); 
+            submitBooking(); 
+        }
+    }
+
+    function handleTimeSlotClick(button) {
+        const time = button.dataset.time;
+        const date = state.currentSelectedDate;
+        
+        if (!date || !time || button.disabled) return;
+        
+        const isAvailable = isSlotAvailable(date, time);
+        const isSelected = state.selectedSlots.some(s => s.date === date && s.time === time);
+
+        // If the slot is booked/pending and not currently selected, show details and stop.
+        if (!isAvailable && !isSelected) {
+            const booking = getBookingForSlot(date, time);
+            if (booking) {
+                showBookingDetails(booking);
+                return;
+            }
+        }
+
+        const existingIndex = state.selectedSlots.findIndex(s => s.date === date && s.time === time);
+        
+        if (existingIndex > -1) {
+            // --- DESELECTION LOGIC ---
+            const slotsForDate = state.selectedSlots
+                .filter(s => s.date === date)
+                .sort((a, b) => timeSlots.indexOf(a.time) - timeSlots.indexOf(b.time));
             
-            if (!hall) {
-                throw new Error("Hall not found.");
+            const clickedSlotIndex = slotsForDate.findIndex(s => s.time === time);
+
+            // Remove the clicked slot and all subsequent slots on that day
+            const slotsToRemove = slotsForDate.slice(clickedSlotIndex);
+            
+            state.selectedSlots = state.selectedSlots.filter(s => {
+                return !slotsToRemove.some(r => r.date === s.date && r.time === s.time);
+            });
+
+        } else {
+            // --- SELECTION LOGIC ---
+            const newSlot = { date, time };
+            
+            const singleDayValidation = validateSingleDayBooking(newSlot);
+            if (!singleDayValidation.valid) {
+                alert(singleDayValidation.message);
+                return;
             }
             
-            const availability = await fetchHallAvailability(hallId);
+            state.selectedSlots.push(newSlot);
+            autoFillContiguousSlots(newSlot);
+        }
+        
+        updateUI();
+    }
+
+    function handleSlotClick(slotEl) {
+        const { date, time } = slotEl.dataset;
+        
+        if (slotEl.classList.contains('slot-booked') || slotEl.classList.contains('slot-pending')) {
+            const booking = getBookingForSlot(date, time);
+            if (booking) showBookingDetails(booking);
+            return;
+        }
+        
+        if (slotEl.disabled || slotEl.classList.contains('slot-past')) return;
+        
+        if (state.selectedSlots.length > 0) {
+            const existingDate = state.selectedSlots[0].date;
+            if (existingDate !== date) {
+                const confirmChange = confirm(`You have selected time slots for ${formatDateForDisplay(existingDate)}. Selecting a different date will clear your current selection. Continue?`);
+                if (!confirmChange) return;
+                state.selectedSlots = [];
+            }
+        }
+        
+        const existingIndex = state.selectedSlots.findIndex(s => s.date === date && s.time === time);
+        
+        if (existingIndex > -1) {
+            // --- DESELECTION LOGIC ---
+             const slotsForDate = state.selectedSlots
+                .filter(s => s.date === date)
+                .sort((a, b) => timeSlots.indexOf(a.time) - timeSlots.indexOf(b.time));
             
+            const clickedSlotIndex = slotsForDate.findIndex(s => s.time === time);
+            const slotsToRemove = slotsForDate.slice(clickedSlotIndex);
+            
+            state.selectedSlots = state.selectedSlots.filter(s => {
+                return !slotsToRemove.some(r => r.date === s.date && r.time === s.time);
+            });
+
+        } else {
+            // --- SELECTION LOGIC ---
+            const newSlot = { date, time };
+            
+            const singleDayValidation = validateSingleDayBooking(newSlot);
+            if (!singleDayValidation.valid) {
+                alert(singleDayValidation.message);
+                return;
+            }
+            
+            state.selectedSlots.push(newSlot);
+            autoFillContiguousSlots(newSlot);
+        }
+        
+        state.currentSelectedDate = date;
+        updateUI();
+    }
+
+    function handleDragStart(e) {
+        const cell = e.target.closest('.slot');
+        if (!cell) return;
+        
+        e.preventDefault();
+        const dateString = cell.dataset.date;
+        const time = cell.dataset.time;
+        
+        if (cell.disabled || 
+            cell.classList.contains('slot-booked') || 
+            cell.classList.contains('slot-pending') ||
+            cell.classList.contains('slot-past')) {
+            return;
+        }
+        
+        if (state.selectedSlots.length > 0) {
+            const existingDate = state.selectedSlots[0].date;
+            if (existingDate !== dateString) {
+                return; 
+            }
+        }
+        
+        state.isDragging = true;
+        state.dragDate = dateString;
+        const existingSlot = state.selectedSlots.find(s => s.date === dateString && s.time === time);
+        state.dragSelectionMode = existingSlot ? 'remove' : 'add';
+        
+        handleSlotClick(cell);
+    }
+
+    function handleDragOver(e) {
+        if (!state.isDragging) return;
+        const cell = e.target.closest('.slot');
+        if (cell && cell.dataset.date === state.dragDate) {
+            if (!cell.disabled && 
+                !cell.classList.contains('slot-booked') && 
+                !cell.classList.contains('slot-pending') &&
+                !cell.classList.contains('slot-past')) {
+                
+                const { date, time } = cell.dataset;
+                const hasSlot = state.selectedSlots.some(s => s.date === date && s.time === time);
+                
+                if (state.dragSelectionMode === 'add' && !hasSlot) {
+                    const newSlot = { date, time };
+                    state.selectedSlots.push(newSlot);
+                    autoFillContiguousSlots(newSlot);
+                    updateUI();
+                } else if (state.dragSelectionMode === 'remove' && hasSlot) {
+                    // This part of drag-to-remove is complex with the new rule,
+                    // so we simplify it to just handle the single cell on mouseover.
+                    const existingIndex = state.selectedSlots.findIndex(s => s.date === date && s.time === time);
+                    if (existingIndex > -1) {
+                         state.selectedSlots.splice(existingIndex, 1);
+                         updateUI();
+                    }
+                }
+            }
+        }
+    }
+
+    function handleDragStop() {
+        if (state.isDragging) {
+            state.isDragging = false;
+            // After dragging, re-validate and fill any gaps created
+            if (state.selectedSlots.length > 0) {
+                const lastSelected = state.selectedSlots[state.selectedSlots.length -1];
+                autoFillContiguousSlots(lastSelected);
+                updateUI();
+            }
+        }
+    }
+
+    function cleanup() {
+        if (abortController) abortController.abort();
+        window.removeEventListener('mouseup', handleDragStop);
+    }
+
+    async function initialize(hallId) {
+        try {
+            // Try to get hall data from session storage first
+            let hallData = null;
+            let selectedSlots = [];
+            let availabilityData = [];
+            
+            try {
+                const storedHall = sessionStorage.getItem('finalBookingHall');
+                const storedSlots = sessionStorage.getItem('finalBookingSlots');
+                const storedAvailability = sessionStorage.getItem('finalBookingAvailability');
+                
+                if (storedHall) {
+                    hallData = JSON.parse(storedHall);
+                }
+                if (storedSlots) {
+                    selectedSlots = JSON.parse(storedSlots);
+                }
+                if (storedAvailability) {
+                    availabilityData = JSON.parse(storedAvailability);
+                }
+            } catch (e) {
+                // Handle parsing errors silently
+            }
+            
+            // If no stored hall data, fetch from API
+            if (!hallData) {
+                const allHalls = await fetchAllHalls();
+                hallData = allHalls.find(h => h.id === hallId || h.unique_id === hallId);
+                
+                if (!hallData) {
+                    throw new Error(`Hall not found for ID: ${hallId}`);
+                }
+            }
+            
+            // Always fetch fresh availability data
+            availabilityData = await fetchHallAvailability(hallId);
+            
+            // Initialize state
             state = {
-                ...state,
-                hall: hall,
-                availabilityData: availability,
-                selectedSlots: [],
+                hall: hallData,
+                availabilityData: availabilityData,
+                selectedSlots: selectedSlots,
                 currentDate: new Date(),
-                currentSelectedDate: getTodayISTString()
+                bookingType: 'INDIVIDUAL',
+                purpose: '',
+                classCode: '',
+                isDragging: false,
+                dragSelectionMode: 'add',
+                dragDate: null,
+                currentSelectedDate: selectedSlots.length > 0 ? selectedSlots[0].date : getTodayISTString()
             };
             
             render();
@@ -950,8 +1323,12 @@
                             <p class="text-slate-500 text-sm mb-2">Error: ${error.message}</p>
                             <p class="text-slate-500 text-sm mb-6">Hall ID: ${hallId}</p>
                             <div class="flex gap-4 justify-center">
-                                <button onclick="window.history.back()" class="px-4 py-2 bg-slate-600 text-white rounded hover:bg-slate-700">Go Back</button>
-                                <button onclick="location.reload()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Retry</button>
+                                <button onclick="window.history.back()" class="px-4 py-2 bg-slate-600 text-white rounded hover:bg-slate-700">
+                                    Go Back
+                                </button>
+                                <button onclick="location.reload()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                                    Retry
+                                </button>
                             </div>
                         </div>
                     </div>`;
@@ -959,5 +1336,10 @@
         }
     }
 
-    window.FinalBookingFormView = { initialize, cleanup, render, resetForm };
+    return { 
+        initialize, 
+        cleanup, 
+        render, 
+        resetForm 
+    };
 })();
