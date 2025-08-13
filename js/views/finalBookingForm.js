@@ -1,4 +1,4 @@
-// finalBookingForm.js - Enhanced Implementation with Improved Time/Date Selection Logic and Week Navigation
+// finalBookingForm.js - Enhanced Implementation with Color-Coded Slots
 
 window.FinalBookingFormView = (function() {
     
@@ -30,17 +30,13 @@ window.FinalBookingFormView = (function() {
 
     // --- UTILITY FUNCTIONS FOR IST TIME HANDLING ---
     function getCurrentISTTime() {
-        // Use toLocaleString to get the current time in the 'Asia/Kolkata' timezone.
-        // This is more reliable than manual offset calculations.
         const now = new Date();
         const istDateString = now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
         return new Date(istDateString);
     }
 
     function getTodayISTString() {
-        // This function reliably gets the 'YYYY-MM-DD' string for the current date in IST.
         const now = new Date();
-        // Directly format to YYYY-MM-DD to avoid timezone parsing issues with different locales.
         const year = now.toLocaleString('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric' });
         const month = now.toLocaleString('en-CA', { timeZone: 'Asia/Kolkata', month: '2-digit' });
         const day = now.toLocaleString('en-CA', { timeZone: 'Asia/Kolkata', day: '2-digit' });
@@ -49,26 +45,19 @@ window.FinalBookingFormView = (function() {
 
     function getCurrentISTTimeString() {
         const now = new Date();
-        // The 'en-GB' locale provides the HH:mm:ss format suitable for string slicing
         const timeString = now.toLocaleTimeString('en-GB', { timeZone: 'Asia/Kolkata', hour12: false });
         return timeString.substring(0, 5); // Returns time as 'HH:mm'
     }
 
     function isSlotInPast(dateString, time) {
         const todayISTString = getTodayISTString();
-
-        // If the date is before today, it's in the past
         if (dateString < todayISTString) {
             return true;
         }
-        
-        // If it's today, check if the time slot has passed using reliable string comparison
         if (dateString === todayISTString) {
             const nowISTTime = getCurrentISTTimeString();
-            // String comparison works perfectly for 'HH:MM' format (e.g., '09:30' < '13:06')
             return time < nowISTTime;
         }
-        
         return false;
     }
 
@@ -91,7 +80,6 @@ window.FinalBookingFormView = (function() {
             if (!text) return null;
             try {
                 const parsed = JSON.parse(text);
-                // Handle different response structures
                 if (parsed.success && parsed.data) {
                     return parsed.data;
                 } else if (parsed.data) {
@@ -122,7 +110,6 @@ window.FinalBookingFormView = (function() {
     }
 
     async function fetchAllHalls() {
-        // First try to get from global cache (set by browseBook.js)
         if (window.allHallsCache && window.allHallsCache.length > 0) {
             return window.allHallsCache;
         }
@@ -157,7 +144,6 @@ window.FinalBookingFormView = (function() {
             };
         });
 
-        // Cache for future use
         window.allHallsCache = allHalls;
         return allHalls;
     }
@@ -170,7 +156,6 @@ window.FinalBookingFormView = (function() {
                 return [];
             }
 
-            // Transform the booking data to match our expected format
             return bookings.map(booking => ({
                 hall_id: hallId,
                 start_date: booking.start_time,
@@ -204,7 +189,6 @@ window.FinalBookingFormView = (function() {
     async function addMultipleIndividualBookings(bookingRequests) {
         const results = [];
         
-        // Submit bookings sequentially to avoid overwhelming the server
         for (const request of bookingRequests) {
             try {
                 const result = await addIndividualBooking(request);
@@ -223,7 +207,6 @@ window.FinalBookingFormView = (function() {
             return { valid: true, message: '' };
         }
 
-        // Check if all existing slots are for the same date
         const existingDates = [...new Set(state.selectedSlots.map(slot => slot.date))];
         
         if (existingDates.length > 0 && !existingDates.includes(newSlot.date)) {
@@ -248,7 +231,6 @@ window.FinalBookingFormView = (function() {
         const minIndex = Math.min(...timeIndices);
         const maxIndex = Math.max(...timeIndices);
 
-        // Fill all gaps between min and max
         for (let i = minIndex; i <= maxIndex; i++) {
             const timeSlot = timeSlots[i];
             const slotExists = state.selectedSlots.some(slot => 
@@ -262,26 +244,33 @@ window.FinalBookingFormView = (function() {
     }
 
     function isSlotAvailable(dateString, time) {
-        // Check if slot is in the past (IST)
         if (isSlotInPast(dateString, time)) {
             return false;
         }
         
-        // Check if slot is already booked
-        const booking = state.availabilityData.find(b => {
-             const bookingDate = new Date(b.start_date).toISOString().split('T')[0];
-             const bookingTime = new Date(b.start_date).toTimeString().substring(0,5);
-             return bookingDate === dateString && bookingTime === time;
-        });
+        const booking = getBookingForSlot(dateString, time);
         
         return !booking;
     }
 
     function getBookingForSlot(dateString, time) {
-        return state.availabilityData.find(b => {
-            const bookingDate = new Date(b.start_date).toISOString().split('T')[0];
-            const bookingTime = new Date(b.start_date).toTimeString().substring(0,5);
-            return bookingDate === dateString && bookingTime === time;
+        // Create a Date object for the specific slot we are checking.
+        // It's crucial to treat this as UTC to match the server's Z-suffix dates.
+        const slotToCheck = new Date(`${dateString}T${time}:00.000Z`);
+
+        return state.availabilityData.find(booking => {
+            if (!booking.start_date || !booking.end_date) {
+                return false;
+            }
+
+            // Create Date objects from the booking's start and end times.
+            const bookingStart = new Date(booking.start_date);
+            const bookingEnd = new Date(booking.end_date);
+
+            // Check if the slot's start time is within the booking's time range.
+            // The check is [start, end), meaning the slot is booked if its start time
+            // is on or after the booking's start time AND before the booking's end time.
+            return slotToCheck >= bookingStart && slotToCheck < bookingEnd;
         });
     }
 
@@ -533,102 +522,42 @@ window.FinalBookingFormView = (function() {
                 </div>
             </div>
             <div class="flex justify-center flex-wrap gap-x-4 gap-y-2 mt-4 text-sm text-slate-300">
-                <div class="flex items-center"><span class="h-4 w-4 mr-2 slot-available rounded-sm"></span>Available</div>
+                <div class="flex items-center"><span class="h-4 w-4 mr-2 slot-available-weekday rounded-sm"></span>Available (Weekday)</div>
+                <div class="flex items-center"><span class="h-4 w-4 mr-2 slot-available-weekend rounded-sm"></span>Available (Weekend)</div>
                 <div class="flex items-center"><span class="h-4 w-4 mr-2 slot-pending rounded-sm"></span>Pending</div>
                 <div class="flex items-center"><span class="h-4 w-4 mr-2 slot-booked rounded-sm"></span>Booked</div>
                 <div class="flex items-center"><span class="h-4 w-4 mr-2 slot-past rounded-sm"></span>Past/Unavailable</div>
                 <div class="flex items-center"><span class="h-4 w-4 mr-2 slot-selected rounded-sm"></span>Selected</div>
             </div>
             <style>
-                .calendar-grid {
-                    display: grid;
-                    grid-template-columns: auto 1fr;
-                    gap: 8px;
-                }
-                .time-labels-col {
-                    padding-top: 3.5rem; /* This is the buffer zone */
-                    display: grid;
-                    grid-template-rows: repeat(${timeSlots.length}, 2rem);
-                    gap: 4px;
-                }
-                .time-label {
-                    text-align: right;
-                    font-size: 0.75rem;
-                    color: #94a3b8; /* slate-400 */
-                    height: 2rem;
-                    display: flex;
-                    align-items: center;
-                    justify-content: flex-end;
-                }
-                .calendar-header {
-                    display: grid;
-                    grid-template-columns: repeat(${daysInMonth}, minmax(35px, 1fr));
-                    gap: 4px;
-                    margin-bottom: 4px;
-                    height: 3rem; /* Fixed height for alignment */
-                }
-                .day-header {
-                    padding: 4px 2px;
-                    border-radius: 4px;
-                    transition: all 0.2s ease-in-out;
-                    text-align: center;
-                    cursor: pointer;
-                }
-                .calendar-body {
-                    display: grid;
-                    grid-template-columns: repeat(${daysInMonth}, minmax(35px, 1fr));
-                    grid-template-rows: repeat(${timeSlots.length}, 2rem);
-                    gap: 4px;
-                }
-                .slot {
-                    width: 100%;
-                    height: 100%;
-                    border-radius: 0.25rem;
-                    cursor: pointer;
-                    transition: all 0.2s ease-in-out;
-                    border: 1px solid transparent;
-                }
-                .slot:disabled {
-                    cursor: not-allowed;
-                }
-                .slot-available { 
-                    background-color: rgba(34, 197, 94, 0.2); 
-                    border-color: rgba(34, 197, 94, 0.4); 
-                }
-                .slot-available:hover { 
-                    background-color: rgba(34, 197, 94, 0.3); 
-                }
-                .slot-booked { 
-                    background-color: rgba(239, 68, 68, 0.2); 
-                    border-color: rgba(239, 68, 68, 0.4); 
-                    cursor: pointer !important; 
-                }
-                .slot-booked:hover { 
-                    background-color: rgba(239, 68, 68, 0.3); 
-                }
-                .slot-pending { 
-                    background-color: rgba(251, 191, 36, 0.2); 
-                    border-color: rgba(251, 191, 36, 0.4); 
-                    cursor: pointer !important; 
-                }
-                .slot-pending:hover { 
-                    background-color: rgba(251, 191, 36, 0.3); 
-                }
-                .slot-past { 
-                    background-color: rgba(107, 114, 128, 0.2); 
-                    border-color: rgba(107, 114, 128, 0.4); 
-                    cursor: not-allowed; 
-                    opacity: 0.5;
-                }
-                .slot-selected { 
-                    background-color: rgba(59, 130, 246, 0.8) !important; 
-                    border-color: rgba(59, 130, 246, 1) !important; 
-                    color: white !important; 
-                }
+                .calendar-grid { display: grid; grid-template-columns: auto 1fr; gap: 8px; }
+                .time-labels-col { padding-top: 3.5rem; display: grid; grid-template-rows: repeat(${timeSlots.length}, 2rem); gap: 4px; }
+                .time-label { text-align: right; font-size: 0.75rem; color: #94a3b8; height: 2rem; display: flex; align-items: center; justify-content: flex-end; }
+                .calendar-header { display: grid; grid-template-columns: repeat(${daysInMonth}, minmax(35px, 1fr)); gap: 4px; margin-bottom: 4px; height: 3rem; }
+                .day-header { padding: 4px 2px; border-radius: 4px; transition: all 0.2s ease-in-out; text-align: center; cursor: pointer; }
+                .calendar-body { display: grid; grid-template-columns: repeat(${daysInMonth}, minmax(35px, 1fr)); grid-template-rows: repeat(${timeSlots.length}, 2rem); gap: 4px; }
+                .slot { width: 100%; height: 100%; border-radius: 0.25rem; cursor: pointer; transition: all 0.2s ease-in-out; border: 1px solid transparent; }
+                .slot:disabled { cursor: not-allowed; }
+                
+                /* Color-coded slot styles */
+                .slot-available-weekday { background-color: rgba(22, 101, 52, 0.7); border-color: rgba(22, 101, 52, 0.9); }
+                .slot-available-weekday:hover { background-color: rgba(21, 128, 61, 0.8); }
+                
+                .slot-available-weekend { background-color: rgba(74, 222, 128, 0.5); border-color: rgba(74, 222, 128, 0.7); }
+                .slot-available-weekend:hover { background-color: rgba(74, 222, 128, 0.6); }
+
+                .slot-booked { background-color: rgba(220, 38, 38, 0.7); border-color: rgba(220, 38, 38, 0.9); cursor: pointer !important; }
+                .slot-booked:hover { background-color: rgba(220, 38, 38, 0.8); }
+                
+                .slot-pending { background-color: rgba(234, 179, 8, 0.7); border-color: rgba(234, 179, 8, 0.9); cursor: pointer !important; }
+                .slot-pending:hover { background-color: rgba(234, 179, 8, 0.8); }
+
+                .slot-past { background-color: rgba(71, 85, 105, 0.5); border-color: rgba(71, 85, 105, 0.7); cursor: not-allowed; opacity: 0.6; }
+                
+                .slot-selected { background-color: rgba(59, 130, 246, 0.9) !important; border-color: rgba(59, 130, 246, 1) !important; color: white !important; }
             </style>`;
     }
 
-    // Enhanced renderTimeSlotSelector with better week navigation styling
     function renderTimeSlotSelector() {
         let content;
         if (!state.currentSelectedDate) {
@@ -731,7 +660,6 @@ window.FinalBookingFormView = (function() {
                     </button>`;
             }).join('');
 
-            // Get week range for display
             const weekStart = new Date(startOfWeek);
             const weekEnd = new Date(startOfWeek);
             weekEnd.setDate(weekEnd.getDate() + 6);
@@ -817,8 +745,6 @@ window.FinalBookingFormView = (function() {
                     <tr class="border-b border-slate-700">
                         <td class="p-2 text-sm text-slate-400">${formatTimeForDisplay(time)}</td>
                         ${daysToDisplay.map(dayIndex => {
-                            // This is a simplified availability check. 
-                            // A real implementation would check against existing semester bookings.
                             const isAvailable = true; 
                             return `<td class="p-1 text-center">
                                 <span class="block w-full h-8 rounded ${isAvailable ? 'bg-green-500/20' : 'bg-red-500/20'}"></span>
@@ -838,11 +764,9 @@ window.FinalBookingFormView = (function() {
     function updateUI() {
         const isIndividual = state.bookingType === 'INDIVIDUAL';
         
-        // Toggle visibility of main sections
         document.getElementById('individual-booking-section').classList.toggle('hidden', !isIndividual);
         document.getElementById('semester-booking-section').classList.toggle('hidden', isIndividual);
 
-        // Update booking type button styles
         document.querySelectorAll('.booking-type-btn').forEach(btn => {
             const type = btn.dataset.bookingType;
             if (type === state.bookingType) {
@@ -873,7 +797,6 @@ window.FinalBookingFormView = (function() {
                 timeSelectorSection.outerHTML = renderTimeSlotSelector();
             }
         } else {
-            // Update semester UI elements
             document.querySelectorAll('.semester-slot-btn, .semester-day-btn').forEach(btn => {
                 const isSlot = btn.classList.contains('semester-slot-btn');
                 const value = isSlot ? btn.dataset.time : parseInt(btn.dataset.day, 10);
@@ -911,25 +834,32 @@ window.FinalBookingFormView = (function() {
 
     // --- LOGIC & HELPERS ---
     function getSlotClasses(dateString, time) {
+        // Highest priority: if the user has selected it
         if (state.selectedSlots.some(s => s.date === dateString && s.time === time)) {
             return 'slot-selected';
         }
         
-        // Check if slot is in the past using IST
+        // Check if slot is in the past
         if (isSlotInPast(dateString, time)) {
-            return 'slot-past';
+            return 'slot-past'; // Greyed out
         }
         
-        const booking = state.availabilityData.find(b => {
-             const bookingDate = new Date(b.start_date).toISOString().split('T')[0];
-             const bookingTime = new Date(b.start_date).toTimeString().substring(0,5);
-             return bookingDate === dateString && bookingTime === time;
-        });
+        const booking = getBookingForSlot(dateString, time);
         
         if (booking) {
-            return booking.status === 'APPROVED' ? 'slot-booked' : 'slot-pending';
+            if (booking.status === 'PENDING') {
+                return 'slot-pending'; // Yellow
+            }
+            return 'slot-booked'; // Red for 'APPROVED' or any other status
         }
-        return 'slot-available';
+        
+        // If available, check if it's a weekend or weekday
+        const dayOfWeek = new Date(dateString + 'T00:00:00').getUTCDay(); // Use getUTCDay for consistency
+        if (dayOfWeek === 0 || dayOfWeek === 6) { // 0 is Sunday, 6 is Saturday
+            return 'slot-available-weekend'; // Light Green
+        }
+        
+        return 'slot-available-weekday'; // Deep Green
     }
 
     function formatTimeForDisplay(time) {
@@ -1077,7 +1007,6 @@ window.FinalBookingFormView = (function() {
             const result = await response.json();
             alert(result.message || 'Booking request submitted successfully!');
             
-            // Redirect to the browse book page after successful submission
             window.location.hash = 'browsebook';
 
         } catch (error) {
@@ -1117,7 +1046,6 @@ window.FinalBookingFormView = (function() {
 
         if (target.classList.contains('booking-type-btn')) {
             state.bookingType = target.dataset.bookingType;
-            // Clear selections when switching types
             state.selectedSlots = [];
             state.semester.daysOfWeek = [];
             render();
@@ -1130,7 +1058,7 @@ window.FinalBookingFormView = (function() {
             if (index > -1) {
                 state.selectedSlots.splice(index, 1);
             } else {
-                state.selectedSlots.push({ date: null, time }); // Date is null for semester
+                state.selectedSlots.push({ date: null, time });
             }
             updateUI();
             return;
@@ -1321,10 +1249,7 @@ window.FinalBookingFormView = (function() {
             autoFillContiguousSlots(newSlot);
         }
         
-        // This ensures the calendar's main date object is synchronized with the
-        // date the user is interacting with, preventing the view from resetting.
         state.currentDate = new Date(date + 'T00:00:00');
-        
         state.currentSelectedDate = date;
         updateUI();
     }
@@ -1406,9 +1331,8 @@ window.FinalBookingFormView = (function() {
     async function initialize(hallId) {
         try {
             let hallData = null;
-            let preSelectedSlots = []; // Use a different name to be clear
+            let preSelectedSlots = [];
 
-            // Try to retrieve data passed from the details page via session storage.
             try {
                 const storedHall = sessionStorage.getItem('finalBookingHall');
                 const storedSlots = sessionStorage.getItem('finalBookingSlots');
@@ -1416,7 +1340,6 @@ window.FinalBookingFormView = (function() {
                 if (storedHall) {
                     hallData = JSON.parse(storedHall);
                 }
-                // Ensure preSelectedSlots is an array even if storage is corrupted/null
                 if (storedSlots) {
                     const parsedSlots = JSON.parse(storedSlots);
                     if (Array.isArray(parsedSlots)) {
@@ -1425,35 +1348,31 @@ window.FinalBookingFormView = (function() {
                 }
             } catch (e) {
                 console.error("Could not parse session storage data.", e);
-                preSelectedSlots = []; // Reset on error
+                preSelectedSlots = [];
             }
             
-            // Fetch hall data from API if it wasn't in session storage
             if (!hallData) {
                 const allHalls = await fetchAllHalls();
-                hallData = allHalls.find(h => h.id === hallId || h.unique_id === hallId);
+                hallData = allHalls.find(h =>  h.unique_id === hallId);
                 
                 if (!hallData) {
                     throw new Error(`Hall not found for ID: ${hallId}`);
                 }
             }
             
-            // Always fetch the latest availability to avoid using stale data.
             const availabilityData = await fetchHallAvailability(hallId);
             
-            // Set the component's state
             state = {
                 ...state,
                 hall: hallData,
                 hallIdFromUrl: hallId,
                 availabilityData: availabilityData,
-                selectedSlots: preSelectedSlots, // This is where the carry-over happens
+                selectedSlots: preSelectedSlots,
                 currentDate: new Date(),
-                // Set the view to the date of the selection, or today if no selection
                 currentSelectedDate: preSelectedSlots.length > 0 ? preSelectedSlots[0].date : getTodayISTString()
             };
             
-            render(); // Render the UI with the pre-selected slots
+            render();
             
         } catch (error) {
             const container = document.getElementById('final-booking-form-content');

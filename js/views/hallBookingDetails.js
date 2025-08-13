@@ -266,7 +266,7 @@ window.HallBookingDetailsView = (function() {
         const calendarGridContainer = document.getElementById('booking-calendar-grid');
         if (calendarGridContainer) {
             calendarGridContainer.innerHTML = renderCalendarGrid();
-            // No need to set up listeners here anymore, they are delegated from the parent.
+            setupDynamicListeners();
         }
     }
 
@@ -362,14 +362,21 @@ window.HallBookingDetailsView = (function() {
     }
 
     function handleBookHall() {
+        // 1. Check if any slots are selected (your existing logic)
         if (state.selectedSlots.length === 0) {
             showNotification("Please select at least one time slot to book.");
             return;
         }
+
+        // 2. Save the necessary data to sessionStorage
+        //    - The selected slots (the new feature)
+        //    - The hall details (just like browseBook.js does)
         sessionStorage.setItem('finalBookingSlots', JSON.stringify(state.selectedSlots));
         sessionStorage.setItem('finalBookingHall', JSON.stringify(state.hall));
-        sessionStorage.setItem('finalBookingAvailability', JSON.stringify(state.availabilityData));
-        window.location.hash = `#final-booking-form-view?id=${state.hall?.id || state.hall?.unique_id}`;
+
+        // 3. Redirect using the exact URL format from browseBook.js
+        const hallId = state.hall?.unique_id;
+        window.location.hash = `#final-booking-form-view?id=${hallId}`;
     }
 
     function cleanup() {
@@ -379,57 +386,46 @@ window.HallBookingDetailsView = (function() {
         removeTooltip();
     }
 
-    // --- CONSOLIDATED EVENT HANDLER SETUP ---
-    function setupEventHandlers() {
-        if (abortController) abortController.abort();
-        abortController = new AbortController();
+    // --- DYNAMIC/DELEGATED EVENT HANDLER SETUP ---
+    function setupDynamicListeners() {
         const { signal } = abortController;
-
         const viewContainer = document.getElementById('hall-booking-details-view');
         if (!viewContainer) return;
 
-        // Delegated click listener for all buttons
-        viewContainer.addEventListener('click', e => {
-            const button = e.target.closest('button');
-            if (!button) return;
-
-            if (button.id === 'prev-month-btn') {
-                state.currentDate.setMonth(state.currentDate.getMonth() - 1);
-                rerenderCalendar();
-            } else if (button.id === 'next-month-btn') {
-                state.currentDate.setMonth(state.currentDate.getMonth() + 1);
-                rerenderCalendar();
-            } else if (button.id === 'book-hall-btn') {
-                handleBookHall();
-            }
-        }, { signal });
-
         // Listeners for drag-to-select functionality
-        viewContainer.addEventListener('mousedown', handleDragStart, { signal });
+        const calendarBody = document.getElementById('calendar-body');
+        if(calendarBody) {
+            calendarBody.addEventListener('mousedown', handleDragStart, { signal });
+        }
         document.addEventListener('mouseover', handleDragOver, { signal });
         document.addEventListener('mouseup', handleDragStop, { signal });
 
         // Delegated tooltip listeners
-        viewContainer.addEventListener('mouseover', e => {
-            const slot = e.target.closest('button.slot[data-status="booked"], button.slot[data-status="pending"]');
-            if (slot) {
-                clearTimeout(tooltipTimeout);
-                tooltipTimeout = setTimeout(() => showSlotTooltip(slot), 200);
-            }
-        }, { signal });
-        viewContainer.addEventListener('mouseout', e => {
-            const slot = e.target.closest('button.slot[data-status="booked"], button.slot[data-status="pending"]');
-            if (slot) {
-                clearTimeout(tooltipTimeout);
-                tooltipTimeout = setTimeout(removeTooltip, 300);
-            }
-        }, { signal });
-        
-        document.body.addEventListener('mouseover', e => { if (e.target.closest('#booking-tooltip')) clearTimeout(tooltipTimeout); }, { signal });
-        document.body.addEventListener('mouseout', e => { if (e.target.closest('#booking-tooltip')) removeTooltip(); }, { signal });
+        const calendarGrid = document.getElementById('booking-calendar-grid');
+        if(calendarGrid) {
+            calendarGrid.addEventListener('mouseover', e => {
+                const slot = e.target.closest('button.slot[data-status="booked"], button.slot[data-status="pending"]');
+                if (slot) {
+                    clearTimeout(tooltipTimeout);
+                    tooltipTimeout = setTimeout(() => showSlotTooltip(slot), 200);
+                }
+            }, { signal });
+            calendarGrid.addEventListener('mouseout', e => {
+                const slot = e.target.closest('button.slot[data-status="booked"], button.slot[data-status="pending"]');
+                if (slot) {
+                    clearTimeout(tooltipTimeout);
+                    tooltipTimeout = setTimeout(removeTooltip, 300);
+                }
+            }, { signal });
+        }
     }
 
+
     async function initialize(hallId) {
+        if (abortController) abortController.abort();
+        abortController = new AbortController();
+        const { signal } = abortController;
+
         try {
             state.selectedSlots = [];
             sessionStorage.removeItem('finalBookingSlots');
@@ -445,6 +441,7 @@ window.HallBookingDetailsView = (function() {
 
             const processedHallData = {
                 ...hallData,
+                id: hallData.id || hallData.unique_id,
                 location: `${hallData.school?.school_name || ''}${hallData.department?.department_name ? ' - ' + hallData.department.department_name : ''}`.trim() || 'N/A',
                 incharge: {
                     name: hallData.department?.incharge_name || hallData.school?.incharge_name || 'N/A',
@@ -473,8 +470,36 @@ window.HallBookingDetailsView = (function() {
                 currentDate: new Date(),
             };
             
+            // Render the initial view.
             render();
-            setupEventHandlers();
+            
+            // --- SETUP STATIC LISTENERS DIRECTLY ---
+            // This is more robust than delegation for elements that never get re-rendered.
+            const prevMonthBtn = document.getElementById('prev-month-btn');
+            const nextMonthBtn = document.getElementById('next-month-btn');
+            const bookHallBtn = document.getElementById('confirm-booking-btn');
+
+            if (prevMonthBtn) {
+                prevMonthBtn.addEventListener('click', () => {
+                    state.currentDate.setMonth(state.currentDate.getMonth() - 1);
+                    rerenderCalendar();
+                }, { signal });
+            }
+
+            if (nextMonthBtn) {
+                nextMonthBtn.addEventListener('click', () => {
+                    state.currentDate.setMonth(state.currentDate.getMonth() + 1);
+                    rerenderCalendar();
+                }, { signal });
+            }
+
+            if (bookHallBtn) {
+                bookHallBtn.addEventListener('click', handleBookHall, { signal });
+            }
+
+            // Listeners for tooltips on the body can also be static.
+            document.body.addEventListener('mouseover', e => { if (e.target.closest('#booking-tooltip')) clearTimeout(tooltipTimeout); }, { signal });
+            document.body.addEventListener('mouseout', e => { if (e.target.closest('#booking-tooltip')) removeTooltip(); }, { signal });
 
         } catch (error) {
             console.error('Error initializing hall booking details:', error);
