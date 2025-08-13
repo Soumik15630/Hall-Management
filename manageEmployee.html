@@ -52,7 +52,7 @@
                         <p class="text-sm text-gray-300 mt-1" x-text="selectionCountText"></p>
                     </div>
                     <div class="flex items-center space-x-3 bg-[rgba(0,0,0,0.2)] p-2 rounded-lg">
-                        <a href="employee.html" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-plus"></i><span>Add Employee</span></a>
+                        <a href="addEmployee.html" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-plus"></i><span>Add Employee</span></a>
                         <button @click="modifySelectedItem()" :disabled="selectedItems.length !== 1" class="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-edit"></i><span>Modify</span></button>
                         <button @click="confirmDeletion()" :disabled="selectedItems.length === 0" class="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-trash-alt"></i><span>Delete</span></button>
                         <button @click="resetFilters" :class="isAnyFilterActive ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-500 hover:bg-gray-600'" class="text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-undo"></i></button>
@@ -356,8 +356,8 @@
     document.addEventListener('alpine:init', () => {
         Alpine.data('manageEmployees', () => ({
             employees: [],
-            schoolOptions: [], // Will be populated dynamically
-            departmentOptions: [], // Will be populated dynamically
+            schoolOptions: [], // Will be populated when filter is opened
+            departmentOptions: [], // Will be populated when filter is opened
             sectionOptions: AppConfig.formOptions.generalSections,
             designationOptions: AppConfig.formOptions.designations,
             selectedItems: [],
@@ -398,15 +398,179 @@
                     logout();
                     return;
                 }
-                this.loadData(); 
+                this.loadEmployees(); // Only load employees initially
                 this.$watch('multipleSelectionEnabled', (value) => { if (!value) this.selectedItems = []; });
+                
+                // Watch for desktop filter modal to open and fetch schools/departments
+                this.$watch('modals.filter', (value) => {
+                    if (value) {
+                        if (this.schoolOptions.length === 0 && !this.isLoading.schools) {
+                            this.fetchSchoolsForFilter();
+                        }
+                        if (this.departmentOptions.length === 0 && !this.isLoading.departments) {
+                            this.fetchDepartmentsForFilter();
+                        }
+                    }
+                });
+
+                // Watch for mobile filter overlay to open and fetch schools/departments
                 this.$watch('modals.filterOverlayOpen', (value) => {
                     if (value) {
                         document.body.style.overflow = 'hidden';
+                        if (this.schoolOptions.length === 0 && !this.isLoading.schools) {
+                            this.fetchSchoolsForFilter();
+                        }
+                        if (this.departmentOptions.length === 0 && !this.isLoading.departments) {
+                            this.fetchDepartmentsForFilter();
+                        }
                     } else {
                         document.body.style.overflow = '';
                     }
                 });
+            },
+
+            // Renamed from loadData to emphasize it only loads employees
+            async loadEmployees() { 
+                this.isLoading = true;
+                this.errorMessage = '';
+                try {
+                    const employeeResponse = await this.fetchWithAuth(AppConfig.apiBaseUrl + AppConfig.endpoints.allemp);
+                    
+                    if (!employeeResponse.ok) {
+                        const errorBody = await employeeResponse.json();
+                        throw new Error(`Could not fetch employees: ${errorBody.message || employeeResponse.statusText}`);
+                    }
+
+                    const employeeData = await employeeResponse.json();
+                    
+                    // Create maps for quick lookup of school and department names for displaying employee details
+                    // These maps will be built from the employee data itself, as full lists are not loaded initially
+                    const schoolMap = new Map();
+                    const departmentMap = new Map();
+                    employeeData.forEach(emp => {
+                        if (emp.school?.unique_id && emp.school?.school_name) {
+                            schoolMap.set(emp.school.unique_id, emp.school.school_name);
+                        }
+                        if (emp.department?.unique_id && emp.department?.department_name) {
+                            departmentMap.set(emp.department.unique_id, emp.department.department_name);
+                        }
+                    });
+
+                    this.employees = employeeData.map(emp => {
+                        let primaryOwner = 'N/A', secondaryOwner = '';
+
+                        if (emp.belongs_to === 'ADMINISTRATION') {
+                            primaryOwner = 'Administration';
+                            const section = this.sectionOptions.find(s => s.value === emp.section);
+                            secondaryOwner = section ? section.label : (emp.section || '');
+                        } else if (emp.belongs_to === 'SCHOOL') {
+                            primaryOwner = schoolMap.get(emp.school_id) || 'Unknown School'; 
+                        } else if (emp.belongs_to === 'DEPARTMENT') {
+                            primaryOwner = schoolMap.get(emp.school_id) || 'Unknown School'; 
+                            secondaryOwner = departmentMap.get(emp.department_id) || 'Unknown Department'; 
+                        }
+                        return {
+                            ...emp,
+                            created_at: emp.created_at || new Date().toISOString(),
+                            primaryOwner: primaryOwner,
+                            secondaryOwner: secondaryOwner
+                        };
+                    });
+
+                } catch (error) {
+                    this.errorMessage = `An error occurred while loading employees: ${error.message}. Please try again later.`;
+                    console.error('Error loading employees:', error);
+                } finally {
+                    this.isLoading = false;
+                }
+            },
+
+            // New function to fetch all schools for filter dropdown
+            async fetchSchoolsForFilter() { 
+                this.isLoading.schools = true; 
+                try { 
+                    const response = await this.fetchWithAuth(AppConfig.apiBaseUrl + AppConfig.endpoints.allschool);
+                    if (!response.ok) {
+                        const errorBody = await response.json();
+                        throw new Error(`Network error: ${errorBody.message || response.statusText}`); 
+                    }
+                    const d = await response.json(); 
+                    this.schoolOptions = d.filter(s => s && s.unique_id && s.school_name).map(s => ({ value: s.unique_id, label: s.school_name })); 
+                } catch (e) { 
+                    this.errorMessage = `Could not load school filter data: ${e.message}`; 
+                    console.error('Error loading school filter data:', e);
+                } finally { 
+                    this.isLoading.schools = false; 
+                } 
+            },
+
+            // New function to fetch all departments for filter dropdown
+            async fetchDepartmentsForFilter() { 
+                this.isLoading.departments = true; 
+                try { 
+                    const response = await this.fetchWithAuth(AppConfig.apiBaseUrl + AppConfig.endpoints.alldept);
+                    if (!response.ok) {
+                        const errorBody = await response.json();
+                        throw new Error(`Network error: ${errorBody.message || response.statusText}`); 
+                    }
+                    const d = await response.json(); 
+                    this.departmentOptions = d.filter(t => t && t.unique_id && t.department_name && t.school_id).map(t => ({ value: t.unique_id, label: t.department_name, schoolId: t.school_id })); 
+                } catch (e) { 
+                    this.errorMessage = `Could not load department filter data: ${e.message}`; 
+                    console.error('Error loading department filter data:', e);
+                } finally { 
+                    this.isLoading.departments = false; 
+                } 
+            },
+
+            toggleItemSelection(itemId) {
+                if (this.multipleSelectionEnabled) {
+                    const index = this.selectedItems.indexOf(itemId);
+                    if (index === -1) this.selectedItems.push(itemId);
+                    else this.selectedItems.splice(index, 1);
+                } else {
+                    this.selectedItems = this.selectedItems.includes(itemId) ? [] : [itemId];
+                }
+            },
+            
+            modifySelectedItem() {
+                if (this.selectedItems.length !== 1) return;
+                const id = this.selectedItems[0];
+                window.location.href = `modifyEmployee.html?id=${id}`;
+            },
+
+            confirmDeletion() {
+                if (this.selectedItems.length > 0) {
+                    this.modals.confirmDelete = true;
+                }
+            },
+
+            async deleteSelectedItems() {
+                const endpoint = AppConfig.apiBaseUrl + AppConfig.endpoints.emp;
+                this.modals.confirmDelete = false;
+                const promises = this.selectedItems.map(id => 
+                    this.fetchWithAuth(`${endpoint}/${id}`, { method: 'DELETE' })
+                );
+                try {
+                    const responses = await Promise.all(promises);
+                    const failedResponses = responses.filter(res => !res.ok);
+
+                    if (failedResponses.length > 0) {
+                        let errorMsg = `Server responded with status ${failedResponses[0].status}.`;
+                        try {
+                            const errorJson = await failedResponses[0].json();
+                            errorMsg = errorJson.message || JSON.stringify(errorJson);
+                        } catch (e) { /* Ignore parsing error */ }
+                        throw new Error(`${failedResponses.length} of ${this.selectedItems.length} deletions failed. ${errorMsg}`);
+                    }
+                    
+                    this.showNotification(true, 'Success', `${this.selectedItems.length} item(s) deleted successfully.`);
+                    this.selectedItems = [];
+                    await this.loadEmployees(); // Reload employees after successful deletion
+                } catch (error) {
+                    console.error('Deletion error:', error);
+                    this.showNotification(false, 'Deletion Failed', error.message);
+                }
             },
 
             get filteredEmployees() {
@@ -446,13 +610,11 @@
                 return `Showing ${total} employee(s)`;
             },
 
-            // Dynamically generate school options from loaded employees
             get filteredSchoolsForFilter() {
                 let schools = this.schoolOptions;
                 if (!this.filters.schoolSearchTerm) return schools;
                 return schools.filter(s => s.label.toLowerCase().includes(this.filters.schoolSearchTerm.toLowerCase()));
             },
-            // Dynamically generate department options from loaded employees, optionally filtered by selected school
             get filteredDepartmentsForFilter() {
                 let depts = this.departmentOptions;
                 if (this.filters.schoolId) { 
@@ -540,113 +702,10 @@
                 setTimeout(() => this.notification.show = false, 5000);
             },
             
-            async loadData() {
-                this.isLoading = true;
-                this.errorMessage = '';
-                try {
-                    const employeeResponse = await this.fetchWithAuth(AppConfig.apiBaseUrl + AppConfig.endpoints.allemp);
-                    
-                    if (!employeeResponse.ok) {
-                        const errorBody = await employeeResponse.json(); // Attempt to read error body
-                        throw new Error(`Could not fetch employees: ${errorBody.message || employeeResponse.statusText}`);
-                    }
-
-                    const employeeData = await employeeResponse.json();
-                    
-                    const uniqueSchools = new Map();
-                    const uniqueDepartments = new Map();
-
-                    this.employees = employeeData.map(emp => {
-                        let primaryOwner = 'N/A', secondaryOwner = '';
-
-                        if (emp.belongs_to === 'ADMINISTRATION') {
-                            primaryOwner = 'Administration';
-                            const section = this.sectionOptions.find(s => s.value === emp.section);
-                            secondaryOwner = section ? section.label : (emp.section || '');
-                        } else if (emp.belongs_to === 'SCHOOL') {
-                            primaryOwner = emp.school?.school_name || 'Unknown School';
-                            if (emp.school?.unique_id && emp.school?.school_name) {
-                                uniqueSchools.set(emp.school.unique_id, { value: emp.school.unique_id, label: emp.school.school_name });
-                            }
-                        } else if (emp.belongs_to === 'DEPARTMENT') {
-                            primaryOwner = emp.school?.school_name || 'Unknown School';
-                            secondaryOwner = emp.department?.department_name || 'Unknown Department';
-                            if (emp.school?.unique_id && emp.school?.school_name) {
-                                uniqueSchools.set(emp.school.unique_id, { value: emp.school.unique_id, label: emp.school.school_name });
-                            }
-                            if (emp.department?.unique_id && emp.department?.department_name) {
-                                uniqueDepartments.set(emp.department.unique_id, { value: emp.department.unique_id, label: emp.department.department_name, schoolId: emp.school_id });
-                            }
-                        }
-                        return {
-                            ...emp,
-                            created_at: emp.created_at || new Date().toISOString(),
-                            primaryOwner: primaryOwner,
-                            secondaryOwner: secondaryOwner
-                        };
-                    });
-
-                    // Populate schoolOptions and departmentOptions from the unique values found in employees
-                    this.schoolOptions = Array.from(uniqueSchools.values());
-                    this.departmentOptions = Array.from(uniqueDepartments.values());
-
-                } catch (error) {
-                    this.errorMessage = `An error occurred: ${error.message}. Please try again later.`;
-                    console.error('Error loading data:', error);
-                } finally {
-                    this.isLoading = false;
-                }
-            },
-
-            toggleItemSelection(itemId) {
-                if (this.multipleSelectionEnabled) {
-                    const index = this.selectedItems.indexOf(itemId);
-                    if (index === -1) this.selectedItems.push(itemId);
-                    else this.selectedItems.splice(index, 1);
-                } else {
-                    this.selectedItems = this.selectedItems.includes(itemId) ? [] : [itemId];
-                }
-            },
-            
-            modifySelectedItem() {
-                if (this.selectedItems.length !== 1) return;
-                const id = this.selectedItems[0];
-                window.location.href = `modifyEmployee.html?id=${id}`;
-            },
-
-            confirmDeletion() {
-                if (this.selectedItems.length > 0) {
-                    this.modals.confirmDelete = true;
-                }
-            },
-
-            async deleteSelectedItems() {
-                const endpoint = AppConfig.apiBaseUrl + AppConfig.endpoints.emp;
-                this.modals.confirmDelete = false;
-                const promises = this.selectedItems.map(id => 
-                    this.fetchWithAuth(`${endpoint}/${id}`, { method: 'DELETE' })
-                );
-                try {
-                    const responses = await Promise.all(promises);
-                    const failedResponses = responses.filter(res => !res.ok);
-
-                    if (failedResponses.length > 0) {
-                        let errorMsg = `Server responded with status ${failedResponses[0].status}.`;
-                        try {
-                            const errorJson = await failedResponses[0].json();
-                            errorMsg = errorJson.message || JSON.stringify(errorJson);
-                        } catch (e) { /* Ignore parsing error */ }
-                        throw new Error(`${failedResponses.length} of ${this.selectedItems.length} deletions failed. ${errorMsg}`);
-                    }
-                    
-                    this.showNotification(true, 'Success', `${this.selectedItems.length} item(s) deleted successfully.`);
-                    this.selectedItems = [];
-                    await this.loadData(); // Reload data after successful deletion
-                } catch (error) {
-                    console.error('Deletion error:', error);
-                    this.showNotification(false, 'Deletion Failed', error.message);
-                }
-            }
+            // Set initial loading states for filter options to false
+            isLoading: { schools: false, departments: false }, 
+            schoolOptions: [], // Initialize as empty
+            departmentOptions: [], // Initialize as empty
         }));
     });
     </script>
