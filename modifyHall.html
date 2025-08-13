@@ -43,7 +43,7 @@
             <div class="bg-[rgba(0,0,0,0.15)] p-8 rounded-lg shadow-xl">
                 <h2 class="text-3xl font-bold text-center text-white mb-8">MODIFY HALL</h2>
                 <div x-show="isLoading.hall" class="text-center text-white"><i class="fas fa-spinner fa-spin mr-2"></i>Loading Hall Data...</div>
-                <form id="modifyHallForm" @submit.prevent="submitForm" @reset.prevent="resetForm" class="space-y-8" x-show="!isLoading.hall" x-cloak>
+                <form id="modifyHallForm" @submit.prevent="submitForm" class="space-y-8" x-show="!isLoading.hall" x-cloak>
                     
                     <div class="bg-white p-6 rounded-lg shadow-md">
                         <h3 class="text-xl font-semibold text-gray-800 mb-4 border-b border-gray-200 pb-2">Core Details</h3>
@@ -119,14 +119,14 @@
                                 </template>
                             </select>
                         </div>
-                        <div x-show="selectedBelongsTo === 'school'" class="mt-4 relative" @click.away="closeDropdownAndValidate('school')"><label class="block text-gray-600 text-sm font-medium mb-2">SCHOOL NAME</label><input type="text" x-model="searchTerms.school" @focus="dropdowns.school = true" @input.debounce.300ms="selectedSchoolId = null" placeholder="Type to search school..." class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800"><div x-show="dropdowns.school" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto scrollable-dropdown"><template x-if="isLoading.schools"><div class="px-4 py-2 text-sm text-gray-400">Loading...</div></template><template x-for="option in filteredSchools" :key="option.value"><div @click="selectOption('school', option.value)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="option.label"></div></template><template x-if="!isLoading.schools && filteredSchools.length === 0"><div class="px-4 py-2 text-sm text-gray-500">No schools found.</div></template></div></div>
-                        <div x-show="selectedBelongsTo === 'department'" class="mt-4 space-y-4"><div class="relative" @click.away="closeDropdownAndValidate('deptSchool')"><label class="block text-gray-600 text-sm font-medium mb-2">SCHOOL (Parent of Department)</label><input type="text" x-model="searchTerms.deptSchool" @focus="dropdowns.deptSchool = true" @input.debounce.300ms="selectedDeptSchoolId = null" placeholder="Type to search school..." class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800"><div x-show="dropdowns.deptSchool" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto scrollable-dropdown"><template x-if="isLoading.schools"><div class="px-4 py-2 text-sm text-gray-400">Loading...</div></template><template x-for="option in filteredDeptSchools" :key="option.value"><div @click="selectOption('deptSchool', option.value)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="option.label"></div></template><template x-if="!isLoading.schools && filteredDeptSchools.length === 0"><div class="px-4 py-2 text-sm text-gray-500">No schools found.</div></template></div></div><div class="relative" @click.away="closeDropdownAndValidate('department')"><label class="block text-gray-600 text-sm font-medium mb-2">DEPARTMENT</label><input type="text" x-model="searchTerms.department" @focus="dropdowns.department = true" @input.debounce.300ms="selectedDepartmentId = null" placeholder="Type to search department..." class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800"><div x-show="dropdowns.department" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto scrollable-dropdown"><template x-if="isLoading.departments"><div class="px-4 py-2 text-sm text-gray-400">Loading...</div></template><template x-for="option in filteredDepartments" :key="option.value"><div @click="selectOption('department', option.value)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="option.label"></div></template><template x-if="!isLoading.departments && filteredDepartments.length === 0"><div class="px-4 py-2 text-sm text-gray-500">No departments found.</div></template></div></div></div>
+                        <div x-show="selectedBelongsTo === 'school'" class="mt-4 relative" @click.away="closeDropdownAndValidate('school')"><label class="block text-gray-600 text-sm font-medium mb-2">SCHOOL NAME</label><input type="text" x-model="searchTerms.school" @focus="dropdowns.school = true; ensureSchoolsLoaded()" @input.debounce.300ms="selectedSchoolId = null" placeholder="Type to search school..." class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800"><div x-show="dropdowns.school" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto scrollable-dropdown"><template x-if="isLoading.schools"><div class="px-4 py-2 text-sm text-gray-400">Loading...</div></template><template x-for="option in filteredSchools" :key="option.value"><div @click="selectOption('school', option.value)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="option.label"></div></template><template x-if="!isLoading.schools && filteredSchools.length === 0"><div class="px-4 py-2 text-sm text-gray-500">No schools found.</div></template></div></div>
+                        <div x-show="selectedBelongsTo === 'department'" class="mt-4 space-y-4"><div class="relative" @click.away="closeDropdownAndValidate('deptSchool')"><label class="block text-gray-600 text-sm font-medium mb-2">SCHOOL (Parent of Department)</label><input type="text" x-model="searchTerms.deptSchool" @focus="dropdowns.deptSchool = true; ensureSchoolsLoaded()" @input.debounce.300ms="selectedDeptSchoolId = null" placeholder="Type to search school..." class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800"><div x-show="dropdowns.deptSchool" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto scrollable-dropdown"><template x-if="isLoading.schools"><div class="px-4 py-2 text-sm text-gray-400">Loading...</div></template><template x-for="option in filteredDeptSchools" :key="option.value"><div @click="selectOption('deptSchool', option.value)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="option.label"></div></template><template x-if="!isLoading.schools && filteredDeptSchools.length === 0"><div class="px-4 py-2 text-sm text-gray-500">No schools found.</div></template></div></div><div class="relative" @click.away="closeDropdownAndValidate('department')"><label class="block text-gray-600 text-sm font-medium mb-2">DEPARTMENT</label><input type="text" x-model="searchTerms.department" @focus="dropdowns.department = true; ensureDepartmentsLoaded()" @input.debounce.300ms="selectedDepartmentId = null" placeholder="Type to search department..." class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800"><div x-show="dropdowns.department" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto scrollable-dropdown"><template x-if="isLoading.departments"><div class="px-4 py-2 text-sm text-gray-400">Loading...</div></template><template x-for="option in filteredDepartments" :key="option.value"><div @click="selectOption('department', option.value)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="option.label"></div></template><template x-if="!isLoading.departments && filteredDepartments.length === 0"><div class="px-4 py-2 text-sm text-gray-500">No departments found.</div></template></div></div></div>
                         <div x-show="selectedBelongsTo === 'administration'" class="mt-4 relative" @click.away="closeDropdownAndValidate('general')"><label class="block text-gray-600 text-sm font-medium mb-2">ADMINISTRATIVE SECTION</label><input type="text" x-model="searchTerms.general" @focus="dropdowns.general = true" @input.debounce.300ms="selectedGeneralOptionId = null" placeholder="Type to search section..." class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800"><div x-show="dropdowns.general" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto scrollable-dropdown"><template x-for="option in filteredGeneral" :key="option.value"><div @click="selectOption('general', option.value)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="option.label"></div></template><template x-if="filteredGeneral.length === 0"><div class="px-4 py-2 text-sm text-gray-500">No sections found.</div></template></div></div>
                     </div>
 
                     <div class="flex justify-end space-x-4 pt-6">
                         <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-md shadow-lg transition-colors duration-300">UPDATE</button>
-                        <button @click="window.location.href='manageHall.html'" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-8 rounded-md shadow-lg transition-colors duration-300">CANCEL</button>
+                        <button type="button" @click="window.location.href='manageHall.html'" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-8 rounded-md shadow-lg transition-colors duration-300">CANCEL</button>
                     </div>
                 </form>
             </div>
@@ -158,8 +158,7 @@
                 close() { 
                     this.show = false; 
                     if (this.isSuccess) {
-                        // Redirect on success
-                        window.location.href = 'manageHall.html'; // Use absolute path
+                        window.location.href = 'manageHall.html';
                     }
                 }
             });
@@ -171,8 +170,7 @@
                 isAvailable: 'yes', unavailabilityReason: '',
                 dropdowns: { features: false, school: false, department: false, deptSchool: false, general: false },
                 searchTerms: { school: '', department: '', deptSchool: '', general: '' },
-                isLoading: { schools: true, departments: true, hall: true },
-                // --- Options now loaded from config.js ---
+                isLoading: { schools: false, departments: false, hall: true },
                 floorOptions: AppConfig.formOptions.floors,
                 zoneOptions: AppConfig.formOptions.zones,
                 featuresOptions: AppConfig.formOptions.features,
@@ -180,58 +178,48 @@
                 unavailabilityOptions: AppConfig.formOptions.unavailabilityReasons,
                 schoolOptions: [], departmentOptions: [],
                 
-                // --- AUTHENTICATION LOGIC ---
-                 
-
                 async fetchWithAuth(url, options = {}) {
                     const headers = getAuthHeaders();
                     if (!headers) {
                         logout();
                         throw new Error('User not authenticated');
                     }
-                    
                     const config = { ...options, headers: {...headers, ...options.headers} };
                     const response = await fetch(url, config);
-
                     if (response.status === 401) {
                         logout();
                         throw new Error('Authentication failed');
                     }
                     return response;
                 },
-                // --- END AUTHENTICATION LOGIC ---
 
                 async init() {
                     if (!getAuthHeaders()) {
-                        console.error("No auth token found. Redirecting to login.");
                         logout();
                         return;
                     }
-
                     const urlParams = new URLSearchParams(window.location.search);
                     this.hallId = urlParams.get('id');
                     if (!this.hallId) {
                         Alpine.store('modal').open(false, 'No Hall ID provided. Cannot modify.');
                         return;
                     }
-                    
-                    await Promise.all([this.fetchSchools(), this.fetchDepartments()]);
                     await this.loadHallData();
                 },
 
                 async loadHallData() {
                     this.isLoading.hall = true;
                     try {
-                        const response = await this.fetchWithAuth(AppConfig.apiBaseUrl + AppConfig.endpoints.allHall);
-                        if (!response.ok) throw new Error('Could not fetch hall list.');
+                        // Fetch the specific hall by its ID
+                        const response = await this.fetchWithAuth(`${AppConfig.apiBaseUrl}${AppConfig.endpoints.hall}/${this.hallId}`);
+                        if (!response.ok) {
+                             const errorBody = await response.json();
+                             throw new Error(errorBody.message || 'Could not fetch hall details.');
+                        }
                         
-                        const data = await response.json();
-                        const hallList = Array.isArray(data) ? data : data.halls || data.data || [];
-                        const hall = hallList.find(h => h.unique_id === this.hallId);
+                        const hall = await response.json();
 
-                        if (!hall) throw new Error('Hall not found.');
-
-                        // Pre-fill form fields
+                        // Pre-fill form fields directly from the fetched hall data
                         document.getElementById('hallName').value = hall.name;
                         document.getElementById('hallCapacity').value = hall.capacity;
                         document.getElementById('assignedTo').value = hall.assigned_to || '';
@@ -253,21 +241,38 @@
                         }
                         
                         this.selectedBelongsTo = hall.belongs_to.toLowerCase();
-                        this.$nextTick(() => {
-                            if (hall.belongs_to === 'SCHOOL') {
-                                this.selectOption('school', hall.school_id);
-                            } else if (hall.belongs_to === 'DEPARTMENT') {
-                                this.selectOption('deptSchool', hall.school_id);
-                                this.selectOption('department', hall.department_id);
-                            } else if (hall.belongs_to === 'ADMINISTRATION') {
-                                this.selectOption('general', hall.section);
-                            }
-                        });
+                        
+                        // Pre-fill search terms and IDs without needing the full dropdown lists yet
+                        if (hall.belongs_to === 'SCHOOL') {
+                            this.selectedSchoolId = hall.school_id;
+                            this.searchTerms.school = hall.school ? hall.school.school_name : 'Unknown School';
+                        } else if (hall.belongs_to === 'DEPARTMENT') {
+                            this.selectedDeptSchoolId = hall.school_id;
+                            this.selectedDepartmentId = hall.department_id;
+                            this.searchTerms.deptSchool = hall.school ? hall.school.school_name : 'Unknown School';
+                            this.searchTerms.department = hall.department ? hall.department.department_name : 'Unknown Department';
+                        } else if (hall.belongs_to === 'ADMINISTRATION') {
+                            this.selectedGeneralOptionId = hall.section;
+                            this.searchTerms.general = this.getLabelById(this.generalOptions, hall.section) || hall.section;
+                        }
 
                     } catch (error) {
                         Alpine.store('modal').open(false, `Error loading hall data: ${error.message}`);
                     } finally {
                         this.isLoading.hall = false;
+                    }
+                },
+                
+                // Lazy-loading functions for dropdowns
+                ensureSchoolsLoaded() {
+                    if (this.schoolOptions.length === 0 && !this.isLoading.schools) {
+                        this.fetchSchools();
+                    }
+                },
+                ensureDepartmentsLoaded() {
+                    this.ensureSchoolsLoaded(); // Departments depend on schools
+                    if (this.departmentOptions.length === 0 && !this.isLoading.departments) {
+                        this.fetchDepartments();
                     }
                 },
 
@@ -288,7 +293,7 @@
                         const d = await response.json(); 
                         this.schoolOptions = d.filter(s => s && s.unique_id && s.school_name).map(s => ({ value: s.unique_id, label: s.school_name })); 
                     } catch (e) { 
-                        Alpine.store('modal').open(false, `Could not load school data: ${e.message}`); 
+                        console.error(`Could not load school data: ${e.message}`); 
                     } finally { 
                         this.isLoading.schools = false; 
                     } 
@@ -301,7 +306,7 @@
                         const d = await response.json(); 
                         this.departmentOptions = d.filter(t => t && t.unique_id && t.department_name && t.school_id).map(t => ({ value: t.unique_id, label: t.department_name, schoolId: t.school_id })); 
                     } catch (e) { 
-                        Alpine.store('modal').open(false, `Could not load department data: ${e.message}`); 
+                        console.error(`Could not load department data: ${e.message}`); 
                     } finally { 
                         this.isLoading.departments = false; 
                     } 
@@ -332,7 +337,6 @@
                     if (type === 'general' && !this.selectedGeneralOptionId) this.searchTerms.general = '';
                     this.dropdowns[type] = false;
                 },
-
 
                 async submitForm() {
                     if (!this.hallType) { Alpine.store('modal').open(false, 'Please select a hall type.'); return; }
@@ -369,8 +373,6 @@
                     else if (this.selectedBelongsTo === 'department') { payload.school_id = this.selectedDeptSchoolId; payload.department_id = this.selectedDepartmentId; } 
                     else if (this.selectedBelongsTo === 'administration') { payload.section = this.selectedGeneralOptionId; }
                     
-                    console.log('Sending Payload:', JSON.stringify(payload, null, 2));
-
                     try {
                         const url = `${AppConfig.apiBaseUrl}${AppConfig.endpoints.hall}/${this.hallId}`;
                         const response = await this.fetchWithAuth(url, { 

@@ -38,8 +38,11 @@
 
                 <div x-show="type === 'department'">
                     <label for="school_id" class="block text-white text-sm font-medium mb-2">Parent School</label>
-                    <select id="school_id" name="school_id" x-model="formData.school_id" class="block w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-gray-800" :required="type === 'department'">
+                    <select id="school_id" name="school_id" x-model="formData.school_id" @focus="ensureSchoolsLoaded" class="block w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-gray-800" :required="type === 'department'">
                         <option value="" disabled>Select a school</option>
+                        <template x-if="isLoadingSchools">
+                            <option value="" disabled>Loading schools...</option>
+                        </template>
                         <template x-for="school in schools" :key="school.unique_id">
                             <option :value="school.unique_id" x-text="school.school_name"></option>
                         </template>
@@ -134,6 +137,7 @@
                 type: '',
                 id: '',
                 isLoading: true,
+                isLoadingSchools: false,
                 errorMessage: '',
                 schools: [],
                 formData: {
@@ -149,9 +153,6 @@
                 notificationMessage: '',
                 notificationSuccess: false,
 
-                // --- AUTHENTICATION LOGIC ---
-                 
-
                 async fetchWithAuth(url, options = {}) {
                     const headers = getAuthHeaders();
                     if (!headers) {
@@ -166,7 +167,6 @@
                     }
                     return response;
                 },
-                // --- END AUTHENTICATION LOGIC ---
 
                 async init() {
                     if (!getAuthHeaders()) {
@@ -186,36 +186,40 @@
                         return;
                     }
                     
-                    if (this.type === 'department') {
-                        await this.fetchSchools();
-                    }
                     await this.fetchDetails();
                 },
 
-                async fetchSchools() {
-                    try {
-                        const response = await this.fetchWithAuth(AppConfig.apiBaseUrl + AppConfig.endpoints.allschool);
-                        if (!response.ok) throw new Error('Could not load schools');
-                        const data = await response.json();
-                        this.schools = (Array.isArray(data) ? data : data.schools || data.data || []).filter(s => s && s.unique_id && s.school_name);
-                    } catch (error) {
-                        this.errorMessage = error.message;
+                async ensureSchoolsLoaded() {
+                    if (this.schools.length <= 1 && !this.isLoadingSchools) {
+                        this.isLoadingSchools = true;
+                        try {
+                            const response = await this.fetchWithAuth(AppConfig.apiBaseUrl + AppConfig.endpoints.allschool);
+                            if (!response.ok) throw new Error('Could not load schools');
+                            const data = await response.json();
+                            this.schools = (Array.isArray(data) ? data : data.schools || data.data || []).filter(s => s && s.unique_id && s.school_name);
+                        } catch (error) {
+                            this.showCustomNotification(error.message, false);
+                        } finally {
+                            this.isLoadingSchools = false;
+                        }
                     }
                 },
 
                 async fetchDetails() {
                     this.isLoading = true;
-                    const listUrl = this.type === 'school' 
-                        ? AppConfig.apiBaseUrl + AppConfig.endpoints.allschool 
-                        : AppConfig.apiBaseUrl + AppConfig.endpoints.alldept;
+                    const endpoint = this.type === 'school' 
+                        ? `${AppConfig.endpoints.school}/${this.id}`
+                        : `${AppConfig.endpoints.department}/${this.id}`;
                     
-                    try {
-                        const response = await this.fetchWithAuth(listUrl);
-                        if (!response.ok) throw new Error('Could not fetch item details.');
-                        const data = await response.json();
+                    const url = AppConfig.apiBaseUrl + endpoint;
 
-                        const list = Array.isArray(data) ? data : (data.schools || data.departments || data.data || []);
-                        const item = list.find(d => d.unique_id === this.id);
+                    try {
+                        const response = await this.fetchWithAuth(url);
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            throw new Error(errorData.message || 'Could not fetch item details.');
+                        }
+                        const item = await response.json();
 
                         if (!item) throw new Error('Item not found.');
                         
@@ -226,6 +230,18 @@
                             this.formData.name = item.department_name;
                             this.formData.school_id = item.school_id;
                             this.formData.incharge_contact = item.incharge_contact_mobile || item.incharge_contact_number;
+                            
+                            // If a school_id exists, fetch that specific school to pre-populate the name
+                            if (item.school_id) {
+                                const schoolResponse = await this.fetchWithAuth(`${AppConfig.apiBaseUrl}${AppConfig.endpoints.school}/${item.school_id}`);
+                                if (schoolResponse.ok) {
+                                    const schoolData = await schoolResponse.json();
+                                    this.schools = [{
+                                        unique_id: schoolData.unique_id,
+                                        school_name: schoolData.school_name
+                                    }];
+                                }
+                            }
                         }
                         this.formData.incharge_name = item.incharge_name;
                         this.formData.designation = item.designation;
@@ -248,12 +264,16 @@
                 closeNotification() {
                     this.showNotification = false;
                     if (this.notificationSuccess) {
-                        window.location.href = 'manageSD.html'; // Absolute path
+                        window.location.href = 'manageSD.html';
                     }
                 },
 
                 async submitForm() {
-                    const url = `${AppConfig.apiBaseUrl}${AppConfig.endpoints.school}/${this.id}`;
+                    const endpoint = this.type === 'school'
+                        ? `${AppConfig.endpoints.school}/${this.id}`
+                        : `${AppConfig.endpoints.department}/${this.id}`;
+                    const url = AppConfig.apiBaseUrl + endpoint;
+                    
                     let payload = {};
 
                     if (this.type === 'school') {
@@ -285,9 +305,9 @@
                             body: JSON.stringify(payload)
                         });
 
+                        const result = await response.json();
                         if (!response.ok) {
-                            const errorText = await response.text();
-                            throw new Error(`Update failed: ${errorText}`);
+                            throw new Error(result.message || `Update failed`);
                         }
                         
                         this.showCustomNotification('Update successful!', true);
