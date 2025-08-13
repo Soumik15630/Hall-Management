@@ -117,7 +117,7 @@
 
             <!-- Floating Action Button (Mobile Only) -->
             <div class="fixed bottom-24 right-4 z-30 md:hidden">
-                <a href="addEmployee.html" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform transform hover:scale-110 active:scale-95">
+                <a href="employee.html" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform transform hover:scale-110 active:scale-95">
                     <i class="fas fa-plus text-xl"></i>
                 </a>
             </div>
@@ -443,18 +443,21 @@
 
                     const employeeData = await employeeResponse.json();
                     
-                    // Create maps for quick lookup of school and department names for displaying employee details
-                    // These maps will be built from the employee data itself, as full lists are not loaded initially
-                    const schoolMap = new Map();
-                    const departmentMap = new Map();
-                    employeeData.forEach(emp => {
-                        if (emp.school?.unique_id && emp.school?.school_name) {
-                            schoolMap.set(emp.school.unique_id, emp.school.school_name);
-                        }
-                        if (emp.department?.unique_id && emp.department?.department_name) {
-                            departmentMap.set(emp.department.unique_id, emp.department.department_name);
-                        }
-                    });
+                    // Fetch all schools and departments to ensure comprehensive mapping
+                    const [schoolResponse, departmentResponse] = await Promise.all([
+                        this.fetchWithAuth(AppConfig.apiBaseUrl + AppConfig.endpoints.allschool),
+                        this.fetchWithAuth(AppConfig.apiBaseUrl + AppConfig.endpoints.alldept)
+                    ]);
+
+                    if (!schoolResponse.ok) throw new Error(`Schools API Error: ${schoolResponse.statusText}`);
+                    if (!departmentResponse.ok) throw new Error(`Departments API Error: ${departmentResponse.statusText}`);
+                    
+                    const schoolsData = await schoolResponse.json();
+                    const departmentsData = await departmentResponse.json();
+
+                    // Create maps for quick lookup using the complete data
+                    const schoolMap = new Map(schoolsData.map(s => [s.unique_id, s.school_name]));
+                    const departmentMap = new Map(departmentsData.map(d => [d.unique_id, d.department_name]));
 
                     this.employees = employeeData.map(emp => {
                         let primaryOwner = 'N/A', secondaryOwner = '';
@@ -464,8 +467,10 @@
                             const section = this.sectionOptions.find(s => s.value === emp.section);
                             secondaryOwner = section ? section.label : (emp.section || '');
                         } else if (emp.belongs_to === 'SCHOOL') {
+                            // Use the comprehensive schoolMap for lookup
                             primaryOwner = schoolMap.get(emp.school_id) || 'Unknown School'; 
                         } else if (emp.belongs_to === 'DEPARTMENT') {
+                            // Use the comprehensive schoolMap and departmentMap for lookup
                             primaryOwner = schoolMap.get(emp.school_id) || 'Unknown School'; 
                             secondaryOwner = departmentMap.get(emp.department_id) || 'Unknown Department'; 
                         }
