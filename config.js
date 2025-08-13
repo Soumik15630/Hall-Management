@@ -145,7 +145,6 @@ const AppConfig = {
             { value: 'REGISTER', label: 'Registrar' },
             { value: 'FACULTY', label: 'Faculty' },
             { value: 'OTHERS', label: 'Others' },
-            { value: 'OTHRS', label: 'lunders' }
         ],
     }
 };
