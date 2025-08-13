@@ -167,7 +167,7 @@
                 }
             });
 
-            Alpine.data('modifyHallForm', () => ({
+            Alpine.data('addHallForm', () => ({
                 hallId: null,
                 hallType: '', selectedFeatures: [], selectedBelongsTo: '',
                 selectedSchoolId: null, selectedDepartmentId: null, selectedDeptSchoolId: null, selectedGeneralOptionId: null,
@@ -210,69 +210,10 @@
                         logout();
                         return;
                     }
-
-                    const urlParams = new URLSearchParams(window.location.search);
-                    this.hallId = urlParams.get('id');
-                    if (!this.hallId) {
-                        Alpine.store('modal').open(false, 'No Hall ID provided. Cannot modify.');
-                        return;
-                    }
                     
                     await Promise.all([this.fetchSchools(), this.fetchDepartments()]);
-                    await this.loadHallData();
                 },
 
-                async loadHallData() {
-                    this.isLoading.hall = true;
-                    try {
-                        const response = await this.fetchWithAuth(AppConfig.apiBaseUrl + AppConfig.endpoints.allHall);
-                        if (!response.ok) throw new Error('Could not fetch hall list.');
-                        
-                        const data = await response.json();
-                        const hallList = Array.isArray(data) ? data : data.halls || data.data || [];
-                        const hall = hallList.find(h => h.unique_id === this.hallId);
-
-                        if (!hall) throw new Error('Hall not found.');
-
-                        // Pre-fill form fields
-                        document.getElementById('hallName').value = hall.name;
-                        document.getElementById('hallCapacity').value = hall.capacity;
-                        document.getElementById('assignedTo').value = hall.assigned_to || '';
-                        document.getElementById('floor').value = hall.floor.toLowerCase();
-                        document.getElementById('zone').value = hall.zone.toLowerCase();
-                        document.getElementById('latitude').value = hall.latitude;
-                        document.getElementById('longitude').value = hall.longitude;
-                        
-                        const apiType = hall.type.toUpperCase();
-                        if (apiType === 'AUDITORIUM') this.hallType = 'auditorium';
-                        else if (apiType === 'CONFERENCE') this.hallType = 'conference_room';
-                        else if (apiType === 'LECTURE') this.hallType = 'lecture_hall';
-                        else if (apiType === 'SEMINAR') this.hallType = 'seminar_hall';
-
-                        this.selectedFeatures = hall.features || [];
-                        this.isAvailable = hall.availability ? 'yes' : 'no';
-                        if (!hall.availability) {
-                            this.unavailabilityReason = hall.unavailability_reason;
-                        }
-                        
-                        this.selectedBelongsTo = hall.belongs_to.toLowerCase();
-                        this.$nextTick(() => {
-                            if (hall.belongs_to === 'SCHOOL') {
-                                this.selectOption('school', hall.school_id);
-                            } else if (hall.belongs_to === 'DEPARTMENT') {
-                                this.selectOption('deptSchool', hall.school_id);
-                                this.selectOption('department', hall.department_id);
-                            } else if (hall.belongs_to === 'ADMINISTRATION') {
-                                this.selectOption('general', hall.section);
-                            }
-                        });
-
-                    } catch (error) {
-                        Alpine.store('modal').open(false, `Error loading hall data: ${error.message}`);
-                    } finally {
-                        this.isLoading.hall = false;
-                    }
-                },
 
                 get filteredSchools() { return this.schoolOptions.filter(o => o.label.toLowerCase().includes(this.searchTerms.school.toLowerCase())); },
                 get filteredDeptSchools() { return this.schoolOptions.filter(o => o.label.toLowerCase().includes(this.searchTerms.deptSchool.toLowerCase())); },
@@ -342,7 +283,7 @@
 
                 async submitForm() {
                     if (!this.hallType) { Alpine.store('modal').open(false, 'Please select a hall type.'); return; }
-                    const form = document.getElementById('modifyHallForm');
+                    const form = document.getElementById('addHallForm');
                     if (!form.checkValidity()) { 
                         Alpine.store('modal').open(false, 'Please fill out all required fields.');
                         form.reportValidity(); 
@@ -378,9 +319,9 @@
                     console.log('Sending Payload:', JSON.stringify(payload, null, 2));
 
                     try {
-                        const url = `${AppConfig.apiBaseUrl}${AppConfig.endpoints.hall}/${this.hallId}`;
+                        const url = `${AppConfig.apiBaseUrl}${AppConfig.endpoints.addHall}`;
                         const response = await this.fetchWithAuth(url, { 
-                            method: 'PUT',
+                            method: 'POST',
                             body: JSON.stringify(payload) 
                         });
                         
@@ -388,9 +329,9 @@
                         if (!response.ok) { 
                             throw new Error(result.message || `HTTP error! ${response.status}`);
                         }
-                        Alpine.store('modal').open(true, 'Hall updated successfully!');
+                        Alpine.store('modal').open(true, 'Hall added successfully!');
                     } catch (error) {
-                        Alpine.store('modal').open(false, `Failed to update hall. ${error.message}`);
+                        Alpine.store('modal').open(false, `Failed to add hall. ${error.message}`);
                     }
                 }
             }));

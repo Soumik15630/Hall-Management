@@ -535,7 +535,7 @@
                     if (this.bookingType === 'SEMESTER') payload.days_of_week = this.selectedDays;
                     
                     try {
-                        const url = AppConfig.apiBaseUrl + AppConfig.endpoints.requestBooking;
+                        const url = AppConfig.apiBaseUrl + AppConfig.endpoints.bookingRequest;
                         const response = await fetch(url, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(payload) });
                         
                         if (!response.ok) {
