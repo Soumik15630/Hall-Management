@@ -15,10 +15,7 @@
             background-image: linear-gradient(to right, #14555F, #0B1940);
             background-attachment: fixed;
         }
-        .scrollable-dropdown::-webkit-scrollbar { width: 8px; }
-        .scrollable-dropdown::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
-        .scrollable-dropdown::-webkit-scrollbar-thumb { background: #888; border-radius: 10px; }
-        .scrollable-dropdown::-webkit-scrollbar-thumb:hover { background: #555; }
+        /* Removed scrollable-dropdown styles for features dropdown as it will now be a grid */
         select:not([multiple]) {
             -webkit-appearance: none;
             -moz-appearance: none;
@@ -91,8 +88,16 @@
                             <div class="md:col-span-2 relative" @click.away="dropdowns.features = false">
                                 <label class="block text-gray-600 text-sm font-medium mb-2">FEATURES</label>
                                 <button type="button" @click="toggleDropdown('features')" class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800 text-left flex justify-between items-center"><span class="truncate" x-text="selectedFeatures.length === 0 ? 'Click to add features' : selectedFeatures.map(f => featuresOptions.find(o => o.value === f)?.label || f).join(', ')"></span><i class="fas fa-chevron-down text-sm" :class="{ 'rotate-180': dropdowns.features }"></i></button>
-                                <div x-show="dropdowns.features" x-transition class="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto scrollable-dropdown">
-                                    <template x-for="feature in featuresOptions" :key="feature.value"><label class="flex items-center px-4 py-2 hover:bg-gray-100 cursor-pointer text-gray-800"><input type="checkbox" :value="feature.value" x-model="selectedFeatures" class="mr-2 h-4 w-4 text-indigo-500 bg-gray-100 border-gray-300 focus:ring-indigo-500 rounded"><span x-text="feature.label"></span></label></template>
+                                <!-- Features dropdown now in grid layout -->
+                                <div x-show="dropdowns.features" x-transition class="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg p-2">
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <template x-for="feature in featuresOptions" :key="feature.value">
+                                            <label class="flex items-center px-2 py-2 hover:bg-gray-100 cursor-pointer text-gray-800 rounded-md">
+                                                <input type="checkbox" :value="feature.value" x-model="selectedFeatures" class="mr-2 h-4 w-4 text-indigo-500 bg-gray-100 border-gray-300 focus:ring-indigo-500 rounded">
+                                                <span x-text="feature.label" class="text-sm"></span>
+                                            </label>
+                                        </template>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -101,15 +106,28 @@
                     <div class="bg-white p-6 rounded-lg shadow-md">
                         <h3 class="text-xl font-semibold text-gray-800 mb-4 border-b border-gray-200 pb-2">Ownership & Availability</h3>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div><label for="belongsTo" class="block text-gray-600 text-sm font-medium mb-2">BELONGS TO</label><select id="belongsTo" name="belongs_to" class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800" x-model="selectedBelongsTo" required><option value="" disabled>Select Type</option><option value="school">School</option><option value="department">Department</option><option value="administration">Administration</option></select></div>
+                            <div class="md:col-span-2"> <!-- Ensures it spans full width -->
+                                <label for="belongsTo" class="block text-gray-600 text-sm font-medium mb-2">BELONGS TO</label>
+                                <select id="belongsTo" name="belongs_to" class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800" x-model="selectedBelongsTo" required>
+                                    <option value="" disabled>Select Type</option>
+                                    <option value="school">School</option>
+                                    <option value="department">Department</option>
+                                    <option value="administration">Administration</option>
+                                </select>
+                            </div>
+                            </div>
+                        <div x-show="selectedBelongsTo === 'school'" class="mt-4 relative" @click.away="closeDropdownAndValidate('school')"><label class="block text-gray-600 text-sm font-medium mb-2">SCHOOL NAME</label><input type="text" x-model="searchTerms.school" @focus="dropdowns.school = true; if(schoolOptions.length === 0) fetchSchools();" @input.debounce.300ms="selectedSchoolId = null" placeholder="Type to search school..." class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800"><div x-show="dropdowns.school" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto scrollable-dropdown"><template x-if="isLoading.schools"><div class="px-4 py-2 text-sm text-gray-400">Loading...</div></template><template x-for="option in filteredSchools" :key="option.value"><div @click="selectOption('school', option.value)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="option.label"></div></template><template x-if="!isLoading.schools && filteredSchools.length === 0"><div class="px-4 py-2 text-sm text-gray-500">No schools found.</div></template></div></div>
+                        <div x-show="selectedBelongsTo === 'department'" class="mt-4 space-y-4"><div class="relative" @click.away="closeDropdownAndValidate('deptSchool')"><label class="block text-gray-600 text-sm font-medium mb-2">SCHOOL (Parent of Department)</label><input type="text" x-model="searchTerms.deptSchool" @focus="dropdowns.deptSchool = true; if(schoolOptions.length === 0) fetchSchools();" @input.debounce.300ms="selectedDeptSchoolId = null" placeholder="Type to search school..." class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800"><div x-show="dropdowns.deptSchool" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto scrollable-dropdown"><template x-if="isLoading.schools"><div class="px-4 py-2 text-sm text-gray-400">Loading...</div></template><template x-for="option in filteredDeptSchools" :key="option.value"><div @click="selectOption('deptSchool', option.value)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="option.label"></div></template><template x-if="!isLoading.schools && filteredDeptSchools.length === 0"><div class="px-4 py-2 text-sm text-gray-500">No schools found.</div></template></div></div><div class="relative" @click.away="closeDropdownAndValidate('department')"><label class="block text-gray-600 text-sm font-medium mb-2">DEPARTMENT</label><input type="text" x-model="searchTerms.department" @focus="dropdowns.department = true; if(departmentOptions.length === 0) fetchDepartments();" @input.debounce.300ms="selectedDepartmentId = null" placeholder="Type to search department..." class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800"><div x-show="dropdowns.department" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto scrollable-dropdown"><template x-if="isLoading.departments"><div class="px-4 py-2 text-sm text-gray-400">Loading...</div></template><template x-for="option in filteredDepartments" :key="option.value"><div @click="selectOption('department', option.value)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="option.label"></div></template><template x-if="!isLoading.departments && filteredDepartments.length === 0"><div class="px-4 py-2 text-sm text-gray-500">No departments found.</div></template></div></div></div>
+                        <div x-show="selectedBelongsTo === 'administration'" class="mt-4 relative" @click.away="closeDropdownAndValidate('general')"><label class="block text-gray-600 text-sm font-medium mb-2">ADMINISTRATIVE SECTION</label><input type="text" x-model="searchTerms.general" @focus="dropdowns.general = true" @input.debounce.300ms="selectedGeneralOptionId = null" placeholder="Type to search section..." class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800"><div x-show="dropdowns.general" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto scrollable-dropdown"><template x-for="option in filteredGeneral" :key="option.value"><div @click="selectOption('general', option.value)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="option.label"></div></template><template x-if="filteredGeneral.length === 0"><div class="px-4 py-2 text-sm text-gray-500">No sections found.</div></template></div></div>
+                        
                             <div>
-                                <label class="block text-gray-600 text-sm font-medium mb-2">AVAILABILITY</label>
+                                <label class="block text-gray-600 text-sm font-medium mb-2 pt-3">AVAILABILITY</label>
                                 <div class="flex items-center space-x-2 mt-2">
                                     <button type="button" @click="isAvailable = 'yes'" :class="{'bg-green-600 text-white shadow-lg': isAvailable === 'yes', 'bg-gray-200 text-gray-700 hover:bg-gray-300': isAvailable !== 'yes'}" class="flex-1 py-2 px-3 text-center rounded-md text-sm font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">Available</button>
                                     <button type="button" @click="isAvailable = 'no'" :class="{'bg-red-600 text-white shadow-lg': isAvailable === 'no', 'bg-gray-200 text-gray-700 hover:bg-gray-300': isAvailable !== 'no'}" class="flex-1 py-2 px-3 text-center rounded-md text-sm font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">Unavailable</button>
                                 </div>
                             </div>
-                        </div>
+                        
                         <div x-show="isAvailable === 'no'" x-transition class="mt-4">
                             <label for="unavailabilityReason" class="block text-gray-600 text-sm font-medium mb-2">REASON FOR UNAVAILABILITY</label>
                             <select id="unavailabilityReason" name="unavailability_reason" x-model="unavailabilityReason" class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800">
@@ -119,10 +137,7 @@
                                 </template>
                             </select>
                         </div>
-                        <div x-show="selectedBelongsTo === 'school'" class="mt-4 relative" @click.away="closeDropdownAndValidate('school')"><label class="block text-gray-600 text-sm font-medium mb-2">SCHOOL NAME</label><input type="text" x-model="searchTerms.school" @focus="dropdowns.school = true; ensureSchoolsLoaded()" @input.debounce.300ms="selectedSchoolId = null" placeholder="Type to search school..." class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800"><div x-show="dropdowns.school" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto scrollable-dropdown"><template x-if="isLoading.schools"><div class="px-4 py-2 text-sm text-gray-400">Loading...</div></template><template x-for="option in filteredSchools" :key="option.value"><div @click="selectOption('school', option.value)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="option.label"></div></template><template x-if="!isLoading.schools && filteredSchools.length === 0"><div class="px-4 py-2 text-sm text-gray-500">No schools found.</div></template></div></div>
-                        <div x-show="selectedBelongsTo === 'department'" class="mt-4 space-y-4"><div class="relative" @click.away="closeDropdownAndValidate('deptSchool')"><label class="block text-gray-600 text-sm font-medium mb-2">SCHOOL (Parent of Department)</label><input type="text" x-model="searchTerms.deptSchool" @focus="dropdowns.deptSchool = true; ensureSchoolsLoaded()" @input.debounce.300ms="selectedDeptSchoolId = null" placeholder="Type to search school..." class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800"><div x-show="dropdowns.deptSchool" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto scrollable-dropdown"><template x-if="isLoading.schools"><div class="px-4 py-2 text-sm text-gray-400">Loading...</div></template><template x-for="option in filteredDeptSchools" :key="option.value"><div @click="selectOption('deptSchool', option.value)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="option.label"></div></template><template x-if="!isLoading.schools && filteredDeptSchools.length === 0"><div class="px-4 py-2 text-sm text-gray-500">No schools found.</div></template></div></div><div class="relative" @click.away="closeDropdownAndValidate('department')"><label class="block text-gray-600 text-sm font-medium mb-2">DEPARTMENT</label><input type="text" x-model="searchTerms.department" @focus="dropdowns.department = true; ensureDepartmentsLoaded()" @input.debounce.300ms="selectedDepartmentId = null" placeholder="Type to search department..." class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800"><div x-show="dropdowns.department" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto scrollable-dropdown"><template x-if="isLoading.departments"><div class="px-4 py-2 text-sm text-gray-400">Loading...</div></template><template x-for="option in filteredDepartments" :key="option.value"><div @click="selectOption('department', option.value)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="option.label"></div></template><template x-if="!isLoading.departments && filteredDepartments.length === 0"><div class="px-4 py-2 text-sm text-gray-500">No departments found.</div></template></div></div></div>
-                        <div x-show="selectedBelongsTo === 'administration'" class="mt-4 relative" @click.away="closeDropdownAndValidate('general')"><label class="block text-gray-600 text-sm font-medium mb-2">ADMINISTRATIVE SECTION</label><input type="text" x-model="searchTerms.general" @focus="dropdowns.general = true" @input.debounce.300ms="selectedGeneralOptionId = null" placeholder="Type to search section..." class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800"><div x-show="dropdowns.general" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto scrollable-dropdown"><template x-for="option in filteredGeneral" :key="option.value"><div @click="selectOption('general', option.value)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="option.label"></div></template><template x-if="filteredGeneral.length === 0"><div class="px-4 py-2 text-sm text-gray-500">No sections found.</div></template></div></div>
-                    </div>
+                        </div>
 
                     <div class="flex justify-end space-x-4 pt-6">
                         <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-md shadow-lg transition-colors duration-300">UPDATE</button>
@@ -170,13 +185,14 @@
                 isAvailable: 'yes', unavailabilityReason: '',
                 dropdowns: { features: false, school: false, department: false, deptSchool: false, general: false },
                 searchTerms: { school: '', department: '', deptSchool: '', general: '' },
-                isLoading: { schools: false, departments: false, hall: true },
+                isLoading: { schools: false, departments: false, hall: true }, // Set to false initially for schools/departments
                 floorOptions: AppConfig.formOptions.floors,
                 zoneOptions: AppConfig.formOptions.zones,
                 featuresOptions: AppConfig.formOptions.features,
                 generalOptions: AppConfig.formOptions.generalSections,
                 unavailabilityOptions: AppConfig.formOptions.unavailabilityReasons,
-                schoolOptions: [], departmentOptions: [],
+                schoolOptions: [], 
+                departmentOptions: [],
                 
                 async fetchWithAuth(url, options = {}) {
                     const headers = getAuthHeaders();
@@ -242,18 +258,18 @@
                         
                         this.selectedBelongsTo = hall.belongs_to.toLowerCase();
                         
-                        // Pre-fill search terms and IDs without needing the full dropdown lists yet
+                        // Pre-fill search terms and IDs directly from the hall object's nested data
                         if (hall.belongs_to === 'SCHOOL') {
                             this.selectedSchoolId = hall.school_id;
-                            this.searchTerms.school = hall.school ? hall.school.school_name : 'Unknown School';
+                            this.searchTerms.school = hall.school?.school_name || ''; // Use optional chaining
                         } else if (hall.belongs_to === 'DEPARTMENT') {
                             this.selectedDeptSchoolId = hall.school_id;
                             this.selectedDepartmentId = hall.department_id;
-                            this.searchTerms.deptSchool = hall.school ? hall.school.school_name : 'Unknown School';
-                            this.searchTerms.department = hall.department ? hall.department.department_name : 'Unknown Department';
+                            this.searchTerms.deptSchool = hall.school?.school_name || ''; // Use optional chaining
+                            this.searchTerms.department = hall.department?.department_name || ''; // Use optional chaining
                         } else if (hall.belongs_to === 'ADMINISTRATION') {
                             this.selectedGeneralOptionId = hall.section;
-                            this.searchTerms.general = this.getLabelById(this.generalOptions, hall.section) || hall.section;
+                            this.searchTerms.general = this.generalOptions.find(s => s.value === hall.section)?.label || hall.section || ''; // Find label or use raw section
                         }
 
                     } catch (error) {
@@ -270,20 +286,31 @@
                     }
                 },
                 ensureDepartmentsLoaded() {
-                    this.ensureSchoolsLoaded(); // Departments depend on schools
+                    // Departments depend on schools, so ensure schools are loaded first
+                    this.ensureSchoolsLoaded(); 
                     if (this.departmentOptions.length === 0 && !this.isLoading.departments) {
                         this.fetchDepartments();
                     }
                 },
 
-                get filteredSchools() { return this.schoolOptions.filter(o => o.label.toLowerCase().includes(this.searchTerms.school.toLowerCase())); },
-                get filteredDeptSchools() { return this.schoolOptions.filter(o => o.label.toLowerCase().includes(this.searchTerms.deptSchool.toLowerCase())); },
+                get filteredSchools() { 
+                    const searchTerm = this.searchTerms.school || '';
+                    return this.schoolOptions.filter(o => o.label.toLowerCase().includes(searchTerm.toLowerCase())); 
+                },
+                get filteredDeptSchools() { 
+                    const searchTerm = this.searchTerms.deptSchool || '';
+                    return this.schoolOptions.filter(o => o.label.toLowerCase().includes(searchTerm.toLowerCase())); 
+                },
                 get filteredDepartments() {
                     let depts = this.departmentOptions;
                     if (this.selectedDeptSchoolId) { depts = depts.filter(d => d.schoolId === this.selectedDeptSchoolId); }
-                    return depts.filter(o => o.label.toLowerCase().includes(this.searchTerms.department.toLowerCase()));
+                    const searchTerm = this.searchTerms.department || '';
+                    return depts.filter(o => o.label.toLowerCase().includes(searchTerm.toLowerCase()));
                 },
-                get filteredGeneral() { return this.generalOptions.filter(o => o.label.toLowerCase().includes(this.searchTerms.general.toLowerCase())); },
+                get filteredGeneral() { 
+                    const searchTerm = this.searchTerms.general || '';
+                    return this.generalOptions.filter(o => o.label.toLowerCase().includes(searchTerm.toLowerCase())); 
+                },
                 
                 async fetchSchools() { 
                     this.isLoading.schools = true; 
