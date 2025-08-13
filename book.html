@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Book Hall</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Assuming config.js contains AppConfig and auth functions -->
     <script src="config.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
@@ -63,7 +64,10 @@
         .slot-pending { 
             background-color: #fef9c3; 
             border: 1px solid #fde047; 
-            cursor: not-allowed; 
+            cursor: pointer; 
+        }
+        .slot-pending:hover {
+            background-color: #fef08a;
         }
         .slot-past { 
             background-color: #e5e7eb; 
@@ -92,6 +96,7 @@
 </head>
 <body class="min-h-screen flex flex-col">
 
+    <!-- Placeholders for header and navigation, loaded by layout.js -->
     <div id="header-placeholder"></div>
     <div id="nav-placeholder"></div>
 
@@ -100,13 +105,17 @@
             <div class="bg-[rgba(0,0,0,0.15)] p-4 sm:p-8 rounded-lg shadow-xl">
                 <h2 class="text-3xl font-bold text-center text-white mb-8">HALL BOOKING</h2>
                 
+                <!-- Loading State -->
                 <template x-if="isLoading">
                     <p class="text-center text-white py-10">Loading schedule...</p>
                 </template>
+                <!-- Error Message -->
                 <div x-show="!isLoading && errorMessage" class="text-center text-red-400 bg-red-100 p-4 rounded-md" x-text="errorMessage"></div>
 
+                <!-- Main Content -->
                 <template x-if="!isLoading && !errorMessage">
                     <div x-cloak>
+                        <!-- Calendar Section -->
                         <section class="bg-white p-6 rounded-lg shadow-md mb-8">
                             <h3 class="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">Hall Availability</h3>
                             <div class="flex justify-between items-center mb-4">
@@ -120,8 +129,10 @@
                             </div>
 
                             <div class="calendar-grid">
+                                <!-- Top-left empty cell -->
                                 <div></div>
 
+                                <!-- Date Headers (Horizontally scrollable) -->
                                 <div class="overflow-x-auto hide-scrollbar"
                                      x-ref="headerScroller"
                                      @scroll="$refs.bodyScroller.scrollLeft = $refs.headerScroller.scrollLeft">
@@ -130,14 +141,14 @@
                                             <div class="text-center">
                                                 <div class="text-sm font-semibold" 
                                                      :class="{
-                                                        'date-header-day': day.dayName === 'Sun',
-                                                        'date-header-saturday': day.dayName === 'Sat'
+                                                         'date-header-day': day.dayName === 'Sun',
+                                                         'date-header-saturday': day.dayName === 'Sat'
                                                      }" 
                                                      x-text="day.date"></div>
                                                 <div class="text-xs text-gray-500" 
                                                      :class="{
-                                                        'date-header-day': day.dayName === 'Sun',
-                                                        'date-header-saturday': day.dayName === 'Sat'
+                                                         'date-header-day': day.dayName === 'Sun',
+                                                         'date-header-saturday': day.dayName === 'Sat'
                                                      }" 
                                                      x-text="day.dayName"></div>
                                             </div>
@@ -145,12 +156,14 @@
                                     </div>
                                 </div>
 
+                                <!-- Time Labels (Vertically aligned) -->
                                 <div class="grid grid-cols-1 gap-1 pr-4">
                                     <template x-for="time in timeSlots" :key="time">
                                         <div class="text-sm text-right text-gray-600 h-10 flex items-center justify-end" x-text="formatTimeForDisplay(time)"></div>
                                     </template>
                                 </div>
 
+                                <!-- Calendar Body (Scrolls with header) -->
                                 <div class="grid grid-cols-1 overflow-x-auto"
                                      x-ref="bodyScroller"
                                      @scroll="$refs.headerScroller.scrollLeft = $refs.bodyScroller.scrollLeft">
@@ -164,7 +177,8 @@
                                 </div>
                             </div>
 
-                            <div class="flex justify-center items-center space-x-4 mt-4 text-sm">
+                            <!-- Legend -->
+                            <div class="flex flex-wrap justify-center items-center space-x-4 mt-4 text-sm">
                                 <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 slot-available-weekday"></span> Available (Weekday)</div>
                                 <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 slot-available-weekend"></span> Available (Weekend)</div>
                                 <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 slot-pending"></span> Pending</div>
@@ -174,6 +188,7 @@
                             </div>
                         </section>
 
+                        <!-- Booking Form -->
                         <form id="bookingForm" @submit.prevent="submitBooking" class="space-y-8">
                             <section class="bg-white p-6 rounded-lg shadow-md">
                                 <h3 class="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">Booking Details</h3>
@@ -241,8 +256,10 @@
         </div>
     </main>
 
+    <!-- Placeholder for the footer, loaded by layout.js -->
     <div id="footer-placeholder"></div>
     
+    <!-- Global Modal -->
     <div x-data x-show="$store.modal.show" @click.away="$store.modal.close()" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm text-center">
             <div x-show="$store.modal.isSuccess" class="text-5xl mb-4 text-green-500"><i class="fas fa-check-circle"></i></div>
@@ -254,16 +271,22 @@
 
     <script>
         document.addEventListener('alpine:init', () => {
+            // Global store for the modal
             Alpine.store('modal', {
                 show: false,
                 isSuccess: false,
                 message: '',
                 open(isSuccess, message) { this.isSuccess = isSuccess; this.message = message; this.show = true; },
-                close() { this.show = false; 
-                    window.location.replace('bookBrowse.html');
+                close() { 
+                    this.show = false; 
+                    // Redirect after closing the modal on success
+                    if (this.isSuccess) {
+                        window.location.replace('bookBrowse.html');
+                    }
                 }
             });
 
+            // Main component logic for the booking form
             Alpine.data('bookingForm', () => ({
                 isLoading: true,
                 errorMessage: '',
@@ -279,8 +302,8 @@
                 calendar: { year: 0, month: 0, monthName: '', days: [] },
                 processedBookings: {},
                 isDragging: false,
-                dragSelectionMode: 'add',
-                dragDate: null,
+                dragSelectionMode: 'add', // 'add' or 'remove'
+                dragDate: null, // To ensure dragging only happens on one day at a time
                 timeSlots: ['09:30', '10:30', '11:30', '12:30', '13:30', '14:30', '15:30', '16:30'],
                 daysOfWeek: [
                     { label: 'Sun', value: 'SUNDAY' }, { label: 'Mon', value: 'MONDAY' },
@@ -289,6 +312,7 @@
                     { label: 'Sat', value: 'SATURDAY' }
                 ],
                 
+                // Initialization function
                 async init() {
                     const urlParams = new URLSearchParams(window.location.search);
                     this.hallId = urlParams.get('hall_id');
@@ -298,6 +322,9 @@
                         return;
                     }
                     try {
+                        // Fetch pending bookings first
+                        await this.fetchPendingBookings(this.hallId);
+                        // Then fetch confirmed bookings (which will overwrite pending status if necessary)
                         await this.fetchScheduleData(this.hallId);
                         this.generateCalendar();
                         this.setTodaysDate();
@@ -308,10 +335,11 @@
                     }
                 },
 
+                // Wrapper for fetch to include authentication
                 async fetchWithAuth(url, options = {}) {
-                    const headers = getAuthHeaders();
+                    const headers = getAuthHeaders(); // Assumed from config.js
                     if (!headers) { logout(); throw new Error('User not authenticated'); }
-                    const config = { ...options, headers: {...headers, ...options.headers} };
+                    const config = { ...options, headers: {...headers, ...options.headers, 'Content-Type': 'application/json'} };
                     const response = await fetch(url, config);
                     if (response.status === 401) { logout(); throw new Error('Authentication failed'); }
                     if (!response.ok) {
@@ -320,17 +348,18 @@
                     }
                     return response.json();
                 },
-
-                async fetchScheduleData(hallId) {
-                    const url = AppConfig.apiBaseUrl + AppConfig.endpoints.getHallSchedule + hallId;
-                    const scheduleData = await this.fetchWithAuth(url);
-                    this.processedBookings = {};
-                    if (scheduleData.data) {
-                        scheduleData.data.forEach(booking => {
+                
+                // Fetches and processes PENDING booking data from the API
+                async fetchPendingBookings(hallId) {
+                    // Assumes a new endpoint for pending bookings in config.js
+                    const url = AppConfig.apiBaseUrl + AppConfig.endpoints.pendingBook + hallId;
+                    const pendingData = await this.fetchWithAuth(url);
+                    if (pendingData.data) {
+                        pendingData.data.forEach(booking => {
                             let currentTime = new Date(booking.start_time);
                             const endDate = new Date(booking.end_time);
                             
-                            while (currentTime <= endDate) {
+                            while (currentTime < endDate) {
                                 const dateKey = currentTime.toISOString().split('T')[0];
                                 const hours = String(currentTime.getUTCHours()).padStart(2, '0');
                                 const minutes = String(currentTime.getUTCMinutes()).padStart(2, '0');
@@ -338,7 +367,7 @@
 
                                 if (this.timeSlots.includes(timeKey)) {
                                     if (!this.processedBookings[dateKey]) this.processedBookings[dateKey] = {};
-                                    this.processedBookings[dateKey][timeKey] = 'booked';
+                                    this.processedBookings[dateKey][timeKey] = 'pending';
                                 }
                                 
                                 currentTime.setUTCHours(currentTime.getUTCHours() + 1);
@@ -347,12 +376,43 @@
                     }
                 },
 
+                // Fetches and processes CONFIRMED booking data from the API
+                async fetchScheduleData(hallId) {
+                    const url = AppConfig.apiBaseUrl + AppConfig.endpoints.getHallSchedule + hallId;
+                    const scheduleData = await this.fetchWithAuth(url);
+                    if (scheduleData.data) {
+                        scheduleData.data.forEach(booking => {
+                            // Assuming start_time and end_time are full ISO strings
+                            let currentTime = new Date(booking.start_time);
+                            const endDate = new Date(booking.end_time);
+                            
+                            while (currentTime < endDate) {
+                                const dateKey = currentTime.toISOString().split('T')[0];
+                                const hours = String(currentTime.getUTCHours()).padStart(2, '0');
+                                const minutes = String(currentTime.getUTCMinutes()).padStart(2, '0');
+                                const timeKey = `${hours}:${minutes}`;
+
+                                if (this.timeSlots.includes(timeKey)) {
+                                    if (!this.processedBookings[dateKey]) this.processedBookings[dateKey] = {};
+                                    // This will overwrite a 'pending' status if it exists for the same slot
+                                    this.processedBookings[dateKey][timeKey] = 'booked'; 
+                                }
+                                
+                                // Move to the next hour slot
+                                currentTime.setUTCHours(currentTime.getUTCHours() + 1);
+                            }
+                        });
+                    }
+                },
+
+                // Sets the default date for the form fields
                 setTodaysDate() {
                     const today = new Date().toISOString().split('T')[0];
                     this.startDate = today;
                     this.endDate = today;
                 },
 
+                // Generates the calendar structure for the current month
                 generateCalendar() {
                     this.calendar.year = this.currentDate.getFullYear();
                     this.calendar.month = this.currentDate.getMonth();
@@ -360,18 +420,18 @@
                     const daysInMonth = new Date(this.calendar.year, this.calendar.month + 1, 0).getDate();
                     this.calendar.days = [];
                     
-                    // Generate days with proper date objects to avoid confusion
                     for (let i = 1; i <= daysInMonth; i++) {
-                        const dateObj = new Date(this.calendar.year, this.calendar.month, i);
+                        const dateObj = new Date(Date.UTC(this.calendar.year, this.calendar.month, i));
                         this.calendar.days.push({
                             date: i,
-                            dayName: dateObj.toLocaleString('default', { weekday: 'short' }),
-                            dayIndex: dateObj.getDay(), // 0 = Sunday, 6 = Saturday
+                            dayName: dateObj.toLocaleString('en-US', { weekday: 'short', timeZone: 'UTC' }),
+                            dayIndex: dateObj.getUTCDay(), // 0 = Sunday, 6 = Saturday
                             fullDate: dateObj
                         });
                     }
                 },
                 
+                // Navigates between months
                 navigate(direction) {
                     if (direction === 'next') {
                         this.currentDate.setMonth(this.currentDate.getMonth() + 1);
@@ -381,25 +441,22 @@
                     this.generateCalendar();
                 },
 
+                // Determines the status of a specific time slot
                 getSlotStatus(day, time) {
                     const today = new Date(); 
                     today.setHours(0, 0, 0, 0);
                     
-                    // Create proper date object for the slot
                     const slotDate = new Date(this.calendar.year, this.calendar.month, day.date);
                     slotDate.setHours(0, 0, 0, 0);
                     
                     const dateString = `${this.calendar.year}-${String(this.calendar.month + 1).padStart(2, '0')}-${String(day.date).padStart(2, '0')}`;
                     
-                    // Check if slot is in the past
                     if (slotDate < today) return 'past';
 
                     // Check for semester booking selection
-                    if (this.bookingType === 'SEMESTER' && this.startDate && this.endDate && this.selectedDays.length > 0) {
-                        const start = new Date(this.startDate); 
-                        start.setHours(0,0,0,0);
-                        const end = new Date(this.endDate); 
-                        end.setHours(0,0,0,0);
+                    if (this.bookingType === 'SEMESTER' && this.startDate && this.endDate && this.selectedDays.length > 0 && this.selectedTimes.length > 0) {
+                        const start = new Date(this.startDate); start.setHours(0,0,0,0);
+                        const end = new Date(this.endDate); end.setHours(0,0,0,0);
                         const selectedDayIndexes = this.selectedDays.map(d => this.daysOfWeek.findIndex(dw => dw.value === d));
                         
                         if (slotDate >= start && slotDate <= end && selectedDayIndexes.includes(day.dayIndex) && this.selectedTimes.includes(time)) {
@@ -407,19 +464,18 @@
                         }
                     }
 
-                    // Check for individual booking selection
+                    // Check for individual booking selection via drag
                     if (this.bookingType === 'INDIVIDUAL' && this.startDate === dateString && this.selectedTimes.includes(time)) {
                         return 'selected';
                     }
-                                            
-                    // Check existing bookings
+                                        
                     const bookingStatus = this.processedBookings[dateString] ? this.processedBookings[dateString][time] : null;
                     if (bookingStatus) return bookingStatus;
                     
-                    // Return available status (differentiate weekends from weekdays)
                     return day.dayIndex === 0 || day.dayIndex === 6 ? 'available-weekend' : 'available-weekday';
                 },
 
+                // Returns the CSS classes for a slot based on its status
                 getSlotClasses(day, time) {
                     const status = this.getSlotStatus(day, time);
                     return {
@@ -432,13 +488,17 @@
                     };
                 },
 
+                // --- Drag selection logic for INDIVIDUAL bookings ---
                 startDrag(day, time) {
                     const status = this.getSlotStatus(day, time);
-                    if (status !== 'available-weekday' && status !== 'available-weekend' && status !== 'selected') return;
+                    // Allow selection of available or pending slots, but not booked or past slots
+                    if (status === 'booked' || status === 'past') return;
                     
-                    if (this.bookingType === 'SEMESTER') return;
+                    if (this.bookingType === 'SEMESTER') return; // Disable drag for semester
                     this.isDragging = true;
                     const dateString = `${this.calendar.year}-${String(this.calendar.month + 1).padStart(2, '0')}-${String(day.date).padStart(2, '0')}`;
+                    
+                    // If dragging on a new date, clear previous selection
                     if (this.startDate !== dateString) {
                         this.selectedTimes = [];
                         this.startDate = dateString;
@@ -460,19 +520,23 @@
 
                 applyDragSelection(day, time) {
                     const dateString = `${this.calendar.year}-${String(this.calendar.month + 1).padStart(2, '0')}-${String(day.date).padStart(2, '0')}`;
-                    if (this.dragDate !== dateString) return;
+                    if (this.dragDate !== dateString) return; // Only allow drag on the same day
+                    
                     const status = this.getSlotStatus(day, time);
                     const timeIndex = this.selectedTimes.indexOf(time);
+
                     if (this.dragSelectionMode === 'add') {
-                        if ((status === 'available-weekday' || status === 'available-weekend') && timeIndex === -1) {
+                        // Allow adding if the slot is available or pending
+                        if ((status.startsWith('available') || status === 'pending') && timeIndex === -1) {
                             this.selectedTimes.push(time);
                         }
-                    } else {
+                    } else { // 'remove' mode
                         if (timeIndex !== -1) this.selectedTimes.splice(timeIndex, 1);
                     }
                     this.selectedTimes.sort();
                 },
 
+                // --- Form interaction logic ---
                 toggleTime(time) {
                     const index = this.selectedTimes.indexOf(time);
                     if (index === -1) this.selectedTimes.push(time);
@@ -503,6 +567,7 @@
                     this.selectedDays = [];
                 },
 
+                // --- Form Submission ---
                 async submitBooking() {
                     if (!this.hallId) { Alpine.store('modal').open(false, 'Hall ID is missing.'); return; }
                     if (!this.startDate || !this.endDate) { Alpine.store('modal').open(false, 'Please select a start and end date.'); return; }
@@ -510,15 +575,14 @@
                     if (this.bookingType === 'SEMESTER' && this.selectedDays.length === 0) { Alpine.store('modal').open(false, 'Please select at least one day for a semester booking.'); return; }
                     if (!this.purpose.trim()) { Alpine.store('modal').open(false, 'Please provide a purpose for the booking.'); return; }
 
+                    // Calculate actual end time (1 hour after the start of the last selected slot)
                     const lastSlotStartTime = this.selectedTimes[this.selectedTimes.length - 1];
                     const [hour, minute] = lastSlotStartTime.split(':').map(Number);
-
                     const tempDate = new Date();
-                    tempDate.setHours(hour, minute, 0, 0);
-                    tempDate.setHours(tempDate.getHours() + 1);
-
-                    const endHour = String(tempDate.getHours()).padStart(2, '0');
-                    const endMinute = String(tempDate.getMinutes()).padStart(2, '0');
+                    tempDate.setUTCHours(hour, minute, 0, 0);
+                    tempDate.setUTCHours(tempDate.getUTCHours() + 1);
+                    const endHour = String(tempDate.getUTCHours()).padStart(2, '0');
+                    const endMinute = String(tempDate.getUTCMinutes()).padStart(2, '0');
                     const actualEndTime = `${endHour}:${endMinute}`;
 
                     const payload = {
@@ -536,29 +600,28 @@
                     
                     try {
                         const url = AppConfig.apiBaseUrl + AppConfig.endpoints.bookingRequest;
-                        const response = await fetch(url, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(payload) });
+                        // Using fetchWithAuth for this call
+                        const result = await this.fetchWithAuth(url, { 
+                            method: 'POST', 
+                            body: JSON.stringify(payload) 
+                        });
                         
-                        if (!response.ok) {
-                            if (response.status === 401) { logout(); return; }
-                            let errorMsg = `Request failed: ${response.statusText}`;
-                            try {
-                                const errorResult = await response.json();
-                                if(errorResult.message) errorMsg = errorResult.message;
-                            } catch (e) { console.error("Could not parse error response.", e); }
-                            throw new Error(errorMsg);
-                        }
-                        
-                        const result = await response.json();
                         Alpine.store('modal').open(true, result.message || 'Booking request submitted successfully!');
                         this.resetForm();
-                        this.fetchScheduleData(this.hallId);
+                        // Refresh schedule data after successful booking
+                        this.isLoading = true;
+                        this.processedBookings = {};
+                        await this.init();
+
+
                     } catch (error) {
-                        Alpine.store('modal').open(false, error.message);
+                        Alpine.store('modal').open(false, `Submission failed: ${error.message}`);
                     }
                 }
             }));
         });
     </script>
+    <!-- Assuming layout.js loads header and footer components -->
     <script src="layout.js"></script>
 </body>
 </html>
