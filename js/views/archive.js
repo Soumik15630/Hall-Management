@@ -203,10 +203,33 @@ window.ArchiveView = (function() {
 
             if (confirm(`Are you sure you want to re-activate ${state.selectedRows.length} hall(s)?`)) {
                 try {
-                    // This logic now creates a payload with ONLY the fields that need to be changed,
-                    // avoiding the validation error on the server for null latitude/longitude.
                     const updatePromises = state.selectedRows.map(hallCode => {
-                        const payload = { availability: true }; // FIX: Only send the field that is being updated.
+                        const hallToUpdate = state.allHalls.find(h => h.hallCode === hallCode);
+                        if (!hallToUpdate) {
+                            console.error(`Hall with code ${hallCode} not found in state.`);
+                            return Promise.resolve();
+                        }
+
+                        // Create a clean payload with all necessary fields for the backend API.
+                        const payload = {
+                            name: hallToUpdate.name,
+                            type: hallToUpdate.type,
+                            capacity: hallToUpdate.capacity,
+                            floor: hallToUpdate.floor,
+                            zone: hallToUpdate.zone,
+                            belongs_to: hallToUpdate.belongs_to,
+                            department_id: hallToUpdate.department_id,
+                            school_id: hallToUpdate.school_id,
+                            // FIX: Provide a default value of 0 if latitude/longitude are null.
+                            latitude: hallToUpdate.latitude ?? 0,
+                            longitude: hallToUpdate.longitude ?? 0,
+                            // Ensure features is an array, as expected by the backend.
+                            features: Array.isArray(hallToUpdate.features) 
+                                ? hallToUpdate.features 
+                                : (hallToUpdate.features ? hallToUpdate.features.split(',').map(f => f.trim()) : []),
+                            availability: true // This is the actual change we want to make.
+                        };
+                        
                         return updateHall(hallCode, payload);
                     });
 

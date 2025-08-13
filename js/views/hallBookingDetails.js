@@ -65,22 +65,11 @@ window.HallBookingDetailsView = (function() {
         }
     }
 
-    // This function now specifically fetches the bookings for a hall
-    async function fetchHallAndBookingData(hallId) {
-        try {
-            // UPDATED API endpoint for getting all bookings and hall details for a specific hall
-            const data = await fetchFromAPI(`api/booking/hall/${hallId}`);
-            return data;
-        } catch (error) {
-            console.error("Failed to fetch hall and booking data:", error);
-            throw error; // Re-throw to be caught by initialize
-        }
-    }
-
     function getBookingsForSlot(dateString, time) {
         if (!state.availabilityData || state.availabilityData.length === 0) {
             return [];
         }
+        // The API response is an array of bookings, so we can filter it directly
         return state.availabilityData.filter(b => {
             if (!b || !b.start_time) return false;
             try {
@@ -144,12 +133,12 @@ window.HallBookingDetailsView = (function() {
 
     function renderHallInfo() {
         const { hall } = state;
-        // Assuming the hall object from the API has a similar structure
+        // This function now expects hall.location and hall.incharge to exist
         document.getElementById('booking-hall-details').innerHTML = `
             <h3 class="text-lg font-bold text-blue-300 mb-3">Hall Details</h3>
             <div class="space-y-2 text-sm">
                 <div><span class="text-slate-400">Name:</span> <span class="text-white font-semibold">${hall.name || 'N/A'}</span></div>
-                <div><span class="text-slate-400">Location:</span> <span class="text-white">${hall.location || 'N/A'}</span></div>
+                <div><span class="text-slate-400">Location:</span> <span class="text-white">${hall.location}</span></div>
                 <div><span class="text-slate-400">Capacity:</span> <span class="text-white">${hall.capacity || 'N/A'} people</span></div>
                 <div><span class="text-slate-400">Floor:</span> <span class="text-white">${hall.floor || 'N/A'}</span></div>
             </div>`;
@@ -161,10 +150,10 @@ window.HallBookingDetailsView = (function() {
         document.getElementById('booking-hall-incharge').innerHTML = `
             <h3 class="text-lg font-bold text-yellow-300 mb-3">Contact Information</h3>
             <div class="space-y-2 text-sm">
-                <div><span class="text-slate-400">In-charge:</span> <span class="text-white">${hall.incharge?.name || 'N/A'}</span></div>
-                <div><span class="text-slate-400">Designation:</span> <span class="text-white">${hall.incharge?.designation || 'N/A'}</span></div>
-                <div><span class="text-slate-400">Email:</span> <span class="text-white">${hall.incharge?.email || 'N/A'}</span></div>
-                <div><span class="text-slate-400">Intercom:</span> <span class="text-white">${hall.incharge?.intercom || 'N/A'}</span></div>
+                <div><span class="text-slate-400">In-charge:</span> <span class="text-white">${hall.incharge.name}</span></div>
+                <div><span class="text-slate-400">Designation:</span> <span class="text-white">${hall.incharge.designation}</span></div>
+                <div><span class="text-slate-400">Email:</span> <span class="text-white">${hall.incharge.email}</span></div>
+                <div><span class="text-slate-400">Intercom:</span> <span class="text-white">${hall.incharge.intercom}</span></div>
             </div>`;
     }
 
@@ -214,33 +203,42 @@ window.HallBookingDetailsView = (function() {
     }
 
     function getSlotStatus(dateString, time) {
-        // 1. Check if selected
+        // 1. Check if selected by the user
         if (state.selectedSlots.some(s => s.date === dateString && s.time === time)) {
             return { classes: 'bg-cyan-500 ring-2 ring-cyan-200', status: 'selected', isClickable: true };
         }
-        // 2. Check if in the past
+
+        // 2. Check if the slot is in the past. This has the highest priority.
         if (isSlotInPast(dateString, time)) {
-            const bookings = getBookingsForSlot(dateString, time);
-             if (bookings.some(b => b.status === 'APPROVED')) {
-                return { classes: 'bg-red-800/80 cursor-pointer', status: 'booked', isClickable: true }; // Booked but past
-            }
-             if (bookings.some(b => b.status === 'PENDING')) {
-                return { classes: 'bg-yellow-800/80 cursor-pointer', status: 'pending', isClickable: true }; // Pending but past
-            }
             return { classes: 'bg-slate-700/50 cursor-not-allowed', status: 'past', isClickable: false };
         }
-        // 3. Check for bookings
+
+        // 3. Check for existing bookings (Approved or Pending)
         const bookings = getBookingsForSlot(dateString, time);
         if (bookings.length > 0) {
             if (bookings.some(b => b.status === 'APPROVED')) {
+                // RED for booked
                 return { classes: 'bg-red-600/80 cursor-pointer', status: 'booked', isClickable: true };
             }
             if (bookings.some(b => b.status === 'PENDING')) {
+                // YELLOW for pending
                 return { classes: 'bg-yellow-500/80 hover:bg-yellow-400/80 cursor-pointer', status: 'pending', isClickable: true };
             }
         }
-        // 4. Default to available
-        return { classes: 'bg-green-600/70 hover:bg-green-500/80', status: 'available', isClickable: true };
+        
+        // Create a date object safely for checking the day of the week
+        const dateParts = dateString.split('-').map(Number);
+        const dayOfWeek = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]).getDay();
+
+        // 4. If available, check if it's a weekend
+        if (dayOfWeek === 0 || dayOfWeek === 6) { // 0 for Sunday, 6 for Saturday
+            // LIGHT GREEN for available weekend slots
+            return { classes: 'bg-green-400/60 hover:bg-green-500/70', status: 'available-weekend', isClickable: true };
+        }
+
+        // 5. If none of the above, it's an available weekday slot
+        // DEEP GREEN for available weekday slots
+        return { classes: 'bg-green-700/80 hover:bg-green-600/80', status: 'available', isClickable: true };
     }
 
     // --- EVENT HANDLERS ---
@@ -322,16 +320,16 @@ window.HallBookingDetailsView = (function() {
             const content = `
                 <div class="font-bold text-red-400 mb-2">Slot Booked</div>
                 <div class="space-y-1">
-                    <div><span class="text-slate-400">By:</span> <span class="text-white">${approvedBooking.user?.name || 'N/A'}</span></div>
-                    <div><span class="text-slate-400">Dept:</span> <span class="text-white">${approvedBooking.user?.department || 'N/A'}</span></div>
-                    <div><span class="text-slate-400">Purpose:</span> <span class="text-white">${approvedBooking.purpose || 'N/A'}</span></div>
+                    <div><span class="text-slate-400">By:</span> <span class="text-white">${approvedBooking.bookingRequest?.user?.name || 'N/A'}</span></div>
+                    <div><span class="text-slate-400">Dept:</span> <span class="text-white">${approvedBooking.bookingRequest?.user?.department || 'N/A'}</span></div>
+                    <div><span class="text-slate-400">Purpose:</span> <span class="text-white">${approvedBooking.bookingRequest?.purpose || 'N/A'}</span></div>
                 </div>`;
             createTooltip(content, slotEl);
         } else { // Must be pending
             const content = `
                 <div class="font-bold text-yellow-400 mb-2">Pending Requests (${bookings.length})</div>
                 <ul class="space-y-2 list-disc list-inside">
-                    ${bookings.map(b => `<li><span class="text-white">${b.user?.name || 'N/A'}</span> <span class="text-slate-400">(${b.user?.department || 'N/A'})</span></li>`).join('')}
+                    ${bookings.map(b => `<li><span class="text-white">${b.bookingRequest?.user?.name || 'N/A'}</span> <span class="text-slate-400">(${b.bookingRequest?.user?.department || 'N/A'})</span></li>`).join('')}
                 </ul>
                 <div class="text-xs text-slate-500 mt-2">This slot can still be selected.</div>`;
             createTooltip(content, slotEl);
@@ -398,16 +396,31 @@ window.HallBookingDetailsView = (function() {
             sessionStorage.removeItem('finalBookingSlots');
             sessionStorage.removeItem('finalBookingHall');
 
-            // Fetch all data from the single endpoint
-            const data = await fetchHallAndBookingData(hallId);
+            // Fetch hall details and availability concurrently
+            const [hallData, availabilityData] = await Promise.all([
+                fetchFromAPI(`api/hall/${hallId}`), // Fetch specific hall details
+                fetchFromAPI(`api/booking/hall/${hallId}`) // Fetch bookings for the hall
+            ]);
             
-            if (!data || !data.hall) {
+            if (!hallData) {
                 throw new Error(`Hall data not found for ID: ${hallId}`);
             }
+
+            // Process the raw hall data to create a consistent object for the state
+            const processedHallData = {
+                ...hallData,
+                location: `${hallData.school?.school_name || ''}${hallData.department?.department_name ? ' - ' + hallData.department.department_name : ''}`.trim() || 'N/A',
+                incharge: {
+                    name: hallData.department?.incharge_name || hallData.school?.incharge_name || 'N/A',
+                    designation: hallData.department ? 'HOD' : (hallData.school ? 'Dean' : 'N/A'),
+                    email: hallData.department?.incharge_email || hallData.school?.incharge_email || 'N/A',
+                    intercom: hallData.department?.incharge_contact_number || hallData.school?.incharge_contact_number || 'N/A',
+                }
+            };
             
             state = {
-                hall: data.hall,
-                availabilityData: data.bookings || [],
+                hall: processedHallData,
+                availabilityData: availabilityData || [],
                 selectedSlots: [],
                 currentDate: new Date(),
             };

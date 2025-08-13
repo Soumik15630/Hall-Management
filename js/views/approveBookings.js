@@ -83,21 +83,30 @@ window.ApproveBookingsView = (function() {
         }
 
         // Generate a table row for each pending booking request
-        const tableHtml = data.map(booking => `
+        const tableHtml = data.map(booking => {
+            // Safely access nested properties using optional chaining (?.) and provide fallbacks
+            const hallName = booking.hall?.name || 'N/A';
+            const userName = booking.user?.employee?.employee_name?.trim() || 'N/A';
+
+            // Create Date objects by combining date and time fields from the server response
+            const startDateTime = new Date(`${booking.start_date.substring(0, 10)}T${booking.start_time}`);
+            const endDateTime = new Date(`${booking.end_date.substring(0, 10)}T${booking.end_time}`);
+
+            return `
             <tr class="hover:bg-slate-800/50 transition-colors" data-booking-id="${booking.unique_id}">
                 <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300">${new Date(booking.created_at).toLocaleDateString()}</td>
                 <td class="whitespace-nowrap px-3 py-4 text-sm">
-                    <div class="font-medium text-white">${booking.hall_name}</div>
+                    <div class="font-medium text-white">${hallName}</div>
                     <div class="text-slate-400">${booking.hall_id}</div>
                 </td>
                 <td class="whitespace-nowrap px-3 py-4 text-sm">
                     <div class="font-medium text-white">${booking.purpose}</div>
                     <div class="text-slate-400">${booking.class_code || ''}</div>
                 </td>
-                <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300">${new Date(booking.start_date).toLocaleString()} - ${new Date(booking.end_date).toLocaleTimeString()}</td>
+                <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300">${startDateTime.toLocaleString()} - ${endDateTime.toLocaleTimeString()}</td>
                 <td class="whitespace-nowrap px-3 py-4 text-sm">
-                    <div class="font-medium text-white">${booking.user_name}</div>
-                    <div class="text-slate-400">${booking.user_department}</div>
+                    <div class="font-medium text-white">${userName}</div>
+                    <div class="text-slate-400">${booking.user_id}</div>
                 </td>
                 <td class="whitespace-nowrap px-3 py-4 text-sm font-semibold text-yellow-400">${booking.status}</td>
                 <td class="whitespace-nowrap px-3 py-4 text-sm">
@@ -107,7 +116,8 @@ window.ApproveBookingsView = (function() {
                     </div>
                 </td>
             </tr>
-        `).join('');
+        `
+        }).join('');
 
         tableBody.innerHTML = tableHtml;
     }
