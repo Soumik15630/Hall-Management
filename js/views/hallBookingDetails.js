@@ -248,7 +248,6 @@ window.HallBookingDetailsView = (function() {
         return { classes: 'slot-available-weekday', status: 'available', isClickable: true };
     }
     
-    // --- NEW EFFICIENT UI UPDATE FUNCTION ---
     function updateCalendarUI() {
         document.querySelectorAll('#calendar-body .slot').forEach(slotEl => {
             const { date, time } = slotEl.dataset;
@@ -263,47 +262,11 @@ window.HallBookingDetailsView = (function() {
         });
     }
 
-    // --- REFACTORED EVENT HANDLERS ---
-    function setupDynamicListeners() {
-        // This function sets up listeners for elements that are re-rendered with the calendar.
-        // It uses the same abortController signal from initialize.
-        const { signal } = abortController;
-
-        const calendarBody = document.getElementById('calendar-body');
-        if (calendarBody) {
-            calendarBody.addEventListener('mousedown', handleDragStart, { signal });
-        }
-        
-        // The drag listeners are on the document, but are related to calendar interaction.
-        document.addEventListener('mouseover', handleDragOver, { signal });
-        document.addEventListener('mouseup', handleDragStop, { signal });
-
-        // Tooltip listeners for the grid
-        const grid = document.querySelector('#hall-booking-details-view .w-full.border-collapse');
-        if (grid) {
-            grid.addEventListener('mouseover', e => {
-                const slot = e.target.closest('button[data-status="booked"], button[data-status="pending"]');
-                if (slot) {
-                    clearTimeout(tooltipTimeout);
-                    tooltipTimeout = setTimeout(() => showSlotTooltip(slot), 200);
-                }
-            }, { signal });
-            grid.addEventListener('mouseout', e => {
-                const slot = e.target.closest('button[data-status="booked"], button[data-status="pending"]');
-                if (slot) {
-                    clearTimeout(tooltipTimeout);
-                    tooltipTimeout = setTimeout(removeTooltip, 300);
-                }
-            }, { signal });
-        }
-    }
-
     function rerenderCalendar() {
         const calendarGridContainer = document.getElementById('booking-calendar-grid');
         if (calendarGridContainer) {
             calendarGridContainer.innerHTML = renderCalendarGrid();
-            // After re-rendering, only set up the event handlers for the new calendar grid.
-            setupDynamicListeners();
+            // No need to set up listeners here anymore, they are delegated from the parent.
         }
     }
 
@@ -416,12 +379,57 @@ window.HallBookingDetailsView = (function() {
         removeTooltip();
     }
 
-    async function initialize(hallId) {
-        // Manage a single AbortController for the view's lifecycle.
+    // --- CONSOLIDATED EVENT HANDLER SETUP ---
+    function setupEventHandlers() {
         if (abortController) abortController.abort();
         abortController = new AbortController();
         const { signal } = abortController;
 
+        const viewContainer = document.getElementById('hall-booking-details-view');
+        if (!viewContainer) return;
+
+        // Delegated click listener for all buttons
+        viewContainer.addEventListener('click', e => {
+            const button = e.target.closest('button');
+            if (!button) return;
+
+            if (button.id === 'prev-month-btn') {
+                state.currentDate.setMonth(state.currentDate.getMonth() - 1);
+                rerenderCalendar();
+            } else if (button.id === 'next-month-btn') {
+                state.currentDate.setMonth(state.currentDate.getMonth() + 1);
+                rerenderCalendar();
+            } else if (button.id === 'book-hall-btn') {
+                handleBookHall();
+            }
+        }, { signal });
+
+        // Listeners for drag-to-select functionality
+        viewContainer.addEventListener('mousedown', handleDragStart, { signal });
+        document.addEventListener('mouseover', handleDragOver, { signal });
+        document.addEventListener('mouseup', handleDragStop, { signal });
+
+        // Delegated tooltip listeners
+        viewContainer.addEventListener('mouseover', e => {
+            const slot = e.target.closest('button.slot[data-status="booked"], button.slot[data-status="pending"]');
+            if (slot) {
+                clearTimeout(tooltipTimeout);
+                tooltipTimeout = setTimeout(() => showSlotTooltip(slot), 200);
+            }
+        }, { signal });
+        viewContainer.addEventListener('mouseout', e => {
+            const slot = e.target.closest('button.slot[data-status="booked"], button.slot[data-status="pending"]');
+            if (slot) {
+                clearTimeout(tooltipTimeout);
+                tooltipTimeout = setTimeout(removeTooltip, 300);
+            }
+        }, { signal });
+        
+        document.body.addEventListener('mouseover', e => { if (e.target.closest('#booking-tooltip')) clearTimeout(tooltipTimeout); }, { signal });
+        document.body.addEventListener('mouseout', e => { if (e.target.closest('#booking-tooltip')) removeTooltip(); }, { signal });
+    }
+
+    async function initialize(hallId) {
         try {
             state.selectedSlots = [];
             sessionStorage.removeItem('finalBookingSlots');
@@ -465,33 +473,8 @@ window.HallBookingDetailsView = (function() {
                 currentDate: new Date(),
             };
             
-            // Render the view's HTML content. This calls rerenderCalendar,
-            // which sets up the initial dynamic listeners.
             render();
-
-            // --- Set up STATIC event handlers for the entire view ONCE ---
-            const viewContainer = document.getElementById('hall-booking-details-view');
-            if (!viewContainer) return;
-
-            // This single listener handles all static button clicks.
-            viewContainer.addEventListener('click', e => {
-                const button = e.target.closest('button');
-                if (!button) return;
-
-                if (button.id === 'prev-month-btn') {
-                    state.currentDate.setMonth(state.currentDate.getMonth() - 1);
-                    rerenderCalendar();
-                } else if (button.id === 'next-month-btn') {
-                    state.currentDate.setMonth(state.currentDate.getMonth() + 1);
-                    rerenderCalendar();
-                } else if (button.id === 'book-hall-btn') {
-                    handleBookHall();
-                }
-            }, { signal });
-            
-            // Listeners on the body for the tooltip can also be static.
-            document.body.addEventListener('mouseover', e => { if (e.target.closest('#booking-tooltip')) clearTimeout(tooltipTimeout); }, { signal });
-            document.body.addEventListener('mouseout', e => { if (e.target.closest('#booking-tooltip')) removeTooltip(); }, { signal });
+            setupEventHandlers();
 
         } catch (error) {
             console.error('Error initializing hall booking details:', error);

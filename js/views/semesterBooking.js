@@ -46,7 +46,10 @@ window.SemesterBookingView = (function() {
         const fullUrl = AppConfig.apiBaseUrl + endpoint;
         const config = { ...options, headers };
         const response = await fetch(fullUrl, config);
-        if (!response.ok) { throw new Error(`API Error on ${endpoint}: ${response.status}`); }
+        if (!response.ok) { 
+            const errorText = await response.text();
+            throw new Error(`API Error on ${endpoint}: ${response.status} - ${errorText}`);
+        }
         if (isJson) {
             const text = await response.text();
             if (!text) return null;
@@ -157,7 +160,11 @@ window.SemesterBookingView = (function() {
     }
 
     async function addSemesterBooking(bookingDetails) {
-        return await fetchFromAPI(AppConfig.endpoints.bookingRequest, { method: 'POST', body: JSON.stringify(bookingDetails) });
+        // This function now sends the payload to the same endpoint as finalBookingForm.js
+        return await fetchFromAPI(AppConfig.endpoints.bookingRequest, { 
+            method: 'POST', 
+            body: JSON.stringify(bookingDetails) 
+        });
     }
 
     function saveStateToSession() {
@@ -190,9 +197,9 @@ window.SemesterBookingView = (function() {
         const hallId = state.selectedHallId;
         if (hallId && state.hallStates[hallId]) {
             state.hallStates[hallId] = { selectedSlots: [], formDetails: {} };
+            sessionStorage.removeItem(SESSION_STORAGE_KEY); // Also clear from session
         }
-        renderBookingPanel();
-        saveStateToSession();
+        renderBookingPanel(); // Re-render to show cleared state
     }
 
     function renderSemesterHalls(data) {
@@ -336,7 +343,6 @@ window.SemesterBookingView = (function() {
                 window.location.hash = `#hall-booking-details-view?id=${hallId}`;
             } else {
                 console.error('Hall data not found for ID:', hallId);
-                // Consider showing a user-friendly error message here
             }
         } else if (hallId) {
             // Action: Select hall for booking on the current page
@@ -362,38 +368,114 @@ window.SemesterBookingView = (function() {
         renderBookingPanel();
     }
     
-    function handleSubmit() {
+    /**
+     * MODIFIED FUNCTION
+     * This function has been completely rewritten to construct and send a payload
+     * identical to the 'SEMESTER' booking payload in `finalBookingForm.js`.
+     * It uses the same API endpoint and includes optional faculty details.
+     */
+    async function handleSubmit() {
         const hallId = state.selectedHallId;
-        if (!hallId) { alert('Please select a hall.'); return; }
-        const selectedHall = findHallById(hallId);
+        if (!hallId) {
+            alert('Please select a hall.');
+            return;
+        }
+
         const currentHallState = state.hallStates[hallId];
-        const formDetails = currentHallState.formDetails;
-        if (!selectedHall || currentHallState.selectedSlots.length === 0) { alert('Please select a hall and at least one time slot.'); return; }
-        if (!formDetails.startDate || !formDetails.endDate || new Date(formDetails.startDate) > new Date(formDetails.endDate)) { alert('Please select a valid date range.'); return; }
-        if (!formDetails.title || !formDetails.faculty) { alert('Please enter a Title and select a Faculty.'); return; }
-        
-        const bookingId = `BK-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${Math.floor(Math.random()*1000)}`;
-        const facultyMember = state.employeeData.find(e => e.email === formDetails.faculty);
-        const bookingRecord = {
-            bookedOn: new Date().toISOString().slice(0,10),
-            bookingId: bookingId,
-            hallName: selectedHall.name,
-            hallCode: selectedHall.id,
-            department: facultyMember.department,
-            purpose: formDetails.purpose,
-            course: formDetails.title,
-            dateTime: `Semester: ${formDetails.startDate} to ${formDetails.endDate}`,
-            status: 'Approved',
-            isSemester: true,
-            bookedBy: facultyMember.name,
-            bookedByDept: facultyMember.department,
-            phone: facultyMember.phone,
-            email: facultyMember.email
+        if (!currentHallState || currentHallState.selectedSlots.length === 0) {
+            alert('Please select at least one time slot.');
+            return;
+        }
+
+        // Retrieve latest form details directly from the DOM
+        const formDetails = {
+            startDate: document.getElementById('start-date')?.value,
+            endDate: document.getElementById('end-date')?.value,
+            purpose: document.getElementById('booking-purpose')?.value,
+            title: document.getElementById('course-title')?.value,
+            faculty: document.getElementById('faculty-select')?.value, // This is the faculty email
         };
-        const courseCode = formDetails.title.replace(/\s/g, '_').toUpperCase().substring(0, 8);
-        addSemesterBooking({ hallId: hallId, slotsToBook: currentHallState.selectedSlots, courseCode: courseCode, bookingRecord: bookingRecord });
-        alert(`Semester booking submitted successfully for ${formDetails.title}!\nID: ${bookingId}`);
-        clearCurrentHallState();
+
+        // --- Validation ---
+        if (!formDetails.startDate || !formDetails.endDate) {
+            alert('Please select a start and end date for the semester booking.');
+            return;
+        }
+        if (new Date(formDetails.startDate) > new Date(formDetails.endDate)) {
+            alert('Start date cannot be after the end date.');
+            return;
+        }
+        if (!formDetails.purpose) {
+            alert('Please provide a purpose for the booking.');
+            return;
+        }
+        if (!formDetails.title) {
+            alert('Please enter a Course / Event Title.');
+            return;
+        }
+
+        // --- Payload Construction ---
+        const dayMap = { 'Mon': 'MONDAY', 'Tue': 'TUESDAY', 'Wed': 'WEDNESDAY', 'Thu': 'THURSDAY', 'Fri': 'FRIDAY' };
+        const selectedDays = [...new Set(currentHallState.selectedSlots.map(s => s.day))];
+        const days_of_week = selectedDays.map(day => dayMap[day]);
+
+        // Calculate start and end times from the selected periods
+        const allPeriods = currentHallState.selectedSlots.map(s => s.period);
+        const minPeriod = Math.min(...allPeriods);
+        const maxPeriod = Math.max(...allPeriods);
+
+        const startTimeString = PERIOD_TIMES[minPeriod]; // e.g., "09:30-10:30"
+        const endTimeString = PERIOD_TIMES[maxPeriod];   // e.g., "10:30-11:30"
+
+        const start_time = startTimeString.split('-')[0]; // "09:30"
+        const end_time = endTimeString.split('-')[1];     // "11:30"
+
+        // Construct the payload to match finalBookingForm.js
+        const payload = {
+            hall_id: hallId,
+            purpose: formDetails.purpose,
+            booking_type: 'SEMESTER',
+            start_date: new Date(formDetails.startDate).toISOString(),
+            end_date: new Date(formDetails.endDate).toISOString(),
+            start_time: start_time,
+            end_time: end_time,
+            days_of_week: days_of_week,
+            class_code: formDetails.title, // Use Course/Event Title as class_code
+        };
+        
+        // Add optional faculty details if a faculty member was selected
+        if (formDetails.faculty) {
+            const facultyMember = state.employeeData.find(e => e.email === formDetails.faculty);
+            if (facultyMember) {
+                payload.faculty_organizer = facultyMember.name;
+                payload.faculty_email = facultyMember.email;
+                payload.faculty_department = facultyMember.department;
+            }
+        }
+
+        // --- API Submission ---
+        const submitBtn = document.getElementById('submit-booking-btn');
+        try {
+            if(submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Submitting...';
+            }
+
+            // The addSemesterBooking function is reused as it correctly POSTs the payload
+            const result = await addSemesterBooking(payload); 
+            
+            alert(result.message || 'Semester booking request submitted successfully!');
+            clearCurrentHallState();
+            
+        } catch (error) {
+            console.error('Booking submission error:', error);
+            alert(`Failed to submit booking request: ${error.message}`);
+        } finally {
+            if(submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit';
+            }
+        }
     }
 
     function setupEventHandlers() {
@@ -444,7 +526,12 @@ window.SemesterBookingView = (function() {
         document.getElementById('booking-purpose').value = details.purpose || 'Class';
         document.getElementById('course-title').value = details.title || '';
         if (details.faculty) {
-            // This part for re-populating a saved state might need the employee data.
+             handleFacultyChange(details.faculty);
+             const facultyMember = state.employeeData.find(e => e.email === details.faculty);
+             if (facultyMember) {
+                 document.getElementById('faculty-select-input').value = facultyMember.name;
+                 document.getElementById('faculty-select').value = facultyMember.email;
+             }
         }
         panel.querySelectorAll('input, select').forEach(el => el.addEventListener('change', saveStateToSession));
     }
@@ -477,6 +564,10 @@ window.SemesterBookingView = (function() {
     async function initialize() {
         try {
             loadStateFromSession();
+            // Fetch employee data early if needed for repopulating form state
+            if (state.selectedHallId && state.hallStates[state.selectedHallId]?.formDetails?.faculty) {
+                 await fetchEmployeeData();
+            }
             state.semesterHallsData = await fetchSemesterHalls();
             renderSemesterHalls(state.semesterHallsData);
             renderBookingPanel();
