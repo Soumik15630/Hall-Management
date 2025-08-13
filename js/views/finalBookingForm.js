@@ -865,107 +865,98 @@ window.FinalBookingFormView = (function() {
     }
 
     async function submitBooking() {
+        const purposeInput = document.getElementById('purpose');
+        const classCodeInput = document.getElementById('class_code');
+
+        // Validation from user's snippet, adapted to state
+        if (!state.hall?.id) {
+            alert('Hall ID is missing.');
+            return;
+        }
+        if (state.selectedSlots.length === 0) {
+            alert('Please select at least one time slot.');
+            return;
+        }
+        // The current form only supports INDIVIDUAL, so semester check is skipped.
+        if (!purposeInput?.value.trim()) {
+            alert('Please provide a purpose for the booking.');
+            purposeInput?.focus();
+            return;
+        }
+
+        // Logic from user's snippet, adapted to state
+        const selectedDate = state.selectedSlots[0].date;
+        const times = state.selectedSlots.map(slot => slot.time).sort();
+        const lastSlotStartTime = times[times.length - 1];
+        const [hour, minute] = lastSlotStartTime.split(':').map(Number);
+
+        const tempDate = new Date();
+        tempDate.setHours(hour, minute, 0, 0);
+        tempDate.setHours(tempDate.getHours() + 1);
+
+        const endHour = String(tempDate.getHours()).padStart(2, '0');
+        const endMinute = String(tempDate.getMinutes()).padStart(2, '0');
+        const actualEndTime = `${endHour}:${endMinute}`;
+
+        const payload = {
+            hall_id: String(state.hall.id), // Ensure it's a string
+            purpose: purposeInput.value.trim(),
+            booking_type: state.bookingType, // 'INDIVIDUAL'
+            start_date: new Date(selectedDate).toISOString(),
+            end_date: new Date(selectedDate).toISOString(), // Same for single day
+            start_time: times[0],
+            end_time: actualEndTime,
+        };
+
+        if (classCodeInput?.value.trim()) {
+            payload.class_code = classCodeInput.value.trim();
+        }
+        // Semester 'days_of_week' is not applicable here.
+
+        const submitBtn = document.querySelector('button[type="submit"]');
+        const originalText = submitBtn.textContent;
+        submitBtn.textContent = 'Submitting...';
+        submitBtn.disabled = true;
+
         try {
-            const purposeInput = document.getElementById('purpose');
-            const classCodeInput = document.getElementById('class_code');
-            
-            // Validation checks (matching book.html exactly)
-            if (!state.hall?.id) {
-                alert('Hall ID is missing.');
-                return;
-            }
-            
-            if (state.selectedSlots.length === 0) {
-                alert('Please select at least one time slot.');
-                return;
-            }
-            
-            if (!purposeInput?.value.trim()) {
-                alert('Please provide a purpose for the booking.');
-                purposeInput?.focus();
-                return;
-            }
+            const url = AppConfig.apiBaseUrl + AppConfig.endpoints.bookingRequest;
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify(payload)
+            });
 
-            // Since we now only allow single-day bookings, this is simplified
-            const selectedDate = state.selectedSlots[0].date;
-            const times = state.selectedSlots.map(slot => slot.time).sort();
-            
-            // Calculate end time exactly like book.html
-            const lastSlotStartTime = times[times.length - 1];
-            const [hour, minute] = lastSlotStartTime.split(':').map(Number);
-
-            const tempDate = new Date();
-            tempDate.setHours(hour, minute, 0, 0);
-            tempDate.setHours(tempDate.getHours() + 1);
-
-            const endHour = String(tempDate.getHours()).padStart(2, '0');
-            const endMinute = String(tempDate.getMinutes()).padStart(2, '0');
-            const actualEndTime = `${endHour}:${endMinute}`;
-
-            // Create payload exactly like book.html
-            const payload = {
-                hall_id: state.hall.id, // Keep as original type from hall data
-                purpose: purposeInput.value.trim(),
-                booking_type: state.bookingType,
-                start_date: new Date(selectedDate).toISOString(),
-                end_date: new Date(selectedDate).toISOString(),
-                start_time: times[0],
-                end_time: actualEndTime,
-            };
-
-            // Add optional class_code if provided
-            if (classCodeInput?.value.trim()) {
-                payload.class_code = classCodeInput.value.trim();
-            }
-            
-            // Show loading state
-            const submitBtn = document.querySelector('button[type="submit"]');
-            const originalText = submitBtn.textContent;
-            submitBtn.textContent = 'Submitting...';
-            submitBtn.disabled = true;
-
-            try {
-                // Use the exact same API call approach as book.html
-                const url = AppConfig.apiBaseUrl + AppConfig.endpoints.bookingRequest;
-                const response = await fetch(url, { 
-                    method: 'POST', 
-                    headers: getAuthHeaders(), 
-                    body: JSON.stringify(payload) 
-                });
-                
-                if (!response.ok) {
-                    if (response.status === 401) { 
-                        logout(); 
-                        return; 
-                    }
-                    let errorMsg = `Request failed: ${response.statusText}`;
-                    try {
-                        const errorResult = await response.json();
-                        if (errorResult.message) errorMsg = errorResult.message;
-                    } catch (e) { 
-                        console.error("Could not parse error response.", e); 
-                    }
-                    throw new Error(errorMsg);
+            if (!response.ok) {
+                if (response.status === 401) {
+                    logout();
+                    return;
                 }
-                
-                const result = await response.json();
-                alert(result.message || 'Booking request submitted successfully!');
-                resetForm();
-                
-                // Refresh availability data after successful submission
-                if (state.hall?.id) {
-                    state.availabilityData = await fetchHallAvailability(state.hall.id);
-                    render();
+                let errorMsg = `Request failed: ${response.statusText}`;
+                try {
+                    const errorResult = await response.json();
+                    if (errorResult.message) errorMsg = errorResult.message;
+                } catch (e) {
+                    console.error("Could not parse error response.", e);
                 }
-                
-            } finally {
-                submitBtn.textContent = originalText;
-                submitBtn.disabled = false;
+                throw new Error(errorMsg);
             }
-            
+
+            const result = await response.json();
+            alert(result.message || 'Booking request submitted successfully!');
+            resetForm();
+
+            // Refresh availability data after successful submission
+            if (state.hall?.id) {
+                state.availabilityData = await fetchHallAvailability(state.hall.id);
+                render();
+            }
+
         } catch (error) {
             alert(error.message || 'Failed to submit booking request. Please try again.');
             console.error('Booking submission error:', error);
+        } finally {
+            submitBtn.textContent = originalText;
+            submitBtn.disabled = false;
         }
     }
 
@@ -1012,7 +1003,6 @@ window.FinalBookingFormView = (function() {
                 const day = String(newDate.getDate()).padStart(2, '0');
                 const newDateString = `${year}-${month}-${day}`;
                 
-                // Check if user has selected slots and warn before changing week
                 if (state.selectedSlots.length > 0) {
                     const confirmChange = confirm('Changing the week will keep your selected time slots. The date selection will move to the new week. Continue?');
                     if (!confirmChange) return;
@@ -1032,7 +1022,6 @@ window.FinalBookingFormView = (function() {
                 const day = String(newDate.getDate()).padStart(2, '0');
                 const newDateString = `${year}-${month}-${day}`;
                 
-                // Check if user has selected slots and warn before changing week
                 if (state.selectedSlots.length > 0) {
                     const confirmChange = confirm('Changing the week will keep your selected time slots. The date selection will move to the new week. Continue?');
                     if (!confirmChange) return;
@@ -1084,7 +1073,6 @@ window.FinalBookingFormView = (function() {
         const isAvailable = isSlotAvailable(date, time);
         const isSelected = state.selectedSlots.some(s => s.date === date && s.time === time);
 
-        // If the slot is booked/pending and not currently selected, show details and stop.
         if (!isAvailable && !isSelected) {
             const booking = getBookingForSlot(date, time);
             if (booking) {
@@ -1096,14 +1084,12 @@ window.FinalBookingFormView = (function() {
         const existingIndex = state.selectedSlots.findIndex(s => s.date === date && s.time === time);
         
         if (existingIndex > -1) {
-            // --- DESELECTION LOGIC ---
             const slotsForDate = state.selectedSlots
                 .filter(s => s.date === date)
                 .sort((a, b) => timeSlots.indexOf(a.time) - timeSlots.indexOf(b.time));
             
             const clickedSlotIndex = slotsForDate.findIndex(s => s.time === time);
 
-            // Remove the clicked slot and all subsequent slots on that day
             const slotsToRemove = slotsForDate.slice(clickedSlotIndex);
             
             state.selectedSlots = state.selectedSlots.filter(s => {
@@ -1111,7 +1097,6 @@ window.FinalBookingFormView = (function() {
             });
 
         } else {
-            // --- SELECTION LOGIC ---
             const newSlot = { date, time };
             
             const singleDayValidation = validateSingleDayBooking(newSlot);
@@ -1150,7 +1135,6 @@ window.FinalBookingFormView = (function() {
         const existingIndex = state.selectedSlots.findIndex(s => s.date === date && s.time === time);
         
         if (existingIndex > -1) {
-            // --- DESELECTION LOGIC ---
              const slotsForDate = state.selectedSlots
                 .filter(s => s.date === date)
                 .sort((a, b) => timeSlots.indexOf(a.time) - timeSlots.indexOf(b.time));
@@ -1163,7 +1147,6 @@ window.FinalBookingFormView = (function() {
             });
 
         } else {
-            // --- SELECTION LOGIC ---
             const newSlot = { date, time };
             
             const singleDayValidation = validateSingleDayBooking(newSlot);
@@ -1228,8 +1211,6 @@ window.FinalBookingFormView = (function() {
                     autoFillContiguousSlots(newSlot);
                     updateUI();
                 } else if (state.dragSelectionMode === 'remove' && hasSlot) {
-                    // This part of drag-to-remove is complex with the new rule,
-                    // so we simplify it to just handle the single cell on mouseover.
                     const existingIndex = state.selectedSlots.findIndex(s => s.date === date && s.time === time);
                     if (existingIndex > -1) {
                          state.selectedSlots.splice(existingIndex, 1);
@@ -1243,7 +1224,6 @@ window.FinalBookingFormView = (function() {
     function handleDragStop() {
         if (state.isDragging) {
             state.isDragging = false;
-            // After dragging, re-validate and fill any gaps created
             if (state.selectedSlots.length > 0) {
                 const lastSelected = state.selectedSlots[state.selectedSlots.length -1];
                 autoFillContiguousSlots(lastSelected);
@@ -1259,7 +1239,6 @@ window.FinalBookingFormView = (function() {
 
     async function initialize(hallId) {
         try {
-            // Try to get hall data from session storage first
             let hallData = null;
             let selectedSlots = [];
             let availabilityData = [];
@@ -1282,7 +1261,6 @@ window.FinalBookingFormView = (function() {
                 // Handle parsing errors silently
             }
             
-            // If no stored hall data, fetch from API
             if (!hallData) {
                 const allHalls = await fetchAllHalls();
                 hallData = allHalls.find(h => h.id === hallId || h.unique_id === hallId);
@@ -1292,10 +1270,8 @@ window.FinalBookingFormView = (function() {
                 }
             }
             
-            // Always fetch fresh availability data
             availabilityData = await fetchHallAvailability(hallId);
             
-            // Initialize state
             state = {
                 hall: hallData,
                 availabilityData: availabilityData,
