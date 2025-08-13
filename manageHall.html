@@ -237,7 +237,7 @@
                                     <div class="grid grid-cols-3 gap-2 mt-2">
                                         <button @click="toggleFilter('ownerType', 'department')" :class="{'bg-indigo-600 text-white': filters.ownerType === 'department', 'bg-white/10 hover:bg-white/20': filters.ownerType !== 'department'}" class="px-3 py-2 rounded-md transition-colors text-sm">Department</button>
                                         <button @click="toggleFilter('ownerType', 'school')" :class="{'bg-indigo-600 text-white': filters.ownerType === 'school', 'bg-white/10 hover:bg-white/20': filters.ownerType !== 'school'}" class="px-3 py-2 rounded-md transition-colors text-sm">School</button>
-                                        <button @click="toggleFilter('ownerType', 'administration')" :class="{'bg-indigo-600 text-white': filters.ownerType === 'administration', 'bg-white/10 hover:bg-white/20': filters.ownerType !== 'administration'}" class="px-3 py-2 rounded-md transition-colors text-sm">Admin</button>
+                                        <button @click="toggleFilter('ownerType', 'administration')" :class="{'bg-indigo-600 text-white': filters.ownerType === 'administration', 'bg-white/10 hover:bg-white/20': filters.ownerType !== 'administration'}" class="px-3 py-2 rounded-md transition-colors text-sm">Administration</button>
                                     </div>
                                 </div>
                                 <div x-show="filters.ownerType === 'school' || filters.ownerType === 'department'" class="relative" @click.away="closeSchoolFilterDropdown()">
@@ -354,7 +354,7 @@
                               <div class="grid grid-cols-3 gap-2 mt-2">
                                   <button @click="toggleFilter('ownerType', 'department')" :class="{'bg-indigo-600 text-white': filters.ownerType === 'department', 'bg-gray-200 hover:bg-gray-300': filters.ownerType !== 'department'}" class="px-3 py-2 rounded-md transition-colors text-sm">Department</button>
                                   <button @click="toggleFilter('ownerType', 'school')" :class="{'bg-indigo-600 text-white': filters.ownerType === 'school', 'bg-gray-200 hover:bg-gray-300': filters.ownerType !== 'school'}" class="px-3 py-2 rounded-md transition-colors text-sm">School</button>
-                                  <button @click="toggleFilter('ownerType', 'administration')" :class="{'bg-indigo-600 text-white': filters.ownerType === 'administration', 'bg-gray-200 hover:bg-gray-300': filters.ownerType !== 'administration'}" class="px-3 py-2 rounded-md transition-colors text-sm">Admin</button>
+                                  <button @click="toggleFilter('ownerType', 'administration')" :class="{'bg-indigo-600 text-white': filters.ownerType === 'administration', 'bg-gray-200 hover:bg-gray-300': filters.ownerType !== 'administration'}" class="px-3 py-2 rounded-md transition-colors text-sm">Administration</button>
                               </div>
                           </div>
                           <div x-show="filters.ownerType === 'school' || filters.ownerType === 'department'" class="relative" @click.away="closeSchoolFilterDropdown()">
