@@ -76,7 +76,6 @@ window.SemesterBookingView = (function() {
         }
     }
 
-    // Use the cache for fetching raw data
     async function fetchRawSchools() {
         return await window.apiCache.fetch('schools', () => fetchFromAPI(AppConfig.endpoints.allschool));
     }
@@ -87,29 +86,19 @@ window.SemesterBookingView = (function() {
         return await window.apiCache.fetch('employees', () => fetchFromAPI(AppConfig.endpoints.allemp));
     }
 
-    /**
-     * MODIFIED FUNCTION
-     * The original code spread the `hall` object last, which caused the correct `unique_id`
-     * to be overwritten by the original (and incorrect) `id` from the API.
-     * By spreading the `hall` object first and then defining `id`, we ensure
-     * the correct, long UUID is always used.
-     */
     async function fetchHallsForView() {
-        // Fetch all necessary data in parallel
         const [rawHalls, schools, departments] = await Promise.all([
             fetchFromAPI(AppConfig.endpoints.allHall),
             fetchRawSchools(),
             fetchRawDepartments()
         ]);
         
-        // Create maps for efficient lookups
         const schoolMap = new Map(schools.map(s => [s.unique_id, s.school_name]));
         const departmentMap = new Map(departments.map(d => [d.unique_id, d.department_name]));
 
-        // Map over the raw hall data to create a clean, consistent hall object
         return rawHalls.map(hall => ({
-            ...hall, // Spread the original hall object first to get all its properties
-            id: hall.unique_id, // Explicitly set/overwrite 'id' with the correct UUID
+            ...hall,
+            id: hall.unique_id,
             name: hall.name,
             hallCode: hall.unique_id,
             type: mapHallType(hall.type),
@@ -132,6 +121,74 @@ window.SemesterBookingView = (function() {
         return groupedHalls;
     }
 
+    /**
+     * MODIFIED FUNCTION
+     * This function now includes a crucial fix to handle invalid time data from the server.
+     * If a booking's `end_time` is earlier than its `start_time`, it assumes a PM/AM mix-up
+     * and adds 12 hours to the end time to correct it.
+     */
+    function processBookingsIntoTimetable(bookings) {
+        const timetable = {};
+        const dayMap = { 0: 'SUNDAY', 1: 'MONDAY', 2: 'TUESDAY', 3: 'WEDNESDAY', 4: 'THURSDAY', 5: 'FRIDAY', 6: 'SATURDAY' };
+        
+        const periodTimeObjects = {
+            1: { start: 9.5, end: 10.5 },
+            2: { start: 10.5, end: 11.5 },
+            3: { start: 11.5, end: 12.5 },
+            4: { start: 12.5, end: 13.5 },
+            5: { start: 13.5, end: 14.5 },
+            6: { start: 14.5, end: 15.5 },
+            7: { start: 15.5, end: 16.5 },
+            8: { start: 16.5, end: 17.5 },
+        };
+
+        bookings.forEach(booking => {
+            const startDate = new Date(booking.start_time);
+            let endDate = new Date(booking.end_time); // Use 'let' to allow modification
+
+            // --- FIX: Correct for invalid end times from the server ---
+            // If the end time is earlier than the start time, it likely means PM was intended.
+            // Add 12 hours to correct it (e.g., 2:30 becomes 14:30).
+            if (endDate < startDate) {
+                endDate.setUTCHours(endDate.getUTCHours() + 12);
+            }
+            // --- END FIX ---
+
+            const classCode = booking.bookingRequest?.class_code || 'Booked';
+            const dayOfWeek = dayMap[startDate.getUTCDay()];
+            if (!dayOfWeek || dayOfWeek === 'SATURDAY' || dayOfWeek === 'SUNDAY') return;
+
+            if (!timetable[dayOfWeek]) {
+                timetable[dayOfWeek] = {};
+            }
+
+            const bookingStartHour = startDate.getUTCHours() + startDate.getUTCMinutes() / 60;
+            const bookingEndHour = endDate.getUTCHours() + endDate.getUTCMinutes() / 60;
+
+            for (const [period, times] of Object.entries(periodTimeObjects)) {
+                // Check for overlapping time ranges: (StartA < EndB) and (EndA > StartB)
+                if (times.start < bookingEndHour && times.end > bookingStartHour) {
+                     timetable[dayOfWeek][period] = classCode;
+                }
+            }
+        });
+
+        return timetable;
+    }
+
+    async function fetchAndApplyTimetable(hallId) {
+        const hall = findHallById(hallId);
+        if (!hall || hall.timetable) return;
+    
+        try {
+            const bookings = await fetchFromAPI(`api/booking/hall/${hallId}`);
+            hall.timetable = bookings ? processBookingsIntoTimetable(bookings) : {};
+        } catch (error) {
+            console.error(`Failed to fetch timetable for hall ${hallId}:`, error);
+            hall.timetable = { error: "Failed to load schedule" };
+        }
+    }
+    
     async function fetchEmployeeData() {
         if (state.employeeData && state.employeeData.length > 0) {
             return state.employeeData;
@@ -146,21 +203,16 @@ window.SemesterBookingView = (function() {
         const schoolMap = new Map(schools.map(s => [s.unique_id, s.school_name]));
         const departmentMap = new Map(departments.map(d => [d.unique_id, d.department_name]));
 
-        const employees = rawEmployees.map(emp => ({
-            id: emp.unique_id,
-            name: emp.employee_name,
-            email: emp.employee_email,
-            phone: emp.employee_mobile,
-            designation: emp.designation,
+        state.employeeData = rawEmployees.map(emp => ({
+            id: emp.unique_id, name: emp.employee_name, email: emp.employee_email,
+            phone: emp.employee_mobile, designation: emp.designation,
             department: departmentMap.get(emp.department_id) || 'N/A',
             school: schoolMap.get(emp.school_id) || 'N/A'
         }));
-        state.employeeData = employees;
-        return employees;
+        return state.employeeData;
     }
 
     async function addSemesterBooking(bookingDetails) {
-        // This function now sends the payload to the same endpoint as finalBookingForm.js
         return await fetchFromAPI(AppConfig.endpoints.bookingRequest, { 
             method: 'POST', 
             body: JSON.stringify(bookingDetails) 
@@ -197,15 +249,15 @@ window.SemesterBookingView = (function() {
         const hallId = state.selectedHallId;
         if (hallId && state.hallStates[hallId]) {
             state.hallStates[hallId] = { selectedSlots: [], formDetails: {} };
-            sessionStorage.removeItem(SESSION_STORAGE_KEY); // Also clear from session
+            sessionStorage.removeItem(SESSION_STORAGE_KEY);
         }
-        renderBookingPanel(); // Re-render to show cleared state
+        renderBookingPanel();
     }
 
     function renderSemesterHalls(data) {
         const container = document.getElementById('semester-halls-container');
         if (!container) return;
-        const hallsHtml = Object.entries(data).map(([groupName, halls]) => {
+        container.innerHTML = Object.entries(data).map(([groupName, halls]) => {
             if (halls.length === 0) return '';
             return `
             <div>
@@ -225,7 +277,6 @@ window.SemesterBookingView = (function() {
                 </div>
             </div>
         `}).join('');
-        container.innerHTML = hallsHtml;
     }
 
     function renderBookingPanel() {
@@ -256,20 +307,43 @@ window.SemesterBookingView = (function() {
 
     function renderInteractiveTimetable(hall, selectedSlots) {
         const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+        const dayMap = { 'Mon': 'MONDAY', 'Tue': 'TUESDAY', 'Wed': 'WEDNESDAY', 'Thu': 'THURSDAY', 'Fri': 'FRIDAY' };
         const periods = Object.keys(PERIOD_TIMES).map(Number);
+    
+        if (hall.timetable?.error) {
+            return `<div class="p-4 text-center text-red-400">${hall.timetable.error}</div>`;
+        }
+    
         let tableHTML = `<table class="w-full text-center"><thead><tr><th class="p-2 border border-slate-700 align-bottom">Day</th>`;
         periods.forEach(p => {
             tableHTML += `<th class="p-2 border border-slate-700 timetable-header-cell"><div>${p}</div><div class="text-xs font-normal text-slate-400">${PERIOD_TIMES[p]}</div></th>`;
         });
         tableHTML += `</tr></thead><tbody>`;
+    
         days.forEach(day => {
             tableHTML += `<tr><td class="p-2 border border-slate-700 font-semibold">${day}</td>`;
+            const backendDayKey = dayMap[day];
+    
             periods.forEach(period => {
-                const courseCode = hall.timetable?.[day]?.[period];
+                const courseCode = hall.timetable?.[backendDayKey]?.[period];
                 const isBooked = !!courseCode;
                 const isSelected = selectedSlots.some(s => s.day === day && s.period === period);
-                let cellClass = isBooked ? 'booked' : (isSelected ? 'selected' : 'available');
-                tableHTML += `<td class="p-1 border border-slate-700 timetable-slot ${cellClass}" data-day="${day}" data-period="${period}" title="${isBooked ? `Booked: ${courseCode}` : ''}">${isBooked ? courseCode : ''}</td>`;
+                
+                let cellClass, cellContent = '', cellTitle = '';
+    
+                if (isBooked) {
+                    cellClass = 'booked';
+                    cellContent = courseCode;
+                    cellTitle = `Booked: ${courseCode}`;
+                } else if (isSelected) {
+                    cellClass = 'selected';
+                    cellTitle = 'Click to de-select';
+                } else {
+                    cellClass = 'available';
+                    cellTitle = 'Click to select';
+                }
+    
+                tableHTML += `<td class="p-1 border border-slate-700 timetable-slot ${cellClass}" data-day="${day}" data-period="${period}" title="${cellTitle}">${cellContent}</td>`;
             });
             tableHTML += `</tr>`;
         });
@@ -327,7 +401,7 @@ window.SemesterBookingView = (function() {
         optionsContainer.innerHTML = filteredEmployees.map(emp => `<div class="p-2 cursor-pointer hover:bg-slate-700" data-value="${emp.email}" data-name="${emp.name}">${emp.name}</div>`).join('');
     }
 
-    function handleHallClick(e) {
+    async function handleHallClick(e) {
         const card = e.target.closest('.semester-hall-card');
         if (!card) return;
 
@@ -335,24 +409,26 @@ window.SemesterBookingView = (function() {
         const hallId = card.dataset.hallId;
 
         if (detailsButton && hallId) {
-            // Action: Navigate to details page
-            e.stopPropagation(); // Stop the event from bubbling further
+            e.stopPropagation();
             const hallData = findHallById(hallId);
             if (hallData) {
                 sessionStorage.setItem('hallDetailsData', JSON.stringify(hallData));
                 window.location.hash = `#hall-booking-details-view?id=${hallId}`;
-            } else {
-                console.error('Hall data not found for ID:', hallId);
             }
         } else if (hallId) {
-            // Action: Select hall for booking on the current page
             state.selectedHallId = hallId;
             document.querySelectorAll('.semester-hall-card').forEach(c => c.classList.remove('active'));
             card.classList.add('active');
+            
+            const container = document.getElementById('booking-panel-container');
+            if (container) {
+                container.innerHTML = `<div class="flex items-center justify-center h-full"><p class="text-center text-slate-400">Loading hall schedule...</p></div>`;
+            }
+            
+            await fetchAndApplyTimetable(hallId);
+            
             renderBookingPanel();
             saveStateToSession();
-        } else {
-            console.error("Clicked card does not have a valid hall-id.", card);
         }
     }
 
@@ -361,76 +437,47 @@ window.SemesterBookingView = (function() {
         if (!hallId) return;
         if (!state.hallStates[hallId]) state.hallStates[hallId] = { selectedSlots: [], formDetails: {} };
         const slots = state.hallStates[hallId].selectedSlots;
-        const index = slots.findIndex(s => s.day === day && s.period === period);
+        const index = slots.findIndex(s => s.day === day && s.period == period); // Use '==' for loose comparison as data-period can be a string
         if (index > -1) slots.splice(index, 1);
-        else slots.push({ day, period });
+        else slots.push({ day, period: parseInt(period, 10) });
         saveStateToSession();
         renderBookingPanel();
     }
     
-    /**
-     * MODIFIED FUNCTION
-     * This function has been completely rewritten to construct and send a payload
-     * identical to the 'SEMESTER' booking payload in `finalBookingForm.js`.
-     * It uses the same API endpoint and includes optional faculty details.
-     */
     async function handleSubmit() {
         const hallId = state.selectedHallId;
-        if (!hallId) {
-            alert('Please select a hall.');
-            return;
-        }
+        if (!hallId) { alert('Please select a hall.'); return; }
 
         const currentHallState = state.hallStates[hallId];
         if (!currentHallState || currentHallState.selectedSlots.length === 0) {
-            alert('Please select at least one time slot.');
-            return;
+            alert('Please select at least one time slot.'); return;
         }
 
-        // Retrieve latest form details directly from the DOM
         const formDetails = {
             startDate: document.getElementById('start-date')?.value,
             endDate: document.getElementById('end-date')?.value,
             purpose: document.getElementById('booking-purpose')?.value,
             title: document.getElementById('course-title')?.value,
-            faculty: document.getElementById('faculty-select')?.value, // This is the faculty email
+            faculty: document.getElementById('faculty-select')?.value,
         };
 
-        // --- Validation ---
-        if (!formDetails.startDate || !formDetails.endDate) {
-            alert('Please select a start and end date for the semester booking.');
-            return;
+        if (!formDetails.startDate || !formDetails.endDate || !formDetails.purpose || !formDetails.title) {
+            alert('Please fill out all booking detail fields.'); return;
         }
         if (new Date(formDetails.startDate) > new Date(formDetails.endDate)) {
-            alert('Start date cannot be after the end date.');
-            return;
-        }
-        if (!formDetails.purpose) {
-            alert('Please provide a purpose for the booking.');
-            return;
-        }
-        if (!formDetails.title) {
-            alert('Please enter a Course / Event Title.');
-            return;
+            alert('Start date cannot be after the end date.'); return;
         }
 
-        // --- Payload Construction ---
         const dayMap = { 'Mon': 'MONDAY', 'Tue': 'TUESDAY', 'Wed': 'WEDNESDAY', 'Thu': 'THURSDAY', 'Fri': 'FRIDAY' };
         const selectedDays = [...new Set(currentHallState.selectedSlots.map(s => s.day))];
         const days_of_week = selectedDays.map(day => dayMap[day]);
 
-        // Calculate start and end times from the selected periods
         const allPeriods = currentHallState.selectedSlots.map(s => s.period);
         const minPeriod = Math.min(...allPeriods);
         const maxPeriod = Math.max(...allPeriods);
+        const start_time = PERIOD_TIMES[minPeriod].split('-')[0];
+        const end_time = PERIOD_TIMES[maxPeriod].split('-')[1];
 
-        const startTimeString = PERIOD_TIMES[minPeriod]; // e.g., "09:30-10:30"
-        const endTimeString = PERIOD_TIMES[maxPeriod];   // e.g., "10:30-11:30"
-
-        const start_time = startTimeString.split('-')[0]; // "09:30"
-        const end_time = endTimeString.split('-')[1];     // "11:30"
-
-        // Construct the payload to match finalBookingForm.js
         const payload = {
             hall_id: hallId,
             purpose: formDetails.purpose,
@@ -440,10 +487,9 @@ window.SemesterBookingView = (function() {
             start_time: start_time,
             end_time: end_time,
             days_of_week: days_of_week,
-            class_code: formDetails.title, // Use Course/Event Title as class_code
+            class_code: formDetails.title,
         };
         
-        // Add optional faculty details if a faculty member was selected
         if (formDetails.faculty) {
             const facultyMember = state.employeeData.find(e => e.email === formDetails.faculty);
             if (facultyMember) {
@@ -453,28 +499,17 @@ window.SemesterBookingView = (function() {
             }
         }
 
-        // --- API Submission ---
         const submitBtn = document.getElementById('submit-booking-btn');
         try {
-            if(submitBtn) {
-                submitBtn.disabled = true;
-                submitBtn.textContent = 'Submitting...';
-            }
-
-            // The addSemesterBooking function is reused as it correctly POSTs the payload
+            if(submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Submitting...'; }
             const result = await addSemesterBooking(payload); 
-            
             alert(result.message || 'Semester booking request submitted successfully!');
             clearCurrentHallState();
-            
         } catch (error) {
             console.error('Booking submission error:', error);
             alert(`Failed to submit booking request: ${error.message}`);
         } finally {
-            if(submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Submit';
-            }
+            if(submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit'; }
         }
     }
 
@@ -490,11 +525,11 @@ window.SemesterBookingView = (function() {
         if(!panel) return;
         panel.querySelector('#interactive-timetable')?.addEventListener('click', e => {
             const slot = e.target.closest('.timetable-slot.available, .timetable-slot.selected');
-            if (slot) toggleSlotSelection(slot.dataset.day, parseInt(slot.dataset.period, 10));
+            if (slot) toggleSlotSelection(slot.dataset.day, slot.dataset.period);
         });
         panel.querySelector('#selected-slots-summary')?.addEventListener('click', e => {
             const btn = e.target.closest('.remove-slot-btn');
-            if (btn) toggleSlotSelection(btn.dataset.day, parseInt(btn.dataset.period, 10));
+            if (btn) toggleSlotSelection(btn.dataset.day, btn.dataset.period);
         });
         panel.querySelector('#clear-selection-btn')?.addEventListener('click', clearCurrentHallState);
         panel.querySelector('#submit-booking-btn')?.addEventListener('click', handleSubmit);
@@ -564,7 +599,6 @@ window.SemesterBookingView = (function() {
     async function initialize() {
         try {
             loadStateFromSession();
-            // Fetch employee data early if needed for repopulating form state
             if (state.selectedHallId && state.hallStates[state.selectedHallId]?.formDetails?.faculty) {
                  await fetchEmployeeData();
             }
@@ -572,6 +606,13 @@ window.SemesterBookingView = (function() {
             renderSemesterHalls(state.semesterHallsData);
             renderBookingPanel();
             setupEventHandlers();
+            
+            if (state.selectedHallId) {
+                const card = document.querySelector(`.semester-hall-card[data-hall-id="${state.selectedHallId}"]`);
+                if (card) {
+                    await handleHallClick({ target: card });
+                }
+            }
         } catch (error) {
             console.error('Error loading semester booking view:', error);
             const container = document.getElementById('semester-halls-container');

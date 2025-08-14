@@ -434,7 +434,7 @@ window.HallDetailsView = (function() {
                 school_id: hallToUpdate.school_id,
                 department_id: hallToUpdate.department_id,
                 availability: hallToUpdate.availability,
-                reason_for_unavailability: hallToUpdate.reason_for_unavailability,
+                unavailability_reason: hallToUpdate.reason_for_unavailability,
                 // The only changed value
                 features: selectedFeatures
             };

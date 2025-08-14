@@ -422,13 +422,22 @@ window.BrowseBookView = (function() {
                 state.hallType = newHallType;
                 applyFiltersAndRender();
                 saveStateToSession();
-            } else if (target.matches('button') && target.textContent.match(/^\d{2}:\d{2}(am|pm)$/)) {
+            } else if (target.matches('#clear-capacity')) { // Handles click on "Clear" for Capacity
+                e.preventDefault();
+                document.querySelectorAll('input[name="capacity"]:checked').forEach(radio => radio.checked = false);
+                handleFilterChange();
+            } else if (target.matches('#clear-features')) { // Handles click on "Clear" for Features
+                e.preventDefault();
+                document.querySelectorAll('input[data-feature]:checked').forEach(cb => cb.checked = false);
+                handleFilterChange();
+            } else if (target.matches('button') && target.dataset.time) {
                 target.classList.toggle('selected');
                 target.classList.toggle('bg-blue-600'); target.classList.toggle('text-white');
                 target.classList.toggle('bg-slate-700'); target.classList.toggle('text-slate-300');
                 handleFilterChange();
-            } else if (target.matches('#clear-selection')) {
-                container.querySelectorAll('button.selected').forEach(btn => {
+            } else if (target.matches('#clear-timeslots')) { // This button clears only the time slots
+                 e.preventDefault();
+                container.querySelectorAll('button.selected[data-time]').forEach(btn => {
                     btn.classList.remove('selected', 'bg-blue-600', 'text-white');
                     btn.classList.add('bg-slate-700', 'text-slate-300');
                 });
