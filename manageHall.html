@@ -66,7 +66,6 @@
                     <a href="addHall.html" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-plus"></i><span>Add Hall</span></a>
                     <button @click="modifySelectedItem()" :disabled="selectedItems.length !== 1" class="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-edit"></i><span>Modify</span></button>
                     <button @click="confirmDeletion()" :disabled="selectedItems.length === 0" class="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-trash-alt"></i><span>Delete</span></button>
-                    <button @click="resetFilters" :class="isAnyFilterActive ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-500 hover:bg-gray-600'" class="text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center space-x-2 transition-colors"><i class="fas fa-undo"></i></button>
                     <div class="flex items-center space-x-2 text-white pl-2">
                         <span>Multi-Select:</span>
                         <label class="toggle-switch"><input type="checkbox" x-model="multipleSelectionEnabled"><span class="toggle-slider"></span></label>
@@ -101,6 +100,10 @@
                         <button @click="modals.features = true" class="px-3 py-1 rounded-full text-sm flex items-center gap-2 filter-button" :class="{'active': isFilterActive('features')}"><i class="fas fa-star"></i> Features</button>
                         <button @click="modals.status = true" class="px-3 py-1 rounded-full text-sm flex items-center gap-2 filter-button" :class="{'active': isFilterActive('status')}"><i class="fas fa-check-circle"></i> Status</button>
                         
+                        <button @click="resetFilters" x-show="isAnyFilterActive" x-transition class="px-3 py-1 rounded-full text-sm flex items-center gap-2 filter-button bg-red-500 text-white hover:bg-red-600">
+                            <i class="fas fa-undo"></i> Reset All
+                        </button>
+
                         <button x-show="selectedItems.length > 0" @click="deselectAll()" class="px-3 py-1 rounded-full text-sm flex items-center gap-2 filter-button bg-yellow-400 text-black hover:bg-yellow-500">
                             <i class="fas fa-eraser"></i> Deselect All
                         </button>
@@ -437,7 +440,7 @@
             <div x-show="!isLoading && !errorMessage" x-cloak>
                 <div x-show="viewMode === 'card'" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
                     <template x-for="hall in filteredHalls" :key="hall.unique_id">
-                        <div class="bg-white rounded-lg shadow-lg flex flex-col transition-all duration-300 hover:shadow-xl hover:scale-[1.02] overflow-hidden">
+                        <div class="bg-white rounded-lg shadow-lg flex flex-col transition-all duration-300 hover:shadow-xl hover:scale-[1.02] overflow-hidden hall-card" :data-id="hall.unique_id">
                             <img x-show="cardViewImage === 'with'" :src="hall.image_url || 'https://via.placeholder.com/400x250?text=No+Image'" alt="Hall Image" class="w-full h-40 sm:h-48 object-cover">
                             
                             <div class="p-4 sm:p-5 flex flex-col flex-grow justify-between">
@@ -476,17 +479,10 @@
                                          </div>
                                          <div class="mt-3 sm:mt-4 border-t pt-3 sm:pt-4">
                                             <h4 class="text-xs font-semibold text-gray-400 uppercase mb-2">Features</h4>
-                                            <div x-show="!expandedFeatures.includes(hall.unique_id)" class="flex flex-wrap gap-1">
-                                                <template x-for="feature in hall.features.slice(0, 4)" :key="feature">
-                                                    <span class="bg-gray-100 text-gray-700 text-xs font-medium px-2 py-1 rounded-full" x-text="feature"></span>
-                                                </template>
-                                                <button @click.stop="expandedFeatures.push(hall.unique_id)" x-show="hall.features.length > 4" class="bg-gray-200 text-gray-600 text-xs font-medium px-2 py-1 rounded-full hover:bg-gray-300" x-text="`+${hall.features.length - 4} more`"></button>
-                                            </div>
-                                            <div x-show="expandedFeatures.includes(hall.unique_id)" class="flex flex-wrap gap-1">
+                                            <div class="flex flex-wrap gap-1">
                                                 <template x-for="feature in hall.features" :key="feature">
                                                     <span class="bg-gray-100 text-gray-700 text-xs font-medium px-2 py-1 rounded-full" x-text="feature"></span>
                                                 </template>
-                                                <button @click.stop="expandedFeatures = expandedFeatures.filter(id => id !== hall.unique_id)" class="bg-gray-200 text-gray-600 text-xs font-medium px-2 py-1 rounded-full hover:bg-gray-300">Show less</button>
                                             </div>
                                         </div>
                                     </div>
@@ -639,6 +635,35 @@
                         document.body.style.overflow = '';
                     }
                 });
+            },
+            
+            expandFeatureRow(clickedButtonEl) {
+                const cardEl = clickedButtonEl.closest('.hall-card');
+                if (!cardEl) return;
+
+                const targetOffsetTop = cardEl.offsetTop;
+                const allCards = this.$root.querySelectorAll('.hall-card');
+
+                const cardsInRow = Array.from(allCards).filter(card => card.offsetTop === targetOffsetTop);
+
+                cardsInRow.forEach(card => {
+                    const id = card.dataset.id;
+                    if (id && !this.expandedFeatures.includes(id)) {
+                        this.expandedFeatures.push(id);
+                    }
+                });
+            },
+
+            collapseFeatureRow(clickedButtonEl) {
+                const cardEl = clickedButtonEl.closest('.hall-card');
+                if (!cardEl) return;
+
+                const targetOffsetTop = cardEl.offsetTop;
+                const allCards = this.$root.querySelectorAll('.hall-card');
+                const cardsInRow = Array.from(allCards).filter(card => card.offsetTop === targetOffsetTop);
+                const idsInRow = cardsInRow.map(card => card.dataset.id);
+
+                this.expandedFeatures = this.expandedFeatures.filter(id => !idsInRow.includes(id));
             },
 
             get filteredHalls() {
