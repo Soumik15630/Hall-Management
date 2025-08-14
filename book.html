@@ -129,7 +129,8 @@
     <main class="flex-grow p-4 sm:p-6">
         <div class="container mx-auto" x-data="bookingForm()" @mouseup.window="stopDrag()">
             <div class="bg-[rgba(0,0,0,0.15)] p-4 sm:p-8 rounded-lg shadow-xl">
-                <h2 class="text-3xl font-bold text-center text-white mb-8">HALL BOOKING</h2>
+                <h2 class="text-3xl font-bold text-center text-white mb-2">HALL BOOKING</h2>
+                <h3 class="text-xl font-semibold text-center text-gray-200 mb-8" x-text="hallName"></h3>
                 
                 <!-- Loading State -->
                 <template x-if="isLoading">
@@ -330,6 +331,7 @@
                 isLoading: true,
                 errorMessage: '',
                 hallId: null,
+                hallName: '',
                 bookingType: 'INDIVIDUAL',
                 startDate: '',
                 endDate: '',
@@ -363,9 +365,8 @@
                         return;
                     }
                     try {
-                        // Fetch pending bookings first
+                        await this.fetchHallData(this.hallId);
                         await this.fetchPendingBookings(this.hallId);
-                        // Then fetch confirmed bookings (which will overwrite pending status if necessary)
                         await this.fetchScheduleData(this.hallId);
                         this.generateCalendar();
                         this.setTodaysDate();
@@ -413,6 +414,12 @@
                         throw new Error(errorData.message || `HTTP error! Status: ${response.status}`);
                     }
                     return response.json();
+                },
+
+                async fetchHallData(hallId) {
+                    const url = AppConfig.apiBaseUrl + AppConfig.endpoints.getHallById + hallId;
+                    const data = await this.fetchWithAuth(url);
+                    this.hallName = data.name;
                 },
                 
                 // Fetches and processes PENDING booking data from the API
