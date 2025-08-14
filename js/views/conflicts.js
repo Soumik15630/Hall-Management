@@ -58,6 +58,7 @@ window.ConflictsView = (function() {
 
         for (const booking of pendingBookings) {
             // Create a unique key for each time slot (hall + start time)
+            // Note: This logic only finds conflicts for bookings starting on the same day.
             const slotKey = `${booking.hall_id}-${new Date(booking.start_date).toISOString()}`;
 
             if (slots.has(slotKey)) {
@@ -89,7 +90,7 @@ window.ConflictsView = (function() {
 
         try {
             // Construct the endpoint from the base path and action
-            const endpoint = `/api/booking/${bookingId}/${action}`;
+            const endpoint = `api/booking/${bookingId}/${action}`;
             const result = await apiCall(endpoint, 'PUT');
 
             console.log(`Booking ${bookingId} ${action}d successfully.`, result);
@@ -110,6 +111,39 @@ window.ConflictsView = (function() {
 
 
     // --- RENDERING ---
+
+    /**
+     * Formats the date and time details for a booking based on its type.
+     * @param {object} booking - The booking object.
+     * @returns {string} - The HTML formatted date and time string.
+     */
+    function formatBookingDateTime(booking) {
+        // Helper to format time strings (e.g., "09:30") into a readable format (e.g., "09:30 AM")
+        const formatTime = (timeStr) => {
+            if (!timeStr) return '';
+            const [hour, minute] = timeStr.split(':');
+            const date = new Date(1970, 0, 1, hour, minute);
+            return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+        };
+        
+        const startTime = formatTime(booking.start_time);
+        const endTime = formatTime(booking.end_time);
+
+        if (booking.booking_type === 'SEMESTER') {
+            const startDate = new Date(booking.start_date).toLocaleDateString();
+            const endDate = new Date(booking.end_date).toLocaleDateString();
+            const days = booking.days_of_week.map(day => day.charAt(0) + day.slice(1).toLowerCase()).join(', ');
+            
+            return `<div class="font-semibold">Semester: ${startDate} to ${endDate}</div>
+                    <div class="text-slate-300">Every ${days}</div>
+                    <div class="text-slate-300">${startTime} - ${endTime}</div>`;
+        } else { // Handle single-day or other booking types
+            const date = new Date(booking.start_date).toLocaleDateString();
+            return `<div class="font-semibold">${date}</div>
+                    <div class="text-slate-300">${startTime} - ${endTime}</div>`;
+        }
+    }
+
     /**
      * Renders the table of conflicting bookings.
      * @param {Array} data - An array of booking objects that are in conflict.
@@ -119,36 +153,33 @@ window.ConflictsView = (function() {
         if (!tableBody) return;
 
         if (!data || data.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-slate-400">No booking conflicts found.</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-slate-400">✅ No booking conflicts found.</td></tr>`;
             return;
         }
         
         const tableHtml = data.map(booking => `
-            <tr class="bg-red-900/20" data-booking-id="${booking.unique_id}">
-                <td class="whitespace-nowrap px-3 py-4 text-sm">
+            <tr class="bg-red-900/20 hover:bg-red-900/40" data-booking-id="${booking.unique_id}">
+                <td class="px-3 py-4 text-sm align-top">
                     <div class="text-slate-300">${new Date(booking.created_at).toLocaleDateString()}</div>
-                    <div class="text-blue-400">${booking.unique_id}</div>
+                    <div class="text-blue-400 text-xs mt-1 break-all">${booking.unique_id}</div>
                 </td>
-                <td class="whitespace-nowrap px-3 py-4 text-sm">
-                    <div class="font-medium text-white">${booking.hall_name}</div>
-                    <div class="text-slate-400">${booking.hall_id}</div>
+                <td class="px-3 py-4 text-sm align-top">
+                    <div class="font-medium text-white">${booking.hall?.name || 'N/A'}</div>
+                    <div class="text-slate-400 text-xs mt-1 break-all">${booking.hall_id}</div>
                 </td>
-                <td class="whitespace-nowrap px-3 py-4 text-sm">
+                <td class="px-3 py-4 text-sm align-top">
                     <div class="font-medium text-white">${booking.purpose}</div>
                     <div class="text-slate-400">${booking.class_code || ''}</div>
                 </td>
-                <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300">${new Date(booking.start_date).toLocaleString()} - ${new Date(booking.end_date).toLocaleTimeString()}</td>
-                <td class="whitespace-nowrap px-3 py-4 text-sm">
-                    <div class="font-medium text-blue-400">${booking.user_name}</div>
-                    <div class="text-slate-400">${booking.user_department}</div>
-                    <div class="text-slate-400">${booking.user_phone || ''}</div>
-                    <div class="text-slate-400">${booking.user_email || ''}</div>
+                <td class="px-3 py-4 text-sm text-slate-300 align-top">${formatBookingDateTime(booking)}</td>
+                <td class="px-3 py-4 text-sm align-top">
+                    <div class="font-medium text-blue-400">${booking.user?.employee?.employee_name || 'N/A'}</div>
                 </td>
-                <td class="whitespace-nowrap px-3 py-4 text-sm">
+                <td class="px-3 py-4 text-sm align-top">
                     <div class="font-semibold text-yellow-400">${booking.status}</div>
                     <div class="text-red-400 font-semibold mt-1">Conflict Exists</div>
                 </td>
-                <td class="whitespace-nowrap px-3 py-4 text-sm">
+                <td class="px-3 py-4 text-sm text-center align-top">
                     <div class="flex flex-col gap-2">
                         <button data-action="approve" class="px-3 py-1 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-md transition disabled:opacity-50 disabled:cursor-not-allowed">Approve</button>
                         <button data-action="reject" class="px-3 py-1 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-md transition disabled:opacity-50 disabled:cursor-not-allowed">Reject</button>
@@ -177,7 +208,7 @@ window.ConflictsView = (function() {
             const bookingId = row ? row.dataset.bookingId : null;
 
             if (bookingId && (action === 'approve' || action === 'reject')) {
-                 if (confirm(`Are you sure you want to ${action} booking ${bookingId}? This may resolve the conflict.`)) {
+                 if (confirm(`Are you sure you want to ${action} this booking? This action may resolve the conflict.`)) {
                     handleBookingAction(bookingId, action);
                 }
             }
