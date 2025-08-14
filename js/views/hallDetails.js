@@ -1,6 +1,6 @@
 // Hall Details View Module
 window.HallDetailsView = (function() {
-    
+
     // --- STATE MANAGEMENT ---
     let state = {
         allHalls: [],
@@ -44,7 +44,7 @@ window.HallDetailsView = (function() {
         if (isJson) {
             const text = await response.text();
             // Handle empty response body for 200 OK, etc.
-            if (!text) return null; 
+            if (!text) return null;
             try {
                 const result = JSON.parse(text);
                 return result.data || result;
@@ -60,7 +60,7 @@ window.HallDetailsView = (function() {
         if (!str) return 'N/A';
         return str.replace(/_/g, ' ').replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
     }
-    
+
     function mapHallType(apiType) {
         if (!apiType) return 'N/A';
         const type = apiType.toUpperCase();
@@ -93,9 +93,9 @@ window.HallDetailsView = (function() {
         });
         return schoolsMap;
     }
-    
-    // FIX: Updated to match the backend's expected enum values (UPPER_SNAKE_CASE)
-    function getFeatures() { 
+
+    // FIX: Updated to match the backend's expected enum values (UPPER_SNAKE_CASE) and sorted alphabetically
+    function getFeatures() {
         return [
             'AC',
             'PROJECTOR',
@@ -108,7 +108,7 @@ window.HallDetailsView = (function() {
             'BLACK_BOARD',
             'LIFT',
             'RAMP'
-        ]; 
+        ].sort(); // Sort features alphabetically
     }
 
     async function fetchHallsForHOD() {
@@ -117,7 +117,7 @@ window.HallDetailsView = (function() {
             fetchRawSchools(),
             fetchRawDepartments()
         ]);
-        
+
         const schoolMap = new Map(schools.map(s => [s.unique_id, s]));
         const departmentMap = new Map(departments.map(d => [d.unique_id, d]));
 
@@ -145,7 +145,8 @@ window.HallDetailsView = (function() {
                 displayZone: formatTitleCase(hall.zone) + ' Zone',
                 schoolName: school ? school.school_name : 'N/A',
                 departmentName: dept ? dept.department_name : 'N/A',
-                displayFeatures: Array.isArray(hall.features) ? hall.features.map(formatTitleCase).join(', ') : '',
+                // MODIFIED: Sort features alphabetically before displaying
+                displayFeatures: Array.isArray(hall.features) ? hall.features.sort().map(formatTitleCase).join(', ') : '',
                 inchargeName: incharge.name,
                 inchargeRole: incharge.role,
                 inchargeEmail: incharge.email,
@@ -167,7 +168,7 @@ window.HallDetailsView = (function() {
             tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-slate-400">No details found.</td></tr>`;
             return;
         }
-        
+
         const tableHtml = state.filteredHalls.map(hall => {
             const isSelected = state.selectedRows.includes(hall.hallCode);
             const statusColor = hall.displayStatus ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-400';
@@ -190,7 +191,7 @@ window.HallDetailsView = (function() {
                     <div class="font-medium text-blue-400">${hall.schoolName}</div>
                     <div class="text-slate-400">${hall.departmentName}</div>
                 </td>
-                <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300 max-w-xs truncate" title="${hall.displayFeatures}">${hall.displayFeatures}</td>
+                <td class="px-3 py-4 text-sm text-slate-300" style="white-space: normal; max-width: 250px; word-wrap: break-word;">${hall.displayFeatures}</td>
                 <td class="whitespace-nowrap px-3 py-4 text-sm">
                     <div class="font-medium text-blue-400">${hall.inchargeName}</div>
                     <div class="text-slate-400">${hall.inchargeRole}</div>
@@ -215,11 +216,11 @@ window.HallDetailsView = (function() {
         const ownershipBtn = document.getElementById('ownership-btn');
         const featuresBtn = document.getElementById('features-btn');
         const selectAllCheckbox = document.getElementById('select-all-checkbox');
-        
+
         if(statusBtn) statusBtn.disabled = selectedCount === 0;
         if(ownershipBtn) ownershipBtn.disabled = selectedCount === 0;
         if(featuresBtn) featuresBtn.disabled = selectedCount !== 1;
-        
+
         if (selectAllCheckbox) {
             selectAllCheckbox.disabled = !state.multiSelection;
             selectAllCheckbox.checked = state.multiSelection && selectedCount > 0 && selectedCount === state.filteredHalls.length;
@@ -244,7 +245,7 @@ window.HallDetailsView = (function() {
         const modal = document.getElementById(modalId);
         const backdrop = document.getElementById('modal-backdrop');
         if(!modal || !backdrop) return;
-        
+
         backdrop.classList.remove('hidden');
         backdrop.classList.remove('opacity-0');
         modal.classList.remove('hidden');
@@ -279,26 +280,26 @@ window.HallDetailsView = (function() {
     function setupUpdateStatusModal() {
         const isSingleSelection = state.selectedRows.length === 1;
         const hall = isSingleSelection ? state.allHalls.find(h => h.hallCode === state.selectedRows[0]) : null;
-    
+
         const availableRadio = document.querySelector('input[name="status-option"][value="true"]');
         const unavailableRadio = document.querySelector('input[name="status-option"][value="false"]');
-        
+
         if (hall) {
             (hall.availability ? availableRadio : unavailableRadio).checked = true;
         } else {
             availableRadio.checked = true;
         }
-    
+
         const reasonContainer = document.getElementById('status-reason-container');
         const dateRangeContainer = document.getElementById('status-date-range');
         const reasonSelect = document.getElementById('status-reason-select');
-        
+
         if (reasonSelect) reasonSelect.value = '';
-        
+
         const showDetails = unavailableRadio.checked;
         reasonContainer.classList.toggle('hidden', !showDetails);
         dateRangeContainer.classList.toggle('hidden', !showDetails);
-        
+
         document.querySelectorAll('input[name="status-option"]').forEach(radio => {
             radio.addEventListener('change', (e) => {
                 const shouldShow = e.target.value === 'false';
@@ -317,13 +318,14 @@ window.HallDetailsView = (function() {
         const hall = state.allHalls.find(h => h.hallCode === state.selectedRows[0]);
         if (!hall) throw new Error("Selected hall data not found.");
 
+        // MODIFIED: getFeatures() is already sorted, ensuring alphabetical display in the modal.
         const allPossibleFeatures = getFeatures();
         const container = document.getElementById('features-checkbox-container');
         if (!container) throw new Error("Required modal element not found.");
-        
+
         // hall.features is the raw array from the API
         const currentFeatures = hall.features || [];
-        
+
         container.innerHTML = allPossibleFeatures.map(feature => {
             // Check against the raw feature name (e.g., 'SMART_BOARD'), not the formatted one.
             const isChecked = currentFeatures.includes(feature);
@@ -387,7 +389,7 @@ window.HallDetailsView = (function() {
 
             alert(`Successfully updated status for ${state.selectedRows.length} hall(s).`);
             closeModal();
-            await initialize(); 
+            await initialize();
 
         } catch (error) {
             console.error('Failed to update hall status:', error);
@@ -415,7 +417,7 @@ window.HallDetailsView = (function() {
             if (!hallId) {
                 throw new Error("No hall selected for feature update.");
             }
-            
+
             const hallToUpdate = state.allHalls.find(h => h.hallCode === hallId);
             if (!hallToUpdate) {
                 throw new Error("Could not find the hall data to update.");
@@ -434,9 +436,9 @@ window.HallDetailsView = (function() {
                 availability: hallToUpdate.availability,
                 reason_for_unavailability: hallToUpdate.reason_for_unavailability,
                 // The only changed value
-                features: selectedFeatures 
+                features: selectedFeatures
             };
-            
+
             const endpoint = `api/hall/${hallId}`;
 
             await fetchFromAPI(endpoint, {
@@ -471,14 +473,14 @@ window.HallDetailsView = (function() {
             }
             renderHallTable();
         }, { signal });
-        
+
         document.getElementById('select-all-checkbox')?.addEventListener('change', (e) => {
             if (state.multiSelection) {
                 state.selectedRows = e.target.checked ? state.filteredHalls.map(h => h.hallCode) : [];
                 renderHallTable();
             }
         }, { signal });
-        
+
         document.getElementById('hall-details-body')?.addEventListener('change', (e) => {
             if (e.target.classList.contains('row-checkbox')) {
                 const hallCode = e.target.closest('tr').dataset.hallCode;
@@ -492,12 +494,12 @@ window.HallDetailsView = (function() {
 
         document.querySelectorAll('.modal-close-btn').forEach(btn => btn.addEventListener('click', closeModal, { signal }));
         document.getElementById('modal-backdrop')?.addEventListener('click', closeModal, { signal });
-        
+
         // --- MODAL SUBMISSION LOGIC ---
         document.getElementById('submit-status-update')?.addEventListener('click', handleStatusUpdate, { signal });
         document.getElementById('submit-features-update')?.addEventListener('click', handleFeaturesUpdate, { signal });
     }
-    
+
     function cleanup() {
         if(abortController) abortController.abort();
         state = { allHalls: [], filteredHalls: [], selectedRows: [], multiSelection: false, filters: {} };
