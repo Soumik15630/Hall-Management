@@ -56,18 +56,30 @@
         .slot-available-weekend:hover { 
             background-color: #bbf7d0; 
         }
-        .slot-booked { 
-            background-color: #fee2e2; 
-            border: 1px solid #fca5a5; 
+        /* Booked Slot Colors */
+        .slot-booked-individual { 
+            background-color: #fee2e2; /* Red-100 */
+            border: 1px solid #fca5a5; /* Red-300 */
             cursor: not-allowed; 
         }
-        .slot-pending { 
-            background-color: #fef9c3; 
-            border: 1px solid #fde047; 
+        .slot-booked-semester { 
+            background-color: #e0e7ff; /* Indigo-100 */
+            border: 1px solid #a5b4fc; /* Indigo-300 */
+            cursor: not-allowed; 
+        }
+        /* Pending Slot Colors */
+        .slot-pending-individual { 
+            background-color: #fef3c7; /* Amber-100 */
+            border: 1px solid #fcd34d; /* Amber-300 */
             cursor: pointer; 
         }
-        .slot-pending:hover {
-            background-color: #fef08a;
+        .slot-pending-semester { 
+            background-color: #c7d2fe; /* Indigo-200 */
+            border: 1px solid #818cf8; /* Indigo-400 */
+            cursor: pointer; 
+        }
+        .slot-pending-individual:hover, .slot-pending-semester:hover {
+            opacity: 0.8;
         }
         .slot-past { 
             background-color: #e5e7eb; 
@@ -205,10 +217,11 @@
 
                             <!-- Legend -->
                             <div class="flex flex-wrap justify-center items-center space-x-4 mt-4 text-sm">
-                                <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 slot-available-weekday"></span> Available (Weekday)</div>
-                                <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 slot-available-weekend"></span> Available (Weekend)</div>
-                                <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 slot-pending"></span> Pending</div>
-                                <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 slot-booked"></span> Booked</div>
+                                <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 slot-available-weekday"></span> Available</div>
+                                <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 slot-booked-individual"></span> Booked (Indv)</div>
+                                <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 slot-booked-semester"></span> Booked (Sem)</div>
+                                <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 slot-pending-individual"></span> Pending (Indv)</div>
+                                <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 slot-pending-semester"></span> Pending (Sem)</div>
                                 <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 slot-past"></span> Past</div>
                                 <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 slot-selected"></span> Selected</div>
                             </div>
@@ -404,13 +417,13 @@
                 
                 // Fetches and processes PENDING booking data from the API
                 async fetchPendingBookings(hallId) {
-                    // Assumes a new endpoint for pending bookings in config.js
                     const url = AppConfig.apiBaseUrl + AppConfig.endpoints.pendingBook + hallId;
                     const pendingData = await this.fetchWithAuth(url);
                     if (pendingData.data) {
                         pendingData.data.forEach(booking => {
                             let currentTime = new Date(booking.start_time);
                             const endDate = new Date(booking.end_time);
+                            const bookingType = booking.bookingRequest.booking_type;
                             
                             while (currentTime < endDate) {
                                 const dateKey = currentTime.toISOString().split('T')[0];
@@ -420,7 +433,7 @@
 
                                 if (this.timeSlots.includes(timeKey)) {
                                     if (!this.processedBookings[dateKey]) this.processedBookings[dateKey] = {};
-                                    this.processedBookings[dateKey][timeKey] = 'pending';
+                                    this.processedBookings[dateKey][timeKey] = { status: 'pending', type: bookingType };
                                 }
                                 
                                 currentTime.setUTCHours(currentTime.getUTCHours() + 1);
@@ -435,9 +448,9 @@
                     const scheduleData = await this.fetchWithAuth(url);
                     if (scheduleData.data) {
                         scheduleData.data.forEach(booking => {
-                            // Assuming start_time and end_time are full ISO strings
                             let currentTime = new Date(booking.start_time);
                             const endDate = new Date(booking.end_time);
+                            const bookingType = booking.bookingRequest.booking_type;
                             
                             while (currentTime < endDate) {
                                 const dateKey = currentTime.toISOString().split('T')[0];
@@ -447,11 +460,9 @@
 
                                 if (this.timeSlots.includes(timeKey)) {
                                     if (!this.processedBookings[dateKey]) this.processedBookings[dateKey] = {};
-                                    // This will overwrite a 'pending' status if it exists for the same slot
-                                    this.processedBookings[dateKey][timeKey] = 'booked'; 
+                                    this.processedBookings[dateKey][timeKey] = { status: 'booked', type: bookingType };
                                 }
                                 
-                                // Move to the next hour slot
                                 currentTime.setUTCHours(currentTime.getUTCHours() + 1);
                             }
                         });
@@ -500,12 +511,10 @@
                     const [hour, minute] = time.split(':');
                     const slotDateTime = new Date(this.calendar.year, this.calendar.month, day.date, hour, minute);
 
-                    // If the slot's date and time is in the past, mark it as 'past'.
                     if (slotDateTime < now) return 'past';
 
                     const dateString = `${this.calendar.year}-${String(this.calendar.month + 1).padStart(2, '0')}-${String(day.date).padStart(2, '0')}`;
                     
-                    // Check for semester booking selection
                     if (this.bookingType === 'SEMESTER' && this.startDate && this.endDate && this.selectedDays.length > 0 && this.selectedTimes.length > 0) {
                         const start = new Date(this.startDate); start.setHours(0,0,0,0);
                         const end = new Date(this.endDate); end.setHours(0,0,0,0);
@@ -518,13 +527,14 @@
                         }
                     }
 
-                    // Check for individual booking selection via drag
                     if (this.bookingType === 'INDIVIDUAL' && this.startDate === dateString && this.selectedTimes.includes(time)) {
                         return 'selected';
                     }
                                         
-                    const bookingStatus = this.processedBookings[dateString] ? this.processedBookings[dateString][time] : null;
-                    if (bookingStatus) return bookingStatus;
+                    const bookingInfo = this.processedBookings[dateString] ? this.processedBookings[dateString][time] : null;
+                    if (bookingInfo) {
+                        return `${bookingInfo.status}-${bookingInfo.type.toLowerCase()}`;
+                    }
                     
                     return day.dayIndex === 0 || day.dayIndex === 6 ? 'available-weekend' : 'available-weekday';
                 },
@@ -534,8 +544,10 @@
                     const status = this.getSlotStatus(day, time);
                     return {
                         'slot-past': status === 'past',
-                        'slot-booked': status === 'booked',
-                        'slot-pending': status === 'pending',
+                        'slot-booked-individual': status === 'booked-individual',
+                        'slot-booked-semester': status === 'booked-semester',
+                        'slot-pending-individual': status === 'pending-individual',
+                        'slot-pending-semester': status === 'pending-semester',
                         'slot-available-weekday': status === 'available-weekday',
                         'slot-available-weekend': status === 'available-weekend',
                         'slot-selected': status === 'selected',
@@ -546,14 +558,12 @@
                 startDrag(day, time) {
                     this.hideScrollIndicator();
                     const status = this.getSlotStatus(day, time);
-                    // Allow selection of available or pending slots, but not booked or past slots
-                    if (status === 'booked' || status === 'past') return;
+                    if (status.startsWith('booked') || status === 'past') return;
                     
-                    if (this.bookingType === 'SEMESTER') return; // Disable drag for semester
+                    if (this.bookingType === 'SEMESTER') return;
                     this.isDragging = true;
                     const dateString = `${this.calendar.year}-${String(this.calendar.month + 1).padStart(2, '0')}-${String(day.date).padStart(2, '0')}`;
                     
-                    // If dragging on a new date, clear previous selection
                     if (this.startDate !== dateString) {
                         this.selectedTimes = [];
                         this.startDate = dateString;
@@ -575,17 +585,16 @@
 
                 applyDragSelection(day, time) {
                     const dateString = `${this.calendar.year}-${String(this.calendar.month + 1).padStart(2, '0')}-${String(day.date).padStart(2, '0')}`;
-                    if (this.dragDate !== dateString) return; // Only allow drag on the same day
+                    if (this.dragDate !== dateString) return;
                     
                     const status = this.getSlotStatus(day, time);
                     const timeIndex = this.selectedTimes.indexOf(time);
 
                     if (this.dragSelectionMode === 'add') {
-                        // Allow adding if the slot is available or pending
-                        if ((status.startsWith('available') || status === 'pending') && timeIndex === -1) {
+                        if ((status.startsWith('available') || status.startsWith('pending')) && timeIndex === -1) {
                             this.selectedTimes.push(time);
                         }
-                    } else { // 'remove' mode
+                    } else {
                         if (timeIndex !== -1) this.selectedTimes.splice(timeIndex, 1);
                     }
                     this.selectedTimes.sort();
