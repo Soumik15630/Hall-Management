@@ -45,49 +45,45 @@
     <div id="nav-placeholder"></div>
     
     <!-- Main Content -->
-    <main class="flex-grow p-6" x-data="myBookings()" x-init="init()">
-        <div class="container mx-auto bg-white p-6 rounded-lg shadow-xl">
+    <main class="flex-grow p-2 sm:p-6" x-data="myBookings()" x-init="init()">
+        <div class="container mx-auto bg-white p-4 sm:p-6 rounded-lg shadow-xl">
             <h2 class="text-3xl font-bold text-center text-indigo-900 mb-6">My Bookings</h2>
             
-            <div class="flex justify-between items-center mb-4">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
                 <div class="flex space-x-2">
-                    <button class="bg-white border border-blue-600 text-blue-600 px-4 py-2 rounded-md shadow hover:bg-blue-50 disabled:opacity-50 flex items-center" :disabled="selectedBookings.length === 0">
-                        <i class="fas fa-edit mr-2"></i>Modify
-                    </button>
                     <button @click="selectedBookings = []" class="bg-white border border-gray-600 text-gray-600 px-4 py-2 rounded-md shadow hover:bg-gray-100 disabled:opacity-50 flex items-center" :disabled="selectedBookings.length === 0">
                         <i class="fas fa-ban mr-2"></i>Cancel
                     </button>
                 </div>
                 <div class="space-x-2">
-                    <button class="bg-yellow-500 text-white px-4 py-2 rounded-md shadow hover:bg-yellow-600">Past Booking</button>
                     <button @click="clearFilters()" class="bg-white border border-gray-400 text-gray-700 px-4 py-2 rounded-md shadow hover:bg-gray-100">Clear Filters</button>
                 </div>
             </div>
 
             <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
+                <table class="w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-800 uppercase tracking-wider">Select</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-800 uppercase tracking-wider">
+                            <th scope="col" class="px-2 sm:px-6 py-3 text-left text-xs font-bold text-gray-800 uppercase tracking-wider">Select</th>
+                            <th scope="col" class="px-2 sm:px-6 py-3 text-left text-xs font-bold text-gray-800 uppercase tracking-wider">
                                 <div class="flex items-center cursor-pointer" @click="showDateFilterModal = true">
                                     Booked On <i class="fas fa-filter ml-2 table-header-icon"></i>
                                 </div>
                             </th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-800 uppercase tracking-wider">
+                            <th scope="col" class="px-2 sm:px-6 py-3 text-left text-xs font-bold text-gray-800 uppercase tracking-wider">
                                 <div class="flex items-center cursor-pointer" @click="showHallFilterModal = true">
                                     Hall Details <i class="fas fa-filter ml-2 table-header-icon"></i>
                                 </div>
                             </th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-800 uppercase tracking-wider">
+                            <th scope="col" class="hidden lg:table-cell px-6 py-3 text-left text-xs font-bold text-gray-800 uppercase tracking-wider">
                                 Purpose
                             </th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-800 uppercase tracking-wider">
+                            <th scope="col" class="px-2 sm:px-6 py-3 text-left text-xs font-bold text-gray-800 uppercase tracking-wider">
                                 <div class="flex items-center cursor-pointer" @click="showDateTimeFilterModal = true">
                                     Date & Time <i class="fas fa-filter ml-2 table-header-icon"></i>
                                 </div>
                             </th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-800 uppercase tracking-wider">
+                            <th scope="col" class="px-2 sm:px-6 py-3 text-left text-xs font-bold text-gray-800 uppercase tracking-wider">
                                 <div class="flex items-center cursor-pointer" @click="showStatusFilterModal = true">
                                     Status <i class="fas fa-filter ml-2 table-header-icon"></i>
                                 </div>
@@ -101,27 +97,27 @@
                         <template x-if="!isLoading && filteredBookings.length > 0">
                             <template x-for="booking in filteredBookings" :key="booking.id">
                                 <tr>
-                                    <td class="px-6 py-4 whitespace-nowrap">
+                                    <td class="px-2 sm:px-6 py-4">
                                         <input type="checkbox" :value="booking.id" x-model="selectedBookings" class="rounded border-gray-300">
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap">
+                                    <td class="px-2 sm:px-6 py-4">
                                         <div class="text-sm text-gray-900" x-text="booking.bookedOn"></div>
                                         <div class="text-sm text-blue-600">
                                             <a href="#" class="hover:underline" x-text="booking.bookingId"></a>
                                         </div>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap">
+                                    <td class="px-2 sm:px-6 py-4">
                                         <div class="text-sm font-medium text-gray-900" x-text="booking.hall.type || 'Loading...'"></div>
                                         <div class="text-sm font-bold text-blue-600" x-text="booking.hall.name"></div>
                                         <div class="text-sm text-gray-500" x-text="booking.hall.owner || 'Loading...'"></div>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap">
+                                    <td class="hidden lg:table-cell px-6 py-4">
                                         <div class="text-sm text-gray-900" x-text="booking.purpose"></div>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap">
+                                    <td class="px-2 sm:px-6 py-4">
                                         <div class="text-sm text-gray-900" x-text="booking.dateTimeRange"></div>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap">
+                                    <td class="px-2 sm:px-6 py-4">
                                         <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
                                               :class="{ 
                                                   'bg-red-100 text-red-800': booking.status.toLowerCase().includes('cancelled') || booking.status.toLowerCase().includes('rejected'),
