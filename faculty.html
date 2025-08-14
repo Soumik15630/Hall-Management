@@ -57,6 +57,7 @@
             position: absolute;
             width: calc(100% - 8px);
             z-index: 10;
+            color: white;
         }
         .month-event {
              font-size: 0.75rem;
@@ -67,26 +68,18 @@
              overflow: hidden;
              text-overflow: ellipsis;
         }
-        .event-confirmed {
-            background-color: #10B981; /* Emerald-500 */
-            border-left: 3px solid #059669; /* Emerald-600 */
-            color: white;
-        }
-        .event-pending {
-            background-color: #FBBF24; /* Amber-400 */
-            border-left: 3px solid #F59E0B; /* Amber-500 */
-            color: white;
-        }
-        .month-event-confirmed {
-            background-color: #D1FAE5; /* Emerald-100 */
-            color: #065F46; /* Emerald-800 */
-            border-left: 3px solid #10B981; /* Emerald-500 */
-        }
-        .month-event-pending {
-            background-color: #FEF3C7; /* Amber-100 */
-            color: #92400E; /* Amber-800 */
-            border-left: 3px solid #FBBF24; /* Amber-400 */
-        }
+        
+        /* Color styles based on details.html */
+        .event-booked-individual { background-color: #fee2e2; border-left: 3px solid #fca5a5; color: #991b1b; }
+        .event-booked-semester { background-color: #ffedd5; border-left: 3px solid #fdba74; color: #9a3412; }
+        .event-pending-individual { background-color: #fef3c7; border-left: 3px solid #fcd34d; color: #92400e; }
+        .event-pending-semester { background-color: #c7d2fe; border-left: 3px solid #818cf8; color: #3730a3; }
+
+        .month-event-booked-individual { background-color: #fee2e2; color: #991b1b; border-left: 3px solid #fca5a5; }
+        .month-event-booked-semester { background-color: #ffedd5; color: #9a3412; border-left: 3px solid #fdba74; }
+        .month-event-pending-individual { background-color: #fef3c7; color: #92400e; border-left: 3px solid #fcd34d; }
+        .month-event-pending-semester { background-color: #c7d2fe; color: #3730a3; border-left: 3px solid #818cf8; }
+
         .highlight-today {
             background-color: rgba(255, 255, 255, 0.1);
         }
@@ -133,7 +126,7 @@
                             <div class="text-center font-semibold p-2 border-b" :class="{'text-blue-600': day.isToday}" x-text="day.label"></div>
                             <div class="relative h-full border-t">
                                 <template x-for="event in getEventsForDay(day.date)" :key="event.id">
-                                     <div class="calendar-event" :style="getEventStyle(event)" x-text="event.title" :class="event.status.toUpperCase().includes('PENDING') ? 'event-pending' : 'event-confirmed'"></div>
+                                     <div class="calendar-event" :style="getEventStyle(event)" x-text="event.title" :class="getEventClasses(event, 'event')"></div>
                                 </template>
                             </div>
                         </div>
@@ -148,14 +141,14 @@
                         <div class="text-center font-semibold p-2 border-b border-r border-gray-200" x-text="dayName"></div>
                     </template>
                     <template x-for="day in monthDays" :key="day.date">
-                        <div class="month-day p-2" :class="{'today': day.isToday}">
+                        <div class="month-day p-2 cursor-pointer" :class="{'today': day.isToday}" @click="switchToDayView(day.date)">
                             <span :class="{'text-gray-400': !day.isCurrentMonth}" x-text="day.dayNumber"></span>
                             <div class="mt-1">
                                 <template x-for="event in getVisibleEvents(day.date, 2)" :key="event.id">
-                                    <div class="month-event" x-text="event.title" :class="event.status.toUpperCase().includes('PENDING') ? 'month-event-pending' : 'month-event-confirmed'"></div>
+                                    <div class="month-event" x-text="event.title" :class="getEventClasses(event, 'month-event')"></div>
                                 </template>
                                 <template x-if="getMoreEventsCount(day.date, 2) > 0">
-                                    <div class="text-xs text-blue-600 mt-1 cursor-pointer hover:underline" x-text="'+' + getMoreEventsCount(day.date, 2) + ' more'"></div>
+                                    <div class="text-xs text-blue-600 mt-1 hover:underline" x-text="'+' + getMoreEventsCount(day.date, 2) + ' more'"></div>
                                 </template>
                             </div>
                         </div>
@@ -175,12 +168,20 @@
                         </div>
                         <div class="day-column relative border-t">
                              <template x-for="event in getEventsForDay(currentDateISO)" :key="event.id">
-                                 <div class="day-event" :style="getEventStyle(event)" x-text="event.title" :class="event.status.toUpperCase().includes('PENDING') ? 'event-pending' : 'event-confirmed'"></div>
+                                 <div class="day-event" :style="getEventStyle(event)" x-text="event.title" :class="getEventClasses(event, 'day-event')"></div>
                             </template>
                         </div>
                     </div>
                 </div>
             </template>
+
+            <!-- Legend -->
+            <div class="flex flex-wrap justify-center items-center gap-x-4 gap-y-2 mt-4 text-sm">
+                <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2" style="background-color: #fee2e2; border: 1px solid #fca5a5;"></span> Booked (Indv)</div>
+                <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2" style="background-color: #ffedd5; border: 1px solid #fdba74;"></span> Booked (Sem)</div>
+                <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2" style="background-color: #fef3c7; border: 1px solid #fcd34d;"></span> Pending (Indv)</div>
+                <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2" style="background-color: #c7d2fe; border: 1px solid #818cf8;"></span> Pending (Sem)</div>
+            </div>
         </div>
     </main>
 
@@ -261,7 +262,7 @@
 
                         if (result.success) {
                             this.events = result.data
-                                .filter(item => item.status && (item.status.toUpperCase() === 'CONFIRMED' || item.status.toUpperCase().includes('PENDING')))
+                                .filter(item => item.status && !item.status.toUpperCase().includes('REJECTED'))
                                 .flatMap(item => {
                                     if (item.booking_type === 'SEMESTER' && item.days_of_week && item.days_of_week.length > 0) {
                                         return this.expandRecurringEvent(item);
@@ -272,7 +273,8 @@
                                             startTime: item.start_time,
                                             endTime: item.end_time,
                                             title: `${item.hall?.name || 'Unknown Hall'} - ${item.purpose}`,
-                                            status: item.status
+                                            status: item.status,
+                                            type: item.booking_type
                                         }];
                                     }
                                 });
@@ -302,12 +304,23 @@
                                 startTime: booking.start_time,
                                 endTime: booking.end_time,
                                 title: `${booking.hall?.name || 'Unknown Hall'} - ${booking.purpose}`,
-                                status: booking.status
+                                status: booking.status,
+                                type: booking.booking_type
                             });
                         }
                         currentDate.setDate(currentDate.getDate() + 1);
                     }
                     return expandedEvents;
+                },
+
+                getEventClasses(event, prefix) {
+                    const status = event.status.toUpperCase();
+                    const type = event.type.toUpperCase();
+                    if (status.includes('PENDING')) {
+                        return type === 'INDIVIDUAL' ? `${prefix}-pending-individual` : `${prefix}-pending-semester`;
+                    } else { // Confirmed
+                        return type === 'INDIVIDUAL' ? `${prefix}-booked-individual` : `${prefix}-booked-semester`;
+                    }
                 },
 
                 updateCalendar() {
@@ -410,6 +423,11 @@
                 goToToday() {
                     this.currentDate = new Date();
                     this.updateCalendar();
+                },
+                
+                switchToDayView(date) {
+                    this.currentDate = new Date(date + 'T00:00:00');
+                    this.view = 'day';
                 },
 
                 getEventsForDay(date) {
