@@ -1,7 +1,7 @@
 // finalBookingForm.js - Enhanced Implementation with Color-Coded Slots
 
 window.FinalBookingFormView = (function() {
-
+    
     // --- STATE MANAGEMENT ---
     let state = {
         hall: null,
@@ -453,6 +453,7 @@ window.FinalBookingFormView = (function() {
             <div id="final-booking-form-container" class="container mx-auto max-w-7xl">
                 <div id="calendar-tooltip" class="hidden absolute z-[60] p-3 text-sm bg-slate-900/95 backdrop-blur-sm text-white rounded-md shadow-lg border border-slate-700 transition-opacity duration-200 opacity-0 pointer-events-none"></div>
                 
+                <!-- [FIX] Added Hall Name Display Section -->
                 <div class="text-center mb-8">
                     <h2 class="text-2xl font-bold text-white tracking-tight">${state.hall?.name || ''}</h2>
                     <p class="text-md text-slate-400">${state.hall?.location || ''}</p>
@@ -962,7 +963,8 @@ window.FinalBookingFormView = (function() {
         }
         
         // If available, check if it's a weekend or weekday
-        const dayOfWeek = new Date(dateString + 'T00:00:00').getUTCDay(); // Use getUTCDay for consistency
+        // [FIX] Use getDay() to get the day in the local timezone, preventing timezone conflicts.
+        const dayOfWeek = new Date(dateString + 'T00:00:00').getDay();
         if (dayOfWeek === 0 || dayOfWeek === 6) { // 0 is Sunday, 6 is Saturday
             return 'slot-available-weekend'; // Light Green
         }
