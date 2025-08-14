@@ -5,9 +5,9 @@ window.ViewBookingsView = (function() {
     // --- HELPER FUNCTIONS ---
     function formatStatus(status) {
         if (!status) return { text: 'Unknown', className: 'text-yellow-400' };
-        
+
         const text = status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
-        
+
         let className = 'text-yellow-400';
         if (status.includes('REJECTED')) {
             className = 'text-red-400';
@@ -67,14 +67,30 @@ window.ViewBookingsView = (function() {
             return;
         }
 
+        // MODIFIED: Add 'Action' header to the table if it's missing
+        const table = tableBody.closest('table');
+        if (table) {
+            const headerRow = table.querySelector('thead tr');
+            // Check if the header row exists and has exactly 6 columns, implying 'Action' is missing.
+            if (headerRow && headerRow.children.length === 6) {
+                const th = document.createElement('th');
+                th.scope = 'col';
+                th.className = 'relative py-3.5 pl-3 pr-4 sm:pr-6 text-left text-sm font-semibold text-white';
+                th.textContent = 'Action';
+                headerRow.appendChild(th);
+            }
+        }
+
+
         if (!data || data.length === 0) {
+            // MODIFIED: Updated colspan to account for the new 'Action' column
             tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-slate-400">No bookings found.</td></tr>`;
             return;
         }
-        
+
         const tableHtml = data.map(booking => {
             const { text: statusText, className: statusClass } = formatStatus(booking.status);
-            
+
             const hallName = booking.hall ? booking.hall.name : 'Hall name not available';
             const dateRange = `${formatDate(booking.start_date)} to ${formatDate(booking.end_date)}`;
             const timeRange = `${booking.start_time} - ${booking.end_time}`;
@@ -83,24 +99,24 @@ window.ViewBookingsView = (function() {
 
             return `
                  <tr class="hover:bg-slate-800/50 transition-colors">
-                    <td class="whitespace-nowrap px-3 py-4 text-sm">
+                    <td class="px-3 py-4 text-sm" style="white-space: normal; word-break: break-word; max-width: 150px;">
                         <div class="text-slate-300">${formatDate(booking.created_at)}</div>
                         <div class="text-blue-400 text-xs mt-1">${booking.unique_id}</div>
                     </td>
-                    <td class="whitespace-nowrap px-3 py-4 text-sm">
+                    <td class="px-3 py-4 text-sm" style="white-space: normal; word-break: break-word; max-width: 200px;">
                         <div class="font-medium text-white">${hallName}</div>
                         <div class="text-slate-400">${booking.hall_id}</div>
                     </td>
-                    <td class="whitespace-nowrap px-3 py-4 text-sm">
+                    <td class="px-3 py-4 text-sm" style="white-space: normal; word-break: break-word; max-width: 200px;">
                         <div class="font-medium text-white">${booking.purpose}</div>
                         <div class="text-slate-400">${booking.class_code || 'N/A'}</div>
                     </td>
-                    <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300">
+                    <td class="px-3 py-4 text-sm text-slate-300" style="white-space: normal; word-break: break-word; max-width: 200px;">
                         <div>${dateRange}</div>
                         <div class="text-slate-400">${timeRange}</div>
                         <div class="text-slate-500 text-xs mt-1">${days}</div>
                     </td>
-                    <td class="whitespace-nowrap px-3 py-4 text-sm">
+                    <td class="px-3 py-4 text-sm" style="white-space: normal; word-break: break-word; max-width: 150px;">
                         <div class="font-medium text-white">${userName}</div>
                         <div class="text-slate-400 text-xs mt-1">${booking.user_id}</div>
                     </td>
@@ -148,9 +164,10 @@ window.ViewBookingsView = (function() {
     async function initialize() {
         if (abortController) abortController.abort();
         abortController = new AbortController();
-        
+
         const tableBody = document.getElementById('view-bookings-body');
         if (tableBody) {
+            // MODIFIED: Updated colspan to account for the new 'Action' column
             tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10"><div class="spinner"></div></td></tr>`;
         }
 
@@ -161,6 +178,7 @@ window.ViewBookingsView = (function() {
         } catch (error) {
             console.error('Error loading bookings for viewing:', error);
             if(tableBody) {
+                 // MODIFIED: Updated colspan to account for the new 'Action' column
                 tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-red-400">Failed to load bookings. Please try again.</td></tr>`;
             }
         }
