@@ -647,10 +647,10 @@ window.FinalBookingFormView = (function() {
                 .slot:disabled { cursor: not-allowed; }
                 
                 /* Color-coded slot styles */
-                .slot-available-weekday { background-color: rgba(22, 101, 52, 0.7); border-color: rgba(22, 101, 52, 0.9); }
+                .slot-available-weekday { background-color: rgba(74, 222, 128, 0.5) ; border-color: rgba(22, 101, 52, 0.9); }
                 .slot-available-weekday:hover { background-color: rgba(21, 128, 61, 0.8); }
                 
-                .slot-available-weekend { background-color: rgba(74, 222, 128, 0.5); border-color: rgba(74, 222, 128, 0.7); }
+                .slot-available-weekend {  background-color: rgba(22, 101, 52, 0.7); border-color: rgba(74, 222, 128, 0.7); }
                 .slot-available-weekend:hover { background-color: rgba(74, 222, 128, 0.6); }
 
                 .slot-booked { background-color: rgba(220, 38, 38, 0.7); border-color: rgba(220, 38, 38, 0.9); cursor: pointer !important; }
