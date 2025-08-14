@@ -224,9 +224,17 @@ window.BrowseBookView = (function() {
                 if (state.filters.capacity === 'more-100' && capacity <= 100) return false;
             }
 
-            // Features Filter
+            // Features Filter (Corrected Version)
             if (state.filters.features.length > 0) {
-                if (!state.filters.features.every(feature => hall.features.includes(feature))) return false;
+                // Convert hall's features to lowercase for robust comparison
+                const hallFeaturesLower = hall.features.map(f => f.toLowerCase());
+                // Check if every selected feature (also converted to lowercase) is present
+                const allFeaturesMatch = state.filters.features.every(selectedFeature => 
+                    hallFeaturesLower.includes(selectedFeature.toLowerCase())
+                );
+                if (!allFeaturesMatch) {
+                    return false;
+                }
             }
             
             return true;
