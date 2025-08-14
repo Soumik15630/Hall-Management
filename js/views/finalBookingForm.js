@@ -501,10 +501,6 @@ window.FinalBookingFormView = (function() {
                                 </div>
                             </div>
                         </section>
-                        <section id="semester-availability-section" class="bg-slate-900/70 p-4 sm:p-6 rounded-lg shadow-md border border-slate-700">
-                            <h3 class="text-xl font-semibold text-white mb-4 border-b border-slate-700 pb-2">Availability</h3>
-                            <div id="semester-table-container" class="overflow-x-auto"></div>
-                        </section>
                     </div>
 
 
@@ -647,10 +643,10 @@ window.FinalBookingFormView = (function() {
                 .slot:disabled { cursor: not-allowed; }
                 
                 /* Color-coded slot styles */
-                .slot-available-weekday { background-color: rgba(74, 222, 128, 0.5) ; border-color: rgba(22, 101, 52, 0.9); }
+                .slot-available-weekday { background-color: rgba(22, 101, 52, 0.7); border-color: rgba(22, 101, 52, 0.9); }
                 .slot-available-weekday:hover { background-color: rgba(21, 128, 61, 0.8); }
                 
-                .slot-available-weekend {  background-color: rgba(22, 101, 52, 0.7); border-color: rgba(74, 222, 128, 0.7); }
+                .slot-available-weekend { background-color: rgba(74, 222, 128, 0.5); border-color: rgba(74, 222, 128, 0.7); }
                 .slot-available-weekend:hover { background-color: rgba(74, 222, 128, 0.6); }
 
                 .slot-booked { background-color: rgba(220, 38, 38, 0.7); border-color: rgba(220, 38, 38, 0.9); cursor: pointer !important; }
@@ -837,39 +833,6 @@ window.FinalBookingFormView = (function() {
             </section>`;
     }
     
-    function renderSemesterTable() {
-        const daysToDisplay = [0, 1, 2, 3, 4, 5, 6];
-
-        const header = `
-            <thead class="bg-slate-800">
-                <tr>
-                    <th class="p-2 text-left text-sm font-semibold text-slate-300">Time</th>
-                    ${daysToDisplay.map(dayIndex => `<th class="p-2 text-center text-sm font-semibold text-slate-300">${dayNames[dayIndex]}</th>`).join('')}
-                </tr>
-            </thead>`;
-
-        const body = `
-            <tbody>
-                ${timeSlots.map(time => `
-                    <tr class="border-b border-slate-700">
-                        <td class="p-2 text-sm text-slate-400">${formatTimeForDisplay(time)}</td>
-                        ${daysToDisplay.map(dayIndex => {
-                            const isAvailable = true; 
-                            return `<td class="p-1 text-center">
-                                <span class="block w-full h-8 rounded ${isAvailable ? 'bg-green-500/20' : 'bg-red-500/20'}"></span>
-                            </td>`;
-                        }).join('')}
-                    </tr>
-                `).join('')}
-            </tbody>`;
-
-        return `
-            <table class="w-full border-collapse text-white">
-                ${header}
-                ${body}
-            </table>`;
-    }
-    
     function updateUI() {
         const isIndividual = state.bookingType === 'INDIVIDUAL';
         
@@ -923,11 +886,6 @@ window.FinalBookingFormView = (function() {
                 btn.classList.toggle('bg-slate-700', !isSelected);
                 btn.classList.toggle('border-slate-600', !isSelected);
             });
-
-            const semesterTableContainer = document.getElementById('semester-table-container');
-            if(semesterTableContainer) {
-                semesterTableContainer.innerHTML = renderSemesterTable();
-            }
         }
         
         syncFormWithState();
