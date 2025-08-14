@@ -23,6 +23,7 @@ window.FinalBookingFormView = (function() {
         }
     };
     let abortController;
+    let tooltipHideTimer; // Timer for hiding the tooltip
     const timeSlots = ['09:30', '10:30', '11:30', '12:30', '13:30', '14:30', '15:30', '16:30'];
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const apiDayNames = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
@@ -202,13 +203,14 @@ window.FinalBookingFormView = (function() {
 
     async function fetchHallAvailability(hallId) {
         try {
-            const bookings = await fetchFromAPI(`api/booking/hall/${hallId}`);
-            
-            if (!Array.isArray(bookings)) {
-                return [];
-            }
-
-            return bookings.map(booking => ({
+            // Fetch both approved and pending bookings at the same time
+            const [approvedBookings, pendingBookings] = await Promise.all([
+                fetchFromAPI(`api/booking/hall/${hallId}`),
+                fetchFromAPI(`api/booking/hall/pending/${hallId}`) // New endpoint for pending
+            ]);
+    
+            // Process the approved bookings
+            const processedApproved = (Array.isArray(approvedBookings) ? approvedBookings : []).map(booking => ({
                 hall_id: hallId,
                 start_date: booking.start_time,
                 end_date: booking.end_time,
@@ -222,7 +224,38 @@ window.FinalBookingFormView = (function() {
                 booking_date: booking.created_at || booking.booking_date,
                 additional_info: booking.additional_info || booking.notes || ''
             }));
+    
+            // Process the pending bookings from the new endpoint
+            const processedPending = (Array.isArray(pendingBookings) ? pendingBookings : []).map(booking => {
+                const user = booking.bookingRequest?.user;
+                let departmentInfo = 'N/A';
+                if (user?.employee?.belongs_to === 'DEPARTMENT') {
+                    departmentInfo = user.employee.department?.department_name;
+                } else if (user?.employee?.belongs_to === 'SCHOOL') {
+                    departmentInfo = user.employee.school?.school_name;
+                }
+    
+                return {
+                    hall_id: hallId,
+                    start_date: booking.start_time,
+                    end_date: booking.end_time,
+                    status: 'PENDING', // Explicitly set status for these bookings
+                    purpose: booking.bookingRequest?.purpose || 'N/A',
+                    class_code: booking.bookingRequest?.class_code || null,
+                    booking_id: booking.id,
+                    booked_by: user?.name || 'Unknown User',
+                    booked_by_email: user?.email || '',
+                    department: departmentInfo,
+                    booking_date: booking.created_at,
+                    additional_info: ''
+                };
+            });
+    
+            // Combine both lists into one
+            return [...processedApproved, ...processedPending];
+    
         } catch (error) {
+            console.error("Error fetching hall availability:", error);
             return [];
         }
     }
@@ -418,6 +451,7 @@ window.FinalBookingFormView = (function() {
 
         container.innerHTML = `
             <div id="final-booking-form-container" class="container mx-auto max-w-7xl">
+                <div id="calendar-tooltip" class="hidden absolute z-[60] p-3 text-sm bg-slate-900/95 backdrop-blur-sm text-white rounded-md shadow-lg border border-slate-700 transition-opacity duration-200 opacity-0 pointer-events-none"></div>
                 <div class="space-y-8">
                     <section id="booking-type-section" class="bg-slate-900/70 p-4 sm:p-6 rounded-lg shadow-md border border-slate-700">
                          <h3 class="text-xl font-semibold text-white mb-4 border-b border-slate-700 pb-2">Booking Type</h3>
@@ -528,9 +562,23 @@ window.FinalBookingFormView = (function() {
 
         const allSlotCells = timeSlots.flatMap(time => 
             days.map(day => {
-                const classes = getSlotClasses(day.dateString, time);
+                const booking = getBookingForSlot(day.dateString, time);
+                const classes = getSlotClasses(day.dateString, time, booking);
                 const isDisabled = classes.includes('slot-past');
-                return `<button type="button" class="slot ${classes}" data-date="${day.dateString}" data-time="${time}" ${isDisabled ? 'disabled' : ''}></button>`;
+                let tooltipAttr = '';
+                if (booking) {
+                    const tooltipContent = `
+                        <div class="font-bold text-white mb-1">${booking.purpose}</div>
+                        <div class="text-xs">
+                            <span class='text-slate-400'>Status:</span> 
+                            <span class="${booking.status === 'APPROVED' ? 'text-green-400' : 'text-yellow-400'}">${booking.status}</span>
+                        </div>
+                        <div class="text-xs"><span class='text-slate-400'>By:</span> ${booking.booked_by}</div>
+                        <div class="text-xs"><span class='text-slate-400'>Dept:</span> ${booking.department}</div>
+                    `;
+                    tooltipAttr = `data-tooltip-content="${escape(tooltipContent)}"`;
+                }
+                return `<button type="button" class="slot ${classes}" data-date="${day.dateString}" data-time="${time}" ${isDisabled ? 'disabled' : ''} ${tooltipAttr}></button>`;
             })
         ).join('');
 
@@ -607,6 +655,8 @@ window.FinalBookingFormView = (function() {
                 .slot-past { background-color: rgba(71, 85, 105, 0.5); border-color: rgba(71, 85, 105, 0.7); cursor: not-allowed; opacity: 0.6; }
                 
                 .slot-selected { background-color: rgba(59, 130, 246, 0.9) !important; border-color: rgba(59, 130, 246, 1) !important; color: white !important; }
+                
+                #calendar-tooltip { max-width: 250px; line-height: 1.4; }
             </style>`;
     }
 
@@ -885,7 +935,7 @@ window.FinalBookingFormView = (function() {
     }
 
     // --- LOGIC & HELPERS ---
-    function getSlotClasses(dateString, time) {
+    function getSlotClasses(dateString, time, booking) {
         // Highest priority: if the user has selected it
         if (state.selectedSlots.some(s => s.date === dateString && s.time === time)) {
             return 'slot-selected';
@@ -896,7 +946,7 @@ window.FinalBookingFormView = (function() {
             return 'slot-past'; // Greyed out
         }
         
-        const booking = getBookingForSlot(dateString, time);
+        // const booking = getBookingForSlot(dateString, time); // Now passed as argument
         
         if (booking) {
             if (booking.status === 'PENDING') {
@@ -1088,8 +1138,43 @@ window.FinalBookingFormView = (function() {
         if (calendarSection) {
             calendarSection.addEventListener('mousedown', handleDragStart, { signal });
             calendarSection.addEventListener('mouseenter', handleDragOver, { signal, capture: true });
+            
+            // Use event delegation on the grid for tooltips
+            const calendarGrid = calendarSection.querySelector('.calendar-grid');
+            if (calendarGrid) {
+                // When the mouse enters a new element within the grid
+                calendarGrid.addEventListener('mouseover', (e) => {
+                    // We only care if the element is a slot with tooltip data
+                    if (e.target.closest('.slot[data-tooltip-content]')) {
+                        handleTooltipShow(e);
+                    }
+                }, { signal });
+
+                // When the mouse leaves an element within the grid
+                calendarGrid.addEventListener('mouseout', (e) => {
+                    // We only care if we are leaving a slot that had tooltip data
+                    if (e.target.closest('.slot[data-tooltip-content]')) {
+                        handleTooltipHide();
+                    }
+                }, { signal });
+
+                calendarGrid.addEventListener('mousemove', handleTooltipMove, { signal });
+            }
         }
         window.addEventListener('mouseup', handleDragStop, { signal });
+
+        // Add listeners to the tooltip itself to keep it open when the user hovers over it
+        const tooltip = document.getElementById('calendar-tooltip');
+        if (tooltip) {
+            tooltip.addEventListener('mouseenter', () => {
+                // When the mouse enters the tooltip, cancel any pending instruction to hide it
+                clearTimeout(tooltipHideTimer);
+            }, { signal });
+            tooltip.addEventListener('mouseleave', () => {
+                // When the mouse leaves the tooltip, start the process to hide it
+                handleTooltipHide();
+            }, { signal });
+        }
     }
 
     function handleContainerClick(e) {
@@ -1258,6 +1343,7 @@ window.FinalBookingFormView = (function() {
         const { date, time } = slotEl.dataset;
         
         if (slotEl.classList.contains('slot-booked') || slotEl.classList.contains('slot-pending')) {
+            // The tooltip handles showing info on hover, but clicking can still open the modal
             const booking = getBookingForSlot(date, time);
             if (booking) showBookingDetails(booking);
             return;
@@ -1374,6 +1460,63 @@ window.FinalBookingFormView = (function() {
             }
         }
     }
+    
+    // --- TOOLTIP HANDLERS ---
+    function handleTooltipShow(e) {
+        const slot = e.target.closest('.slot');
+        const tooltip = document.getElementById('calendar-tooltip');
+        // Ensure we have a slot, a tooltip element, and the slot has content for the tooltip
+        if (slot && tooltip && slot.dataset.tooltipContent) {
+            // If a hide timer is running, cancel it. This is key for moving between slots.
+            clearTimeout(tooltipHideTimer);
+            
+            tooltip.innerHTML = unescape(slot.dataset.tooltipContent);
+            tooltip.classList.remove('hidden');
+            // Use a micro-task to ensure the 'hidden' class is removed before we remove opacity
+            setTimeout(() => {
+                tooltip.classList.remove('opacity-0');
+            }, 10);
+        }
+    }
+
+    function handleTooltipHide() {
+        const tooltip = document.getElementById('calendar-tooltip');
+        if (tooltip) {
+            // Set a timer to hide the tooltip. This delay allows the user's mouse
+            // to travel from a slot to the tooltip itself without it disappearing.
+            tooltipHideTimer = setTimeout(() => {
+                tooltip.classList.add('opacity-0');
+                // After the fade-out transition completes, add the 'hidden' class to remove it from layout
+                setTimeout(() => {
+                    tooltip.classList.add('hidden');
+                }, 200); // This duration should match the CSS transition duration
+            }, 300); // A 300ms delay before starting the hide process
+        }
+    }
+
+    function handleTooltipMove(e) {
+        const tooltip = document.getElementById('calendar-tooltip');
+        if (tooltip && !tooltip.classList.contains('hidden')) {
+            // Position tooltip near the cursor, with boundary checks
+            const x = e.clientX + 15;
+            const y = e.clientY + 15;
+            const scrollX = window.scrollX;
+            const scrollY = window.scrollY;
+            
+            tooltip.style.left = `${scrollX + x}px`;
+            tooltip.style.top = `${scrollY + y}px`;
+
+            // Prevent tooltip from going off-screen
+            const rect = tooltip.getBoundingClientRect();
+            if (rect.right > window.innerWidth) {
+                tooltip.style.left = `${scrollX + e.clientX - rect.width - 15}px`;
+            }
+            if (rect.bottom > window.innerHeight) {
+                tooltip.style.top = `${scrollY + e.clientY - rect.height - 15}px`;
+            }
+        }
+    }
+
 
     function cleanup() {
         if (abortController) abortController.abort();
