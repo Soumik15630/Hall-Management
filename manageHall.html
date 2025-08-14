@@ -440,7 +440,7 @@
             <div x-show="!isLoading && !errorMessage" x-cloak>
                 <div x-show="viewMode === 'card'" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
                     <template x-for="hall in filteredHalls" :key="hall.unique_id">
-                        <div class="bg-white rounded-lg shadow-lg flex flex-col transition-all duration-300 hover:shadow-xl hover:scale-[1.02] overflow-hidden">
+                        <div class="bg-white rounded-lg shadow-lg flex flex-col transition-all duration-300 hover:shadow-xl hover:scale-[1.02] overflow-hidden hall-card" :data-id="hall.unique_id">
                             <img x-show="cardViewImage === 'with'" :src="hall.image_url || 'https://via.placeholder.com/400x250?text=No+Image'" alt="Hall Image" class="w-full h-40 sm:h-48 object-cover">
                             
                             <div class="p-4 sm:p-5 flex flex-col flex-grow justify-between">
@@ -479,17 +479,10 @@
                                          </div>
                                          <div class="mt-3 sm:mt-4 border-t pt-3 sm:pt-4">
                                             <h4 class="text-xs font-semibold text-gray-400 uppercase mb-2">Features</h4>
-                                            <div x-show="!expandedFeatures.includes(hall.unique_id)" class="flex flex-wrap gap-1">
-                                                <template x-for="feature in hall.features.slice(0, 4)" :key="feature">
-                                                    <span class="bg-gray-100 text-gray-700 text-xs font-medium px-2 py-1 rounded-full" x-text="feature"></span>
-                                                </template>
-                                                <button @click.stop="expandedFeatures.push(hall.unique_id)" x-show="hall.features.length > 4" class="bg-gray-200 text-gray-600 text-xs font-medium px-2 py-1 rounded-full hover:bg-gray-300" x-text="`+${hall.features.length - 4} more`"></button>
-                                            </div>
-                                            <div x-show="expandedFeatures.includes(hall.unique_id)" class="flex flex-wrap gap-1">
+                                            <div class="flex flex-wrap gap-1">
                                                 <template x-for="feature in hall.features" :key="feature">
                                                     <span class="bg-gray-100 text-gray-700 text-xs font-medium px-2 py-1 rounded-full" x-text="feature"></span>
                                                 </template>
-                                                <button @click.stop="expandedFeatures = expandedFeatures.filter(id => id !== hall.unique_id)" class="bg-gray-200 text-gray-600 text-xs font-medium px-2 py-1 rounded-full hover:bg-gray-300">Show less</button>
                                             </div>
                                         </div>
                                     </div>
@@ -642,6 +635,35 @@
                         document.body.style.overflow = '';
                     }
                 });
+            },
+            
+            expandFeatureRow(clickedButtonEl) {
+                const cardEl = clickedButtonEl.closest('.hall-card');
+                if (!cardEl) return;
+
+                const targetOffsetTop = cardEl.offsetTop;
+                const allCards = this.$root.querySelectorAll('.hall-card');
+
+                const cardsInRow = Array.from(allCards).filter(card => card.offsetTop === targetOffsetTop);
+
+                cardsInRow.forEach(card => {
+                    const id = card.dataset.id;
+                    if (id && !this.expandedFeatures.includes(id)) {
+                        this.expandedFeatures.push(id);
+                    }
+                });
+            },
+
+            collapseFeatureRow(clickedButtonEl) {
+                const cardEl = clickedButtonEl.closest('.hall-card');
+                if (!cardEl) return;
+
+                const targetOffsetTop = cardEl.offsetTop;
+                const allCards = this.$root.querySelectorAll('.hall-card');
+                const cardsInRow = Array.from(allCards).filter(card => card.offsetTop === targetOffsetTop);
+                const idsInRow = cardsInRow.map(card => card.dataset.id);
+
+                this.expandedFeatures = this.expandedFeatures.filter(id => !idsInRow.includes(id));
             },
 
             get filteredHalls() {
