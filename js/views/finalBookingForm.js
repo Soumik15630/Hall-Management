@@ -1,7 +1,7 @@
 // finalBookingForm.js - Enhanced Implementation with Color-Coded Slots
 
 window.FinalBookingFormView = (function() {
-    
+
     // --- STATE MANAGEMENT ---
     let state = {
         hall: null,
@@ -452,6 +452,12 @@ window.FinalBookingFormView = (function() {
         container.innerHTML = `
             <div id="final-booking-form-container" class="container mx-auto max-w-7xl">
                 <div id="calendar-tooltip" class="hidden absolute z-[60] p-3 text-sm bg-slate-900/95 backdrop-blur-sm text-white rounded-md shadow-lg border border-slate-700 transition-opacity duration-200 opacity-0 pointer-events-none"></div>
+                
+                <div class="text-center mb-8">
+                    <h2 class="text-2xl font-bold text-white tracking-tight">${state.hall?.name || ''}</h2>
+                    <p class="text-md text-slate-400">${state.hall?.location || ''}</p>
+                </div>
+
                 <div class="space-y-8">
                     <section id="booking-type-section" class="bg-slate-900/70 p-4 sm:p-6 rounded-lg shadow-md border border-slate-700">
                          <h3 class="text-xl font-semibold text-white mb-4 border-b border-slate-700 pb-2">Booking Type</h3>
@@ -586,11 +592,11 @@ window.FinalBookingFormView = (function() {
             <h3 class="text-xl font-semibold text-white mb-4 border-b border-slate-700 pb-2">Hall Availability: ${state.hall?.name || ''}</h3>
             <div class="flex justify-between items-center mb-4">
                 <button id="prev-month-btn" class="p-2 rounded-full hover:bg-slate-700 transition text-white">
-                    <i class="fas fa-chevron-left"></i>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
                 </button>
                 <h4 class="text-lg font-bold text-white">${monthName} ${year}</h4>
                 <button id="next-month-btn" class="p-2 rounded-full hover:bg-slate-700 transition text-white">
-                    <i class="fas fa-chevron-right"></i>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
                 </button>
             </div>
             <div class="mb-4 p-3 bg-amber-900/30 border border-amber-600/50 rounded-md">
@@ -778,7 +784,7 @@ window.FinalBookingFormView = (function() {
                         <button id="prev-week-btn" 
                                 title="Previous Week" 
                                 class="p-3 rounded-full hover:bg-slate-700 active:bg-slate-600 transition-all duration-200 text-white border border-slate-600 hover:border-slate-500">
-                            <i class="fas fa-chevron-left text-sm"></i>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
                         </button>
                         <div class="grid grid-cols-7 gap-2 flex-grow">
                             ${dayButtons}
@@ -786,7 +792,7 @@ window.FinalBookingFormView = (function() {
                         <button id="next-week-btn" 
                                 title="Next Week" 
                                 class="p-3 rounded-full hover:bg-slate-700 active:bg-slate-600 transition-all duration-200 text-white border border-slate-600 hover:border-slate-500">
-                            <i class="fas fa-chevron-right text-sm"></i>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
                         </button>
                     </div>
                 </div>

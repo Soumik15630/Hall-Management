@@ -83,29 +83,18 @@ window.HallBookingDetailsView = (function() {
         }
     }
 
-    /**
-     * Checks for any bookings (approved or pending) that overlap with a given time slot.
-     * @param {string} dateString - The date of the slot, e.g., '2025-08-14'.
-     * @param {string} time - The time of the slot, e.g., '09:30'.
-     * @returns {Array} - An array of booking objects that conflict with the slot.
-     */
     function getBookingsForSlot(dateString, time) {
         if (!state.availabilityData || state.availabilityData.length === 0) {
             return [];
         }
-        // Create a Date object for the start of the slot in the local timezone.
         const slotStartDateTime = new Date(`${dateString}T${time}:00`);
-        // Assume each slot is 1 hour long for the end time.
         const slotEndDateTime = new Date(slotStartDateTime.getTime() + 60 * 60 * 1000);
 
         return state.availabilityData.filter(b => {
             if (!b || !b.start_time || !b.end_time) return false;
             try {
-                // Create Date objects from the UTC strings from the API.
-                const bookingStartDateTime = new Date(b.start_time);
-                const bookingEndDateTime = new Date(b.end_time);
-
-                // Standard overlap check: (StartA < EndB) and (EndA > StartB)
+                const bookingStartDateTime = new Date(b.start_time.slice(0, -1));
+                const bookingEndDateTime = new Date(b.end_time.slice(0, -1));
                 return slotStartDateTime < bookingEndDateTime && slotEndDateTime > bookingStartDateTime;
             } catch (e) {
                 console.error("Error parsing booking dates", b, e);
@@ -139,23 +128,38 @@ window.HallBookingDetailsView = (function() {
     }
 
     // --- TOOLTIP MANAGEMENT ---
-    function createTooltip(content, targetElement) {
+    /**
+     * [FIXED] Creates and positions a tooltip next to the mouse cursor.
+     * @param {string} content - The HTML content for the tooltip.
+     * @param {MouseEvent} event - The mouse event that triggered the tooltip.
+     */
+    function createTooltip(content, event) {
         removeTooltip();
         const tooltip = document.createElement('div');
         tooltip.id = 'booking-tooltip';
-        tooltip.className = 'absolute z-50 p-3 bg-slate-900 border border-slate-700 rounded-lg shadow-xl text-sm max-w-xs w-max';
+        // Added 'pointer-events-none' to prevent the tooltip from interfering with other mouse events.
+        tooltip.className = 'absolute z-50 p-3 bg-slate-900 border border-slate-700 rounded-lg shadow-xl text-sm max-w-xs w-max pointer-events-none';
         tooltip.innerHTML = content;
         document.body.appendChild(tooltip);
 
-        const targetRect = targetElement.getBoundingClientRect();
         const tooltipRect = tooltip.getBoundingClientRect();
         
-        let top = targetRect.bottom + window.scrollY + 5;
-        let left = targetRect.left + window.scrollX + (targetRect.width / 2) - (tooltipRect.width / 2);
+        // Position tooltip beside the cursor with an offset.
+        let top = event.pageY + 15;
+        let left = event.pageX + 15;
 
+        // Adjust if it goes off the right edge of the screen.
+        if (left + tooltipRect.width > window.innerWidth) {
+            left = event.pageX - tooltipRect.width - 15;
+        }
+        // Adjust if it goes off the bottom edge of the screen.
+        if (top + tooltipRect.height > (window.innerHeight + window.scrollY)) {
+            top = event.pageY - tooltipRect.height - 15;
+        }
+        
+        // Ensure it's not off-screen top/left.
+        if (top < window.scrollY) top = window.scrollY + 5;
         if (left < 0) left = 5;
-        if (left + tooltipRect.width > window.innerWidth) left = window.innerWidth - tooltipRect.width - 5;
-        if (top + tooltipRect.height > window.innerHeight + window.scrollY) top = targetRect.top + window.scrollY - tooltipRect.height - 5;
 
         tooltip.style.top = `${top}px`;
         tooltip.style.left = `${left}px`;
@@ -293,7 +297,7 @@ window.HallBookingDetailsView = (function() {
         if (bookings.length > 0) {
             if (bookings.some(b => b.status === 'APPROVED')) return { classes: 'slot-booked', status: 'booked', isClickable: true };
             if (bookings.some(b => b.status === 'PENDING')) return { classes: 'slot-pending', status: 'pending', isClickable: true };
-            return { classes: 'slot-booked', status: 'booked', isClickable: true }; // Default for any other status
+            return { classes: 'slot-booked', status: 'booked', isClickable: true };
         }
         const dayOfWeek = new Date(dateString + 'T00:00:00').getDay();
         return (dayOfWeek === 0 || dayOfWeek === 6)
@@ -322,10 +326,18 @@ window.HallBookingDetailsView = (function() {
         });
     }
 
-    function showSlotTooltip(slotEl) {
+    /**
+     * [FIXED] Shows a tooltip, now accepting a mouse event for positioning.
+     * @param {HTMLElement} slotEl - The slot element being hovered over.
+     * @param {MouseEvent} event - The mouse event that triggered the tooltip.
+     */
+    function showSlotTooltip(slotEl, event) {
         const { date, time, status } = slotEl.dataset;
         const bookings = getBookingsForSlot(date, time);
-        if (bookings.length === 0) return;
+        if (bookings.length === 0) {
+            removeTooltip();
+            return;
+        };
         
         let content = '';
         if (status === 'booked') {
@@ -344,7 +356,9 @@ window.HallBookingDetailsView = (function() {
                        </ul>
                        <div class="text-xs text-slate-500 mt-2">This slot can still be selected.</div>`;
         }
-        if (content) createTooltip(content, slotEl);
+        if (content) {
+            createTooltip(content, event);
+        }
     }
 
     function handleDragStart(e) {
@@ -353,10 +367,15 @@ window.HallBookingDetailsView = (function() {
         e.preventDefault();
 
         const { date, time, status } = slotEl.dataset;
-        if (status === 'booked' || status === 'pending') {
-            showSlotTooltip(slotEl);
-            return;
+
+        if (status === 'booked') {
+            showSlotTooltip(slotEl, e);
+            return; 
         }
+        if (status === 'pending') {
+            showSlotTooltip(slotEl, e);
+        }
+        
         if (!validateSingleDayBooking({ date, time })) {
             const existingDate = state.selectedSlots[0].date;
             showNotification(`You can only book slots for one day. Please clear your selection for ${new Date(existingDate+'T00:00:00').toLocaleDateString()} to choose a different date.`);
@@ -439,15 +458,16 @@ window.HallBookingDetailsView = (function() {
 
         const calendarGrid = document.getElementById('booking-calendar-grid');
         if (calendarGrid) {
+            // [FIXED] Pass the mouse event to the tooltip handler.
             calendarGrid.addEventListener('mouseover', e => {
                 const slot = e.target.closest('button.slot[data-status="booked"], button.slot[data-status="pending"]');
                 if (slot) {
                     clearTimeout(tooltipTimeout);
-                    tooltipTimeout = setTimeout(() => showSlotTooltip(slot), 200);
+                    tooltipTimeout = setTimeout(() => showSlotTooltip(slot, e), 200);
                 }
             }, { signal, passive: true });
             calendarGrid.addEventListener('mouseout', e => {
-                const slot = e.target.closest('button.slot[data-status="booked"], button.slot[data-status="pending"]');
+                const slot = e.target.closest('button.slot');
                 if (slot) {
                     clearTimeout(tooltipTimeout);
                     tooltipTimeout = setTimeout(removeTooltip, 300);
@@ -488,30 +508,37 @@ window.HallBookingDetailsView = (function() {
                 }
             };
             
-            const processedApproved = (approvedBookingsData || []).map(b => ({
-                start_time: b.start_time,
-                end_time: b.end_time,
-                status: 'APPROVED',
-                purpose: b.purpose || 'N/A',
-                user: { name: b.user?.name || 'N/A', department: b.user?.department || 'N/A' }
-            }));
+            const processBooking = (bookingData, status) => {
+                const details = bookingData.bookingRequest;
+                if (!details) {
+                    return {
+                        start_time: bookingData.start_time,
+                        end_time: bookingData.end_time,
+                        status: status,
+                        purpose: 'Details unavailable',
+                        user: { name: 'Unknown', department: 'Unknown' }
+                    };
+                }
 
-            const processedPending = (pendingBookingsData || []).map(p => {
-                const userEmployee = p.bookingRequest?.user?.employee;
+                const userEmployee = details.user?.employee;
                 const department = userEmployee?.belongs_to === 'DEPARTMENT'
                     ? userEmployee?.department?.department_name
                     : userEmployee?.school?.school_name;
+
                 return {
-                    start_time: p.start_time,
-                    end_time: p.end_time,
-                    status: 'PENDING',
-                    purpose: p.bookingRequest?.purpose || 'N/A',
+                    start_time: bookingData.start_time,
+                    end_time: bookingData.end_time,
+                    status: status,
+                    purpose: details.purpose || 'N/A',
                     user: {
                         name: userEmployee?.employee_name || 'Unknown User',
                         department: department || 'Unknown Department'
                     }
                 };
-            });
+            };
+            
+            const processedApproved = (approvedBookingsData || []).map(b => processBooking(b, 'APPROVED'));
+            const processedPending = (pendingBookingsData || []).map(p => processBooking(p, 'PENDING'));
 
             state = {
                 ...state,
