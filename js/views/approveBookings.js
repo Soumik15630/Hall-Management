@@ -122,25 +122,36 @@ window.ApproveBookingsView = (function() {
 
             return `
             <tr class="hover:bg-slate-800/50 transition-colors" data-booking-id="${booking.unique_id}">
+     
                 <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300">${formatDate(booking.created_at)}</td>
-                <td class="whitespace-nowrap px-3 py-4 text-sm">
+                
+  
+                <td class="px-3 py-4 text-sm">
                     <div class="font-medium text-white">${hallName}</div>
-                    <div class="text-slate-400">${booking.hall_id}</div>
+                    <div class="text-slate-400 text-xs break-all">${booking.hall_id}</div>
                 </td>
-                <td class="px-3 py-4 text-sm text-slate-300" style="white-space: normal; max-width: 250px; word-wrap: break-word;">
+                
+     
+                <td class="px-3 py-4 text-sm">
                     <div class="font-medium text-white">${booking.purpose}</div>
                     <div class="text-slate-400">${booking.class_code || ''}</div>
                 </td>
+
+          
                 <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300">${startDateTime.toLocaleString()} - ${endDateTime.toLocaleTimeString()}</td>
-                <td class="whitespace-nowrap px-3 py-4 text-sm">
+                
+   
+                <td class="px-3 py-4 text-sm">
                     <div class="font-medium text-white">${userName}</div>
-                    <div class="text-slate-400">${booking.user_id}</div>
+                    <div class="text-slate-400 text-xs break-all">${booking.user_id}</div>
                 </td>
-                <td class="whitespace-nowrap px-3 py-4 text-sm font-semibold ${statusInfo.className}">${statusInfo.text}</td>
-                <td class="whitespace-nowrap px-3 py-4 text-sm">
-                    <div class="flex gap-2">
-                        <button data-action="approve" class="px-3 py-1 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-md transition">Approve</button>
-                        <button data-action="reject" class="px-3 py-1 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-md transition">Reject</button>
+                
+                <td class="px-3 py-4 text-sm font-semibold ${statusInfo.className}">${statusInfo.text}</td>
+                
+                <td class="px-3 py-4 text-sm">
+                    <div class="flex flex-col sm:flex-row gap-2">
+                        <button data-action="approve" class="px-2 py-1 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-md transition">Approve</button>
+                        <button data-action="reject" class="px-2 py-1 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-md transition">Reject</button>
                     </div>
                 </td>
             </tr>
