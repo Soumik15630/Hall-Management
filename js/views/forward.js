@@ -13,7 +13,8 @@ window.ForwardView = (function() {
     let state = {
         allForwardableBookings: [],
         filteredBookings: [],
-        filters: defaultFilters()
+        filters: defaultFilters(),
+        employeeDataCache: null,
     };
     let abortController;
 
@@ -30,6 +31,11 @@ window.ForwardView = (function() {
     function formatDate(dateString) {
         if (!dateString) return 'N/A';
         return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    function formatTitleCase(str) {
+        if (!str) return 'N/A';
+        return str.replace(/_/g, ' ').replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
     }
 
     // --- API & DATA HANDLING ---
@@ -53,6 +59,13 @@ window.ForwardView = (function() {
         if (!text) return null;
         const result = JSON.parse(text);
         return result.data || result;
+    }
+    
+    async function getEmployees() {
+        if (state.employeeDataCache) return state.employeeDataCache;
+        const employees = await fetchFromAPI(AppConfig.endpoints.allemp);
+        state.employeeDataCache = employees;
+        return employees;
     }
 
     async function fetchForwardBookingsData() {
@@ -186,7 +199,7 @@ window.ForwardView = (function() {
         });
     }
 
-    // --- MODAL HANDLING ---
+    // --- MODAL HANDLING (MERGED FROM hallDetails.js) ---
     function openModal(modalId) {
         const modal = document.getElementById(modalId);
         const backdrop = document.getElementById('modal-backdrop');
@@ -290,7 +303,8 @@ window.ForwardView = (function() {
             setupSearchableDropdown('filter-hall-name-input', 'filter-hall-name-options', 'filter-hall-name', hallNames);
         }
         if (column === 'bookedBy') {
-            const userNames = [...new Set(state.allForwardableBookings.map(b => b.user?.employee?.employee_name).filter(Boolean))].sort();
+            const employees = await getEmployees();
+            const userNames = [...new Set(employees.map(e => e.employee_name))].sort();
             setupSearchableDropdown('filter-user-name-input', 'filter-user-name-options', 'filter-user-name', userNames);
         }
         
@@ -387,7 +401,7 @@ window.ForwardView = (function() {
 
     function cleanup() {
         if (abortController) abortController.abort();
-        state = { allForwardableBookings: [], filteredBookings: [], filters: defaultFilters() };
+        state = { allForwardableBookings: [], filteredBookings: [], filters: defaultFilters(), employeeDataCache: null };
         closeModal();
     }
 

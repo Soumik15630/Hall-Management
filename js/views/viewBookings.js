@@ -17,6 +17,7 @@ window.ViewBookingsView = (function() {
         filters: defaultFilters(),
         schoolsDataCache: null,
         departmentsDataCache: null,
+        employeeDataCache: null,
     };
     let abortController;
 
@@ -33,6 +34,11 @@ window.ViewBookingsView = (function() {
     function formatDate(dateString) {
         if (!dateString) return 'N/A';
         return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+    
+    function formatTitleCase(str) {
+        if (!str) return 'N/A';
+        return str.replace(/_/g, ' ').replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
     }
 
     // --- API & DATA HANDLING ---
@@ -81,6 +87,13 @@ window.ViewBookingsView = (function() {
         state.schoolsDataCache = schools;
         state.departmentsDataCache = departments;
         return { schools, departments };
+    }
+    
+    async function getEmployees() {
+        if (state.employeeDataCache) return state.employeeDataCache;
+        const employees = await fetchFromAPI(AppConfig.endpoints.allemp);
+        state.employeeDataCache = employees;
+        return employees;
     }
 
     // --- FILTERING LOGIC ---
@@ -168,7 +181,7 @@ window.ViewBookingsView = (function() {
         });
     }
 
-    // --- MODAL HANDLING (Copied from hallDetails.js and adapted) ---
+    // --- MODAL HANDLING (MERGED FROM hallDetails.js) ---
     function openModal(modalId) {
         const modal = document.getElementById(modalId);
         const backdrop = document.getElementById('modal-backdrop');
@@ -317,7 +330,8 @@ window.ViewBookingsView = (function() {
             setupSearchableDropdown('filter-hall-name-input', 'filter-hall-name-options', 'filter-hall-name', hallNames);
         }
         if (column === 'bookedBy') {
-            const userNames = [...new Set(state.allBookings.map(b => b.user?.employee?.employee_name).filter(Boolean))].sort();
+            const employees = await getEmployees();
+            const userNames = [...new Set(employees.map(e => e.employee_name))].sort();
             setupSearchableDropdown('filter-user-name-input', 'filter-user-name-options', 'filter-user-name', userNames);
         }
         if (column === 'belongsTo') {
@@ -426,6 +440,7 @@ window.ViewBookingsView = (function() {
             filters: defaultFilters(),
             schoolsDataCache: null,
             departmentsDataCache: null,
+            employeeDataCache: null,
         };
         closeModal();
     }

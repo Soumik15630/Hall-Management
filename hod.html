@@ -103,39 +103,39 @@
         </nav>
     </div>
 
-    <main id="dashboard-view" class="hidden flex-grow max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
-        <div class="bg-slate-800/50 rounded-xl shadow-2xl p-4 sm:p-6 lg:p-8 h-full flex flex-col">
-            <div class="flex flex-col sm:flex-row justify-between items-center mb-6 flex-shrink-0">
-                <h1 class="text-2xl sm:text-3xl font-bold text-white mb-4 sm:mb-0">Hall Booking Calendar</h1>
+    <main id="dashboard-view" class="hidden flex-grow max-w-7xl w-full mx-auto p-2 sm:p-4 lg:p-6">
+        <div class="bg-slate-800/50 rounded-xl shadow-2xl p-2 sm:p-4 lg:p-6 h-full flex flex-col">
+            <div class="flex flex-col sm:flex-row justify-between items-center mb-4 flex-shrink-0">
+                <h1 class="text-2xl sm:text-3xl font-bold text-white mb-2 sm:mb-0">Hall Booking Calendar</h1>
                 <div id="calendar-view-toggle" class="flex items-center bg-slate-700 rounded-lg p-1 space-x-1">
-                    <button data-view="dayGridMonth" class="view-btn px-4 py-2 text-sm font-semibold rounded-md transition">Month</button>
-                    <button data-view="timeGridWeek" class="view-btn px-4 py-2 text-sm font-semibold rounded-md transition">Week</button>
-                    <button data-view="timeGridDay" class="view-btn px-4 py-2 text-sm font-semibold rounded-md transition">Day</button>
+                    <button data-view="dayGridMonth" class="view-btn px-3 py-1 text-sm font-semibold rounded-md transition">Month</button>
+                    <button data-view="timeGridWeek" class="view-btn px-3 py-1 text-sm font-semibold rounded-md transition">Week</button>
+                    <button data-view="timeGridDay" class="view-btn px-3 py-1 text-sm font-semibold rounded-md transition">Day</button>
                 </div>
             </div>
             <div id='calendar' class="w-full flex-grow"></div>
         </div>
     </main>
 
-    <div id="hall-details-view" class="hidden flex-grow w-full p-4 sm:p-6 lg:p-8">
-        <div class="bg-slate-800/50 rounded-xl shadow-2xl p-4 sm:p-6 lg:p-8 h-full flex flex-col">
-            <h1 class="text-3xl font-bold text-white text-center mb-6 flex-shrink-0">Hall Details</h1>
+    <div id="hall-details-view" class="hidden flex-grow w-full p-2 sm:p-4 lg:p-6">
+        <div class="bg-slate-800/50 rounded-xl shadow-2xl p-2 sm:p-4 lg:p-6 h-full flex flex-col">
+            <h1 class="text-3xl font-bold text-white text-center mb-2 flex-shrink-0">Hall Details</h1>
             
-            <div class="flex flex-col sm:flex-row items-center justify-between mb-4 gap-4 flex-shrink-0">
-                <div class="flex items-center space-x-4">
-                    <button id="status-btn" disabled class="glowing-btn flex items-center px-4 py-2 text-sm font-semibold text-white bg-yellow-600 hover:bg-yellow-700 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
+            <div class="flex flex-col sm:flex-row items-center justify-between mb-1 gap-1 flex-shrink-0">
+                <div class="flex items-center space-x-2">
+                    <button id="status-btn" disabled class="glowing-btn flex items-center px-3 py-1.5 text-sm font-semibold text-white bg-yellow-600 hover:bg-yellow-700 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
                         <i data-lucide="toggle-right" class="w-4 h-4 mr-2"></i>Update Status
                     </button>
-                    <button id="features-btn" disabled class="glowing-btn flex items-center px-4 py-2 text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
+                    <button id="features-btn" disabled class="glowing-btn flex items-center px-3 py-1.5 text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
                         <i data-lucide="sparkles" class="w-4 h-4 mr-2"></i>Modify Features
                     </button>
                 </div>
-                <div class="flex items-center space-x-4">
-                    <button id="clear-filters-btn" class="flex items-center px-4 py-2 text-sm font-semibold text-slate-300 bg-slate-700 hover:bg-slate-600 rounded-lg transition">
+                <div class="flex items-center space-x-2">
+                    <button id="clear-hall-filters-btn" class="flex items-center px-3 py-1.5 text-sm font-semibold text-slate-300 bg-slate-700 hover:bg-slate-600 rounded-lg transition">
                         <i data-lucide="filter-x" class="w-4 h-4 mr-2"></i>Clear All Filters
                     </button>
                     <label for="multiselect-toggle" class="flex items-center cursor-pointer">
-                        <span class="mr-3 text-sm font-medium text-slate-300">Multi-Select</span>
+                        <span class="mr-2 text-sm font-medium text-slate-300">Multi-Select</span>
                         <div class="relative">
                             <input type="checkbox" id="multiselect-toggle" class="sr-only peer">
                             <div class="w-11 h-6 bg-slate-600 rounded-full peer peer-focus:ring-4 peer-focus:ring-blue-500/50 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
@@ -148,25 +148,25 @@
                 <table class="min-w-full divide-y divide-slate-700">
                     <thead class="bg-slate-900/50 sticky top-0">
                         <tr>
-                            <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-white sm:pl-6">
+                            <th scope="col" class="py-2.5 pl-4 pr-3 text-left text-sm font-semibold text-white sm:pl-6">
                                 <input type="checkbox" id="select-all-checkbox" class="rounded bg-slate-700 border-slate-500 text-blue-500 focus:ring-blue-500" disabled>
                             </th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white">
                                 <span class="flex items-center gap-2">Date <i data-filter-column="date" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
                             </th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white">
                                 <span class="flex items-center gap-2">Hall Details <i data-filter-column="hall" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
                             </th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white">
                                 <span class="flex items-center gap-2">Belongs to <i data-filter-column="belongsTo" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
                             </th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white">
                                 <span class="flex items-center gap-2">Features <i data-filter-column="features" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
                             </th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white">
                                 <span class="flex items-center gap-2">Incharge Details <i data-filter-column="incharge" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
                             </th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white">
                                 <span class="flex items-center gap-2">Status <i data-filter-column="status" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
                             </th>
                         </tr>
@@ -177,22 +177,22 @@
         </div>
     </div>
     
-    <div id="archive-view" class="hidden flex-grow w-full p-4 sm:p-6 lg:p-8">
-        <div class="bg-slate-800/50 rounded-xl shadow-2xl p-4 sm:p-6 lg:p-8 h-full flex flex-col">
-            <h1 class="text-3xl font-bold text-center mb-6 flex-shrink-0" style="color: #60a5fa;">Archived Hall Details</h1>
+    <div id="archive-view" class="hidden flex-grow w-full p-2 sm:p-4 lg:p-6">
+        <div class="bg-slate-800/50 rounded-xl shadow-2xl p-2 sm:p-4 lg:p-6 h-full flex flex-col">
+            <h1 class="text-3xl font-bold text-center mb-2 flex-shrink-0" style="color: #60a5fa;">Archived Hall Details</h1>
             
-            <div class="flex flex-col sm:flex-row items-center justify-between mb-4 gap-4 flex-shrink-0">
-                <div class="flex items-center space-x-4">
-                    <button id="reactivate-btn" disabled class="glowing-btn flex items-center px-4 py-2 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
+            <div class="flex flex-col sm:flex-row items-center justify-between mb-1 gap-1 flex-shrink-0">
+                <div class="flex items-center space-x-2">
+                    <button id="reactivate-btn" disabled class="glowing-btn flex items-center px-3 py-1.5 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
                         <i data-lucide="check-circle" class="w-4 h-4 mr-2"></i>Re-activate
                     </button>
                 </div>
-                <div class="flex items-center space-x-4">
-                     <button id="clear-archive-filters-btn" class="flex items-center px-4 py-2 text-sm font-semibold text-slate-300 bg-slate-700 hover:bg-slate-600 rounded-lg transition">
+                <div class="flex items-center space-x-2">
+                     <button id="clear-archive-filters-btn" class="flex items-center px-3 py-1.5 text-sm font-semibold text-slate-300 bg-slate-700 hover:bg-slate-600 rounded-lg transition">
                         <i data-lucide="filter-x" class="w-4 h-4 mr-2"></i>Clear All Filters
                     </button>
                     <label for="archive-multiselect-toggle" class="flex items-center cursor-pointer">
-                        <span class="mr-3 text-sm font-medium text-slate-300">Multi-Select</span>
+                        <span class="mr-2 text-sm font-medium text-slate-300">Multi-Select</span>
                         <div class="relative">
                             <input type="checkbox" id="archive-multiselect-toggle" class="sr-only peer">
                             <div class="w-11 h-6 bg-slate-600 rounded-full peer peer-focus:ring-4 peer-focus:ring-blue-500/50 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
@@ -205,25 +205,25 @@
                 <table class="min-w-full divide-y divide-slate-700">
                      <thead class="bg-slate-900/50 sticky top-0">
                         <tr>
-                            <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-white sm:pl-6">
+                            <th scope="col" class="py-2.5 pl-4 pr-3 text-left text-sm font-semibold text-white sm:pl-6">
                                 <input type="checkbox" id="select-all-archive-checkbox" class="rounded bg-slate-700 border-slate-500 text-blue-500 focus:ring-blue-500" disabled>
                             </th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white">
                                 <span class="flex items-center gap-2">Date <i data-filter-column="date" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
                             </th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white">
                                 <span class="flex items-center gap-2">Hall Details <i data-filter-column="hall" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
                             </th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white">
                                 <span class="flex items-center gap-2">Belongs to <i data-filter-column="belongsTo" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
                             </th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white">
                                 <span class="flex items-center gap-2">Features <i data-filter-column="features" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
                             </th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white">
                                 <span class="flex items-center gap-2">Incharge Details <i data-filter-column="incharge" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
                             </th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">Status</th>
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white">Status</th>
                         </tr>
                     </thead>
                     <tbody id="archived-hall-details-body" class="divide-y divide-slate-800 bg-slate-900/30"></tbody>
@@ -232,25 +232,25 @@
         </div>
     </div>
 
-    <div id="employee-details-view" class="hidden flex-grow w-full p-4 sm:p-6 lg:p-8">
-         <div class="bg-slate-800/50 rounded-xl shadow-2xl p-4 sm:p-6 lg:p-8 h-full flex flex-col">
-            <h1 class="text-3xl font-bold text-center mb-6 flex-shrink-0" style="color: #60a5fa;">Employee Details</h1>
+    <div id="employee-details-view" class="hidden flex-grow w-full p-2 sm:p-4 lg:p-6">
+         <div class="bg-slate-800/50 rounded-xl shadow-2xl p-2 sm:p-4 lg:p-6 h-full flex flex-col">
+            <h1 class="text-3xl font-bold text-center mb-2 flex-shrink-0" style="color: #60a5fa;">Employee Details</h1>
             
-            <div class="flex flex-col sm:flex-row items-center justify-between mb-4 gap-4 flex-shrink-0">
-                <div class="flex items-center space-x-4">
-                    <button id="modify-employee-btn" disabled class="glowing-btn flex items-center px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
+            <div class="flex flex-col sm:flex-row items-center justify-between mb-1 gap-1 flex-shrink-0">
+                <div class="flex items-center space-x-2">
+                    <button id="modify-employee-btn" disabled class="glowing-btn flex items-center px-3 py-1.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
                         <i data-lucide="pencil" class="w-4 h-4 mr-2"></i>Modify
                     </button>
-                    <button id="delete-employee-btn" disabled class="glowing-btn flex items-center px-4 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
+                    <button id="delete-employee-btn" disabled class="glowing-btn flex items-center px-3 py-1.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
                         <i data-lucide="trash-2" class="w-4 h-4 mr-2"></i>Delete
                     </button>
                 </div>
-                <div class="flex items-center space-x-4">
-                    <button id="clear-employee-filters-btn" class="flex items-center px-4 py-2 text-sm font-semibold text-slate-300 bg-slate-700 hover:bg-slate-600 rounded-lg transition">
+                <div class="flex items-center space-x-2">
+                    <button id="clear-employee-filters-btn" class="flex items-center px-3 py-1.5 text-sm font-semibold text-slate-300 bg-slate-700 hover:bg-slate-600 rounded-lg transition">
                         <i data-lucide="filter-x" class="w-4 h-4 mr-2"></i>Clear All Filters
                     </button>
                     <label for="employee-multiselect-toggle" class="flex items-center cursor-pointer">
-                        <span class="mr-3 text-sm font-medium text-slate-300">Multi-Select</span>
+                        <span class="mr-2 text-sm font-medium text-slate-300">Multi-Select</span>
                         <div class="relative">
                             <input type="checkbox" id="employee-multiselect-toggle" class="sr-only peer">
                             <div class="w-11 h-6 bg-slate-600 rounded-full peer peer-focus:ring-4 peer-focus:ring-blue-500/50 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
@@ -263,19 +263,19 @@
                 <table class="min-w-full divide-y divide-slate-700">
                     <thead class="bg-slate-900/50 sticky top-0">
                         <tr>
-                            <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-white sm:pl-6">
+                            <th scope="col" class="py-2.5 pl-4 pr-3 text-left text-sm font-semibold text-white sm:pl-6">
                                 <input type="checkbox" id="select-all-employee-checkbox" class="rounded bg-slate-700 border-slate-500 text-blue-500 focus:ring-blue-500" disabled>
                             </th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white">
                                 <span class="flex items-center gap-2">Employee Details <i data-filter-column="employee" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
                             </th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white">
                                 <span class="flex items-center gap-2">Designation <i data-filter-column="designation" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
                             </th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white">
                                 <span class="flex items-center gap-2">Office <i data-filter-column="office" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
                             </th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white">
                                 <span class="flex items-center gap-2">Status <i data-filter-column="status" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
                             </th>
                         </tr>
@@ -286,18 +286,18 @@
         </div>
     </div>
 
-    <div id="browse-book-view" class="hidden flex-grow w-full mx-auto p-4 sm:p-6 lg:p-8">
-        <div class="bg-slate-800/50 rounded-xl shadow-2xl p-4 sm:p-6 lg:p-8 h-full flex flex-col">
-            <h1 class="text-3xl font-bold text-center mb-8 flex-shrink-0" style="color: #60a5fa;">Browse & Book Hall</h1>
-            <div class="grid grid-cols-1 lg:grid-cols-4 gap-8 flex-grow min-h-0">
-                <aside class="lg:col-span-1 space-y-6 browse-filter-panel pr-4">
+    <div id="browse-book-view" class="hidden flex-grow w-full mx-auto p-2 sm:p-4 lg:p-6">
+        <div class="bg-slate-800/50 rounded-xl shadow-2xl p-2 sm:p-4 lg:p-6 h-full flex flex-col">
+            <h1 class="text-3xl font-bold text-center mb-6 flex-shrink-0" style="color: #60a5fa;">Browse & Book Hall</h1>
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-grow min-h-0">
+                <aside class="lg:col-span-1 space-y-4 browse-filter-panel pr-4">
                     <div>
-                        <h3 class="text-lg font-semibold text-white mb-3">Hall Type:</h3>
+                        <h3 class="text-lg font-semibold text-white mb-2">Hall Type:</h3>
                         <div id="hall-type-filters" class="grid grid-cols-2 gap-2">
-                             <button data-hall-type="Seminar" class="hall-type-btn px-4 py-2 text-sm rounded-lg transition bg-slate-700 hover:bg-slate-600 text-slate-300">Seminar</button>
-                             <button data-hall-type="Auditorium" class="hall-type-btn px-4 py-2 text-sm rounded-lg transition bg-slate-700 hover:bg-slate-600 text-slate-300">Auditorium</button>
-                             <button data-hall-type="Lecture Hall" class="hall-type-btn px-4 py-2 text-sm rounded-lg transition bg-slate-700 hover:bg-slate-600 text-slate-300">Lecture Hall</button>
-                             <button data-hall-type="Conference Hall" class="hall-type-btn px-4 py-2 text-sm rounded-lg transition bg-slate-700 hover:bg-slate-600 text-slate-300">Conference Hall</button>
+                             <button data-hall-type="Seminar" class="hall-type-btn px-3 py-1.5 text-sm rounded-lg transition bg-slate-700 hover:bg-slate-600 text-slate-300">Seminar</button>
+                             <button data-hall-type="Auditorium" class="hall-type-btn px-3 py-1.5 text-sm rounded-lg transition bg-slate-700 hover:bg-slate-600 text-slate-300">Auditorium</button>
+                             <button data-hall-type="Lecture Hall" class="hall-type-btn px-3 py-1.5 text-sm rounded-lg transition bg-slate-700 hover:bg-slate-600 text-slate-300">Lecture Hall</button>
+                             <button data-hall-type="Conference Hall" class="hall-type-btn px-3 py-1.5 text-sm rounded-lg transition bg-slate-700 hover:bg-slate-600 text-slate-300">Conference</button>
                         </div>
                     </div>
                     <div>
@@ -317,22 +317,22 @@
                         <input type="hidden" id="dept-filter">
                     </div>
                     <div>
-                        <div class="flex justify-between items-center mb-3">
+                        <div class="flex justify-between items-center mb-2">
                             <h3 class="text-lg font-semibold text-white">Capacity</h3>
                             <button id="clear-capacity" class="text-sm text-blue-400 hover:text-blue-300">Clear</button>
                         </div>
-                        <div class="space-y-2">
+                        <div class="space-y-1">
                             <label class="flex items-center"><input type="radio" name="capacity" value="less-50" class="form-radio bg-slate-700 border-slate-600 text-blue-500 h-4 w-4 mr-2">Less than 50</label>
                             <label class="flex items-center"><input type="radio" name="capacity" value="50-100" class="form-radio bg-slate-700 border-slate-600 text-blue-500 h-4 w-4 mr-2">50 to 100</label>
                             <label class="flex items-center"><input type="radio" name="capacity" value="more-100" class="form-radio bg-slate-700 border-slate-600 text-blue-500 h-4 w-4 mr-2">More than 100</label>
                         </div>
                     </div>
                     <div>
-                        <div class="flex justify-between items-center mb-3">
+                        <div class="flex justify-between items-center mb-2">
                             <h3 class="text-lg font-semibold text-white">Features</h3>
                             <button id="clear-features" class="text-sm text-blue-400 hover:text-blue-300">Clear</button>
                         </div>
-                        <div class="space-y-2">
+                        <div class="space-y-1">
                             <label class="flex items-center"><input type="checkbox" data-feature="Projector" class="form-checkbox bg-slate-700 border-slate-600 rounded text-blue-500 h-4 w-4 mr-2">Projector</label>
                             <label class="flex items-center"><input type="checkbox" data-feature="Smartboard" class="form-checkbox bg-slate-700 border-slate-600 rounded text-blue-500 h-4 w-4 mr-2">Smartboard</label>
                             <label class="flex items-center"><input type="checkbox" data-feature="AC" class="form-checkbox bg-slate-700 border-slate-600 rounded text-blue-500 h-4 w-4 mr-2">AC</label>
@@ -343,7 +343,7 @@
                 </aside>
                 <div class="lg:col-span-3 flex flex-col">
                     <div class="flex-shrink-0">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
                             <div class="relative">
                                 <label for="from-date" class="block text-sm font-medium text-slate-300 mb-1">From:</label>
                                 <input type="date" id="from-date" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:ring-blue-500 focus:border-blue-500">
@@ -353,8 +353,8 @@
                                 <input type="date" id="to-date" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:ring-blue-500 focus:border-blue-500">
                             </div>
                         </div>
-                        <div class="bg-slate-900/50 p-4 rounded-lg mb-6">
-                            <div class="flex justify-between items-center mb-3">
+                        <div class="bg-slate-900/50 p-3 rounded-lg mb-4">
+                            <div class="flex justify-between items-center mb-2">
                                  <div class="flex gap-4">
                                     <button id="forenoon-btn" class="text-slate-400 hover:text-white font-semibold">Forenoon</button>
                                     <button id="afternoon-btn" class="text-slate-400 hover:text-white font-semibold">Afternoon</button>
@@ -362,19 +362,19 @@
                                 <button id="clear-timeslots" class="text-sm text-blue-400 hover:text-blue-300">Clear Selection</button>
                             </div>
                             <div id="time-slot-buttons" class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                <button data-time="09:30 AM" class="px-3 py-2 text-sm rounded-lg bg-slate-700 hover:bg-slate-600 transition">09:30am</button>
-                                <button data-time="10:30 AM" class="px-3 py-2 text-sm rounded-lg bg-slate-700 hover:bg-slate-600 transition">10:30am</button>
-                                <button data-time="11:30 AM" class="px-3 py-2 text-sm rounded-lg bg-slate-700 hover:bg-slate-600 transition">11:30am</button>
-                                <button data-time="12:30 PM" class="px-3 py-2 text-sm rounded-lg bg-slate-700 hover:bg-slate-600 transition">12:30pm</button>
-                                <button data-time="01:30 PM" class="px-3 py-2 text-sm rounded-lg bg-slate-700 hover:bg-slate-600 transition">01:30pm</button>
-                                <button data-time="02:30 PM" class="px-3 py-2 text-sm rounded-lg bg-slate-700 hover:bg-slate-600 transition">02:30pm</button>
-                                <button data-time="03:30 PM" class="px-3 py-2 text-sm rounded-lg bg-slate-700 hover:bg-slate-600 transition">03:30pm</button>
-                                <button data-time="04:30 PM" class="px-3 py-2 text-sm rounded-lg bg-slate-700 hover:bg-slate-600 transition">04:30pm</button>
+                                <button data-time="09:30 AM" class="px-3 py-1.5 text-sm rounded-lg bg-slate-700 hover:bg-slate-600 transition">09:30am</button>
+                                <button data-time="10:30 AM" class="px-3 py-1.5 text-sm rounded-lg bg-slate-700 hover:bg-slate-600 transition">10:30am</button>
+                                <button data-time="11:30 AM" class="px-3 py-1.5 text-sm rounded-lg bg-slate-700 hover:bg-slate-600 transition">11:30am</button>
+                                <button data-time="12:30 PM" class="px-3 py-1.5 text-sm rounded-lg bg-slate-700 hover:bg-slate-600 transition">12:30pm</button>
+                                <button data-time="01:30 PM" class="px-3 py-1.5 text-sm rounded-lg bg-slate-700 hover:bg-slate-600 transition">01:30pm</button>
+                                <button data-time="02:30 PM" class="px-3 py-1.5 text-sm rounded-lg bg-slate-700 hover:bg-slate-600 transition">02:30pm</button>
+                                <button data-time="03:30 PM" class="px-3 py-1.5 text-sm rounded-lg bg-slate-700 hover:bg-slate-600 transition">03:30pm</button>
+                                <button data-time="04:30 PM" class="px-3 py-1.5 text-sm rounded-lg bg-slate-700 hover:bg-slate-600 transition">04:30pm</button>
                             </div>
                         </div>
                     </div>
                     <div class="flex-grow min-h-0 flex flex-col">
-                        <div class="flex justify-between items-center mb-4 flex-shrink-0">
+                        <div class="flex justify-between items-center mb-2 flex-shrink-0">
                             <h2 id="hall-listing-title" class="text-xl font-bold text-white"></h2>
                             <div class="flex items-center gap-2 text-sm">
                                 <label for="view-mode-select" class="text-slate-300">View:</label>
@@ -385,7 +385,7 @@
                                 </select>
                             </div>
                         </div>
-                        <div id="hall-cards-container" class="grid grid-cols-1 md:grid-cols-2 gap-6 card-grid-scrollable flex-grow"></div>
+                        <div id="hall-cards-container" class="grid grid-cols-1 md:grid-cols-2 gap-4 card-grid-scrollable flex-grow"></div>
                         <div id="hall-table-container" class="hidden table-container flex-grow min-h-0 min-w-0"></div>
                     </div>
                 </div>
@@ -393,31 +393,31 @@
         </div>
     </div>
 
-    <div id="semester-booking-view" class="hidden flex-grow w-full px-4 sm:px-6 lg:p-8">
+    <div id="semester-booking-view" class="hidden flex-grow w-full px-2 sm:px-4 lg:p-6">
         <div class="h-full flex flex-col">
-            <h1 class="text-3xl font-bold text-white text-center mb-6 flex-shrink-0">Semester Booking</h1>
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 flex-grow min-h-0">
-                <div id="semester-halls-panel" class="bg-slate-800/50 rounded-xl shadow-2xl p-4 sm:p-6 flex flex-col lg:col-span-5">
-                    <h2 class="text-2xl font-bold text-white mb-4 flex-shrink-0">Select a Hall</h2>
-                    <div id="semester-halls-container" class="space-y-6 flex-grow overflow-y-auto pr-2 min-h-0">
+            <h1 class="text-3xl font-bold text-white text-center mb-4 flex-shrink-0">Semester Booking</h1>
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-grow min-h-0">
+                <div id="semester-halls-panel" class="bg-slate-800/50 rounded-xl shadow-2xl p-2 sm:p-4 flex flex-col lg:col-span-5">
+                    <h2 class="text-2xl font-bold text-white mb-2 flex-shrink-0">Select a Hall</h2>
+                    <div id="semester-halls-container" class="space-y-4 flex-grow overflow-y-auto pr-2 min-h-0">
                     </div>
                 </div>
-                <div id="booking-panel-container" class="bg-slate-800/50 rounded-xl shadow-2xl p-4 sm:p-6 flex flex-col lg:col-span-7">
+                <div id="booking-panel-container" class="bg-slate-800/50 rounded-xl shadow-2xl p-2 sm:p-4 flex flex-col lg:col-span-7">
                 </div>
             </div>
         </div>
     </div>
 
-    <div id="my-bookings-view" class="hidden flex-grow max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
-        <div class="bg-slate-800/50 rounded-xl shadow-2xl p-4 sm:p-6 lg:p-8 h-full flex flex-col">
-             <div class="flex justify-between items-center mb-6 flex-shrink-0">
+    <div id="my-bookings-view" class="hidden flex-grow max-w-7xl w-full mx-auto p-2 sm:p-4 lg:p-6">
+        <div class="bg-slate-800/50 rounded-xl shadow-2xl p-2 sm:p-4 lg:p-6 h-full flex flex-col">
+             <div class="flex justify-between items-center mb-2 flex-shrink-0">
                 <h1 class="text-3xl font-bold text-white" style="color: #60a5fa;">My Bookings</h1>
-                <div class="flex items-center space-x-4">
-                    <button id="clear-my-bookings-filters-btn" class="flex items-center px-4 py-2 text-sm font-semibold text-slate-300 bg-slate-700 hover:bg-slate-600 rounded-lg transition">
-                        <i data-lucide="filter-x" class="w-4 h-4 mr-2"></i>Clear All Filters
+                <div class="flex items-center space-x-2">
+                    <button id="clear-my-bookings-filters-btn" class="flex items-center px-3 py-1.5 text-sm font-semibold text-slate-300 bg-slate-700 hover:bg-slate-600 rounded-lg transition">
+                        <i data-lucide="filter-x" class="w-4 h-4 mr-2"></i>Clear Filters
                     </button>
-                    <button id="cancel-bookings-btn" disabled class="px-4 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
-                        <i data-lucide="trash-2" class="w-4 h-4 mr-2 inline-block"></i>Cancel Selected
+                    <button id="cancel-bookings-btn" disabled class="px-3 py-1.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i data-lucide="trash-2" class="w-4 h-4 mr-2 inline-block"></i>Cancel
                     </button>
                 </div>
             </div>
@@ -425,20 +425,20 @@
                 <table class="min-w-full divide-y divide-slate-700">
                     <thead class="bg-slate-900/50 sticky top-0">
                         <tr>
-                            <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-white sm:pl-6"><input type="checkbox" class="rounded bg-slate-700 border-slate-500 text-blue-500 focus:ring-blue-500"></th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                            <th scope="col" class="py-2.5 pl-4 pr-3 text-left text-sm font-semibold text-white sm:pl-6"><input type="checkbox" class="rounded bg-slate-700 border-slate-500 text-blue-500 focus:ring-blue-500"></th>
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white">
                                 <span class="flex items-center gap-2">Booked On <i data-filter-column="bookedOn" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
                             </th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white">
                                 <span class="flex items-center gap-2">Hall Details <i data-filter-column="hall" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
                             </th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white">
                                 <span class="flex items-center gap-2">Purpose <i data-filter-column="purpose" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
                             </th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white">
                                 <span class="flex items-center gap-2">Date & Time <i data-filter-column="dateTime" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
                             </th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white">
                                 <span class="flex items-center gap-2">Status <i data-filter-column="status" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
                             </th>
                         </tr>
@@ -449,37 +449,38 @@
         </div>
     </div>
 
-    <div id="approve-bookings-view" class="hidden flex-grow w-full p-4 sm:p-6 lg:p-8">
-        <div class="bg-slate-800/50 rounded-xl shadow-2xl p-4 sm:p-6 lg:p-8 h-full flex flex-col">
-            <div class="flex justify-between items-center mb-6 flex-shrink-0">
+    <div id="approve-bookings-view" class="hidden flex-grow w-full p-2 sm:p-4 lg:p-6">
+        <div class="bg-slate-800/50 rounded-xl shadow-2xl p-2 sm:p-4 lg:p-6 h-full flex flex-col">
+            <div class="flex justify-between items-center mb-2 flex-shrink-0">
                 <h1 class="text-3xl font-bold text-white" style="color: #60a5fa;">Approve / Reject Bookings</h1>
-                <button id="clear-filters-btn" class="flex items-center px-4 py-2 text-sm font-semibold text-slate-300 bg-slate-700 hover:bg-slate-600 rounded-lg transition">
-                    <i data-lucide="filter-x" class="w-4 h-4 mr-2"></i>Clear All Filters
+                <button id="clear-approve-filters-btn" class="flex items-center px-3 py-1.5 text-sm font-semibold text-slate-300 bg-slate-700 hover:bg-slate-600 rounded-lg transition">
+                    <i data-lucide="filter-x" class="w-4 h-4 mr-2"></i>Clear Filters
                 </button>
             </div>
             <div class="table-container flex-grow min-h-0 min-w-0 overflow-x-auto">
                 <table class="min-w-full divide-y divide-slate-700">
                     <thead class="bg-slate-900/50 sticky top-0">
                         <tr>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white">
                                 <span class="flex items-center gap-2">Booked On <i data-filter-column="bookedOn" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
                             </th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white">
                                 <span class="flex items-center gap-2">Hall Details <i data-filter-column="hall" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
                             </th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white">
                                 <span class="flex items-center gap-2">Purpose <i data-filter-column="purpose" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
                             </th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white">
                                 <span class="flex items-center gap-2">Date & Time <i data-filter-column="dateTime" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
                             </th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white">
                                 <span class="flex items-center gap-2">Booked By <i data-filter-column="bookedBy" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
                             </th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
-                                <span class="flex items-center gap-2">Status <i data-filter-column="status" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
+                            <!-- FIX: Removed filter icon from status column -->
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white">
+                                Status
                             </th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">Action</th>
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white">Action</th>
                         </tr>
                     </thead>
                     <tbody id="approve-bookings-body" class="divide-y divide-slate-800 bg-slate-900/30"></tbody>
@@ -488,25 +489,25 @@
         </div>
     </div>
 
-    <div id="booking-conflicts-view" class="hidden flex-grow w-full p-4 sm:p-6 lg:p-8">
-        <div class="bg-slate-800/50 rounded-xl shadow-2xl p-4 sm:p-6 lg:p-8 h-full flex flex-col">
-            <div class="flex justify-between items-center mb-6 flex-shrink-0">
+    <div id="booking-conflicts-view" class="hidden flex-grow w-full p-2 sm:p-4 lg:p-6">
+        <div class="bg-slate-800/50 rounded-xl shadow-2xl p-2 sm:p-4 lg:p-6 h-full flex flex-col">
+            <div class="flex justify-between items-center mb-2 flex-shrink-0">
                 <h1 class="text-3xl font-bold text-white" style="color: #60a5fa;">Booking Conflicts</h1>
-                <button id="clear-conflicts-filters-btn" class="flex items-center px-4 py-2 text-sm font-semibold text-slate-300 bg-slate-700 hover:bg-slate-600 rounded-lg transition">
-                    <i data-lucide="filter-x" class="w-4 h-4 mr-2"></i>Clear All Filters
+                <button id="clear-conflicts-filters-btn" class="flex items-center px-3 py-1.5 text-sm font-semibold text-slate-300 bg-slate-700 hover:bg-slate-600 rounded-lg transition">
+                    <i data-lucide="filter-x" class="w-4 h-4 mr-2"></i>Clear Filters
                 </button>
             </div>
             <div class="table-container flex-grow min-h-0 min-w-0 overflow-x-auto">
                 <table class="min-w-full divide-y divide-slate-700">
                     <thead class="bg-slate-900/50 sticky top-0">
                         <tr>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Booked On <i data-filter-column="bookedOn" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Hall Details <i data-filter-column="hall" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Purpose <i data-filter-column="purpose" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Date & Time <i data-filter-column="dateTime" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Booked By <i data-filter-column="bookedBy" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Status <i data-filter-column="status" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">Action</th>
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Booked On <i data-filter-column="bookedOn" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Hall Details <i data-filter-column="hall" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Purpose <i data-filter-column="purpose" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Date & Time <i data-filter-column="dateTime" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Booked By <i data-filter-column="bookedBy" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Status <i data-filter-column="status" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white">Action</th>
                         </tr>
                     </thead>
                     <tbody id="booking-conflicts-body" class="divide-y divide-slate-800 bg-slate-900/30"></tbody>
@@ -515,25 +516,25 @@
         </div>
     </div>
 
-    <div id="forward-bookings-view" class="hidden flex-grow w-full p-4 sm:p-6 lg:p-8">
-        <div class="bg-slate-800/50 rounded-xl shadow-2xl p-4 sm:p-6 lg:p-8 h-full flex flex-col">
-            <div class="flex justify-between items-center mb-6 flex-shrink-0">
+    <div id="forward-bookings-view" class="hidden flex-grow w-full p-2 sm:p-4 lg:p-6">
+        <div class="bg-slate-800/50 rounded-xl shadow-2xl p-2 sm:p-4 lg:p-6 h-full flex flex-col">
+            <div class="flex justify-between items-center mb-2 flex-shrink-0">
                 <h1 class="text-3xl font-bold text-white" style="color: #60a5fa;">Forward Bookings</h1>
-                <button id="clear-forward-filters-btn" class="flex items-center px-4 py-2 text-sm font-semibold text-slate-300 bg-slate-700 hover:bg-slate-600 rounded-lg transition">
-                    <i data-lucide="filter-x" class="w-4 h-4 mr-2"></i>Clear All Filters
+                <button id="clear-forward-filters-btn" class="flex items-center px-3 py-1.5 text-sm font-semibold text-slate-300 bg-slate-700 hover:bg-slate-600 rounded-lg transition">
+                    <i data-lucide="filter-x" class="w-4 h-4 mr-2"></i>Clear Filters
                 </button>
             </div>
             <div class="table-container flex-grow min-h-0 min-w-0 overflow-x-auto">
                 <table class="min-w-full divide-y divide-slate-700">
                     <thead class="bg-slate-900/50 sticky top-0">
                         <tr>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Booked On <i data-filter-column="bookedOn" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Hall Details <i data-filter-column="hall" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Purpose <i data-filter-column="purpose" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Date & Time <i data-filter-column="dateTime" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Booked By <i data-filter-column="bookedBy" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Status <i data-filter-column="status" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">Action</th>
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Booked On <i data-filter-column="bookedOn" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Hall Details <i data-filter-column="hall" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Purpose <i data-filter-column="purpose" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Date & Time <i data-filter-column="dateTime" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Booked By <i data-filter-column="bookedBy" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Status <i data-filter-column="status" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white">Action</th>
                         </tr>
                     </thead>
                     <tbody id="forward-bookings-body" class="divide-y divide-slate-800 bg-slate-900/30"></tbody>
@@ -542,25 +543,25 @@
         </div>
     </div>
 
-    <div id="view-bookings-view" class="hidden flex-grow w-full p-4 sm:p-6 lg:p-8">
-        <div class="bg-slate-800/50 rounded-xl shadow-2xl p-4 sm:p-6 lg:p-8 h-full flex flex-col">
-            <div class="flex justify-between items-center mb-6 flex-shrink-0">
+    <div id="view-bookings-view" class="hidden flex-grow w-full p-2 sm:p-4 lg:p-6">
+        <div class="bg-slate-800/50 rounded-xl shadow-2xl p-2 sm:p-4 lg:p-6 h-full flex flex-col">
+            <div class="flex justify-between items-center mb-2 flex-shrink-0">
                 <h1 class="text-3xl font-bold text-white" style="color: #60a5fa;">View All Bookings</h1>
-                <button id="clear-view-bookings-filters-btn" class="flex items-center px-4 py-2 text-sm font-semibold text-slate-300 bg-slate-700 hover:bg-slate-600 rounded-lg transition">
-                    <i data-lucide="filter-x" class="w-4 h-4 mr-2"></i>Clear All Filters
+                <button id="clear-view-bookings-filters-btn" class="flex items-center px-3 py-1.5 text-sm font-semibold text-slate-300 bg-slate-700 hover:bg-slate-600 rounded-lg transition">
+                    <i data-lucide="filter-x" class="w-4 h-4 mr-2"></i>Clear Filters
                 </button>
             </div>
             <div class="table-container flex-grow min-h-0 min-w-0 overflow-x-auto">
                 <table class="min-w-full divide-y divide-slate-700">
                     <thead class="bg-slate-900/50 sticky top-0">
                         <tr>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Booked On <i data-filter-column="bookedOn" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Hall Details <i data-filter-column="hall" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Purpose <i data-filter-column="purpose" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Date & Time <i data-filter-column="dateTime" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Booked By <i data-filter-column="bookedBy" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Belongs To <i data-filter-column="belongsTo" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Status <i data-filter-column="status" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Booked On <i data-filter-column="bookedOn" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Hall Details <i data-filter-column="hall" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Purpose <i data-filter-column="purpose" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Date & Time <i data-filter-column="dateTime" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Booked By <i data-filter-column="bookedBy" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Belongs To <i data-filter-column="belongsTo" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
+                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Status <i data-filter-column="status" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
                         </tr>
                     </thead>
                     <tbody id="view-bookings-body" class="divide-y divide-slate-800 bg-slate-900/30"></tbody>
@@ -569,15 +570,15 @@
         </div>
     </div>
 
-    <div id="hall-booking-details-view" class="hidden flex-grow w-full mx-auto p-4 sm:p-6 lg:p-8">
-        <div class="bg-slate-800/50 rounded-xl shadow-2xl p-4 sm:p-6 lg:p-8 h-full flex flex-col">
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6 flex-shrink-0">
-                <div id="booking-hall-details" class="bg-blue-900/30 p-4 rounded-lg border border-blue-700"></div>
-                <div id="booking-hall-features" class="bg-green-900/30 p-4 rounded-lg border border-green-700"></div>
-                <div id="booking-hall-incharge" class="bg-yellow-900/30 p-4 rounded-lg border border-yellow-700"></div>
+    <div id="hall-booking-details-view" class="hidden flex-grow w-full mx-auto p-2 sm:p-4 lg:p-6">
+        <div class="bg-slate-800/50 rounded-xl shadow-2xl p-2 sm:p-4 lg:p-6 h-full flex flex-col">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-2 flex-shrink-0">
+                <div id="booking-hall-details" class="bg-blue-900/30 p-3 rounded-lg border border-blue-700"></div>
+                <div id="booking-hall-features" class="bg-green-900/30 p-3 rounded-lg border border-green-700"></div>
+                <div id="booking-hall-incharge" class="bg-yellow-900/30 p-3 rounded-lg border border-yellow-700"></div>
             </div>
 
-            <div class="text-center mb-4 flex-shrink-0">
+            <div class="text-center mb-2 flex-shrink-0">
                 <h2 class="text-2xl font-bold text-white">Booking Details</h2>
                 <div class="flex items-center justify-center gap-4 mt-2">
                     <button id="prev-month-btn" class="p-2 rounded-md bg-slate-700 hover:bg-slate-600 transition">&lt;</button>
@@ -586,31 +587,31 @@
                 </div>
             </div>
 
-            <div id="booking-calendar-grid" class="table-container overflow-auto pb-4 flex-grow"></div>
+            <div id="booking-calendar-grid" class="table-container overflow-auto pb-2 flex-grow"></div>
 
-            <div class="flex items-center justify-center gap-x-6 gap-y-2 flex-wrap mt-4 text-sm flex-shrink-0">
-                <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-green-500/80 mr-2"></span>Available</div>
-                <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-cyan-500/80 mr-2"></span>Selected</div>
-                <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-yellow-500/80 mr-2"></span>Pending</div>
-                <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-red-600/80 mr-2"></span>Booked</div>
-                <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-gray-700/50 mr-2"></span>Past</div>
+            <div class="flex items-center justify-center gap-x-4 gap-y-2 flex-wrap mt-2 text-sm flex-shrink-0">
+                <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-green-500/80 mr-2"></span>Available</div>
+                <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-cyan-500/80 mr-2"></span>Selected</div>
+                <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-yellow-500/80 mr-2"></span>Pending</div>
+                <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-red-600/80 mr-2"></span>Booked</div>
+                <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-gray-700/50 mr-2"></span>Past</div>
             </div>
 
-            <div class="flex items-center justify-center gap-4 mt-6 flex-shrink-0">
-                <button onclick="window.history.back()" class="px-8 py-2 text-sm font-semibold text-white bg-slate-600 hover:bg-slate-700 rounded-lg transition">Back</button>
-                <button id="confirm-booking-btn" class="px-8 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition">Book</button>
+            <div class="flex items-center justify-center gap-4 mt-4 flex-shrink-0">
+                <button onclick="window.history.back()" class="px-6 py-2 text-sm font-semibold text-white bg-slate-600 hover:bg-slate-700 rounded-lg transition">Back</button>
+                <button id="confirm-booking-btn" class="px-6 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition">Book</button>
             </div>
         </div>
     </div>
 
-    <div id="final-booking-form-view" class="flex-grow max-w-5xl w-full mx-auto p-4 sm:p-6 lg:p-8">
-        <div class="bg-slate-800/50 rounded-xl shadow-2xl p-8 text-slate-200 h-full flex flex-col">
-            <h1 class="text-3xl font-bold text-center mb-8 text-white flex-shrink-0">Hall Booking</h1>
-            <div id="final-booking-form-content" class="space-y-6 flex-grow overflow-y-auto pr-2 min-h-0"></div>
+    <div id="final-booking-form-view" class="flex-grow max-w-5xl w-full mx-auto p-2 sm:p-4 lg:p-6">
+        <div class="bg-slate-800/50 rounded-xl shadow-2xl p-6 text-slate-200 h-full flex flex-col">
+            <h1 class="text-3xl font-bold text-center mb-6 text-white flex-shrink-0">Hall Booking</h1>
+            <div id="final-booking-form-content" class="space-y-4 flex-grow overflow-y-auto pr-2 min-h-0"></div>
         </div>
     </div>
 
-    <footer class="bg-slate-900 text-center py-4 mt-auto">
+    <footer class="bg-slate-900 text-center py-3 mt-auto">
         <p class="text-slate-400 text-sm">&copy; 2025 Pondicherry University. All rights reserved.</p>
     </footer>
 
