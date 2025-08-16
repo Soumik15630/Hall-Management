@@ -476,6 +476,7 @@
                             <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white">
                                 <span class="flex items-center gap-2">Booked By <i data-filter-column="bookedBy" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
                             </th>
+                            <!-- FIX: Removed filter icon from status column -->
                             <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white">
                                 Status
                             </th>
@@ -569,7 +570,7 @@
         </div>
     </div>
 
-    <div id="hall-booking-details-view" class="hidden flex-grow w-full mx-auto p-2 sm:p-4 lg:p-6">
+    <div id="hall-booking-details-view" class="hidden flex-grow w-full p-2 sm:p-4 lg:p-6">
         <div class="bg-slate-800/50 rounded-xl shadow-2xl p-2 sm:p-4 lg:p-6 h-full flex flex-col">
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-2 flex-shrink-0">
                 <div id="booking-hall-details" class="bg-blue-900/30 p-3 rounded-lg border border-blue-700"></div>
@@ -603,7 +604,7 @@
         </div>
     </div>
 
-    <div id="final-booking-form-view" class="flex-grow max-w-5xl w-full mx-auto p-2 sm:p-4 lg:p-6">
+    <div id="final-booking-form-view" class="hidden flex-grow w-full p-2 sm:p-4 lg:p-6">
         <div class="bg-slate-800/50 rounded-xl shadow-2xl p-6 text-slate-200 h-full flex flex-col">
             <h1 class="text-3xl font-bold text-center mb-6 text-white flex-shrink-0">Hall Booking</h1>
             <div id="final-booking-form-content" class="space-y-4 flex-grow overflow-y-auto pr-2 min-h-0"></div>
@@ -764,6 +765,7 @@
         </div>
     </div>
 
+    <!-- Container for dynamically generated filter modals -->
     <div id="filter-modal-container"></div>
 
     <div id="filter-hall-details-modal" class="modal fixed inset-0 z-50 flex items-center justify-center p-4 hidden"></div>

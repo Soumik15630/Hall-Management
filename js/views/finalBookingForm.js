@@ -415,7 +415,7 @@ window.FinalBookingFormView = (function() {
         if (!container) return;
 
         container.innerHTML = `
-            <div id="final-booking-form-container" class="container mx-auto max-w-7xl">
+            <div id="final-booking-form-container" class="container mx-auto">
                 <div id="calendar-tooltip" class="hidden absolute z-[60] p-3 text-sm bg-slate-900/95 backdrop-blur-sm text-white rounded-md shadow-lg border border-slate-700 transition-opacity duration-200 opacity-0 pointer-events-none"></div>
                 
                 <div class="text-center mb-8">
@@ -541,7 +541,7 @@ window.FinalBookingFormView = (function() {
                 </p>
             </div>
             <div class="overflow-x-auto pb-4">
-                <div class="calendar-grid min-w-[1200px]">
+                <div class="calendar-grid">
                     <div class="time-labels-col pr-2">
                         ${timeSlots.map(time => `<div class="time-label">${formatTimeForDisplay(time)}</div>`).join('')}
                     </div>
@@ -1336,7 +1336,7 @@ window.FinalBookingFormView = (function() {
             const container = document.getElementById('final-booking-form-content');
             if (container) {
                 container.innerHTML = `
-                    <div class="container mx-auto max-w-7xl">
+                    <div class="container mx-auto">
                         <div class="text-center py-20">
                             <h2 class="text-xl font-bold text-red-400 mb-4">Error Loading Booking Form</h2>
                             <p class="text-slate-400 mb-4">Failed to load hall information for booking.</p>
