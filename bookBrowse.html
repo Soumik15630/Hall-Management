@@ -40,6 +40,16 @@
                 <!-- Filters Column -->
                 <aside class="lg:col-span-1">
                     <div class="space-y-6">
+                        <!-- Clear Filters Button -->
+                        <div>
+                            <button @click="clearFilters()" 
+                                    :disabled="!isAnyFilterActive"
+                                    class="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center justify-center space-x-2 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed">
+                                <i class="fas fa-times-circle"></i>
+                                <span>Clear All Filters</span>
+                            </button>
+                        </div>
+
                         <!-- Hall Type -->
                         <div>
                             <label class="font-semibold text-gray-700">Hall Type:</label>
@@ -181,6 +191,8 @@
                     type: 'SEMINAR',
                     capacity: null,
                     features: [],
+                    floor: '',
+                    zone: ''
                 },
                 dropdowns: { school: false, department: false },
                 searchTerms: { school: '', department: '' },
@@ -269,31 +281,33 @@
                         const url = AppConfig.apiBaseUrl + AppConfig.endpoints.allHall;
                         const data = await this.fetchWithAuth(url);
                         
-                        this.allHalls = data.map(hall => {
-                            let ownerName = 'Administration'; // Default
-                            const dept = this.departmentOptions.find(d => d.value === hall.department_id);
-                            const school = this.schoolOptions.find(s => s.value === hall.school_id);
+                        this.allHalls = data
+                            .filter(hall => hall.availability === true) // Only include available halls
+                            .map(hall => {
+                                let ownerName = 'Administration'; // Default
+                                const dept = this.departmentOptions.find(d => d.value === hall.department_id);
+                                const school = this.schoolOptions.find(s => s.value === hall.school_id);
 
-                            if (dept) {
-                                ownerName = dept.label;
-                            } else if (school) {
-                                ownerName = school.label;
-                            }
+                                if (dept) {
+                                    ownerName = dept.label;
+                                } else if (school) {
+                                    ownerName = school.label;
+                                }
 
-                            return { 
-                                id: hall.unique_id,
-                                name: hall.name,
-                                departmentId: hall.department_id,
-                                schoolId: hall.school_id,
-                                ownerName: ownerName,
-                                capacity: hall.capacity,
-                                type: hall.type,
-                                floor: hall.floor,
-                                zone: hall.zone,
-                                features: hall.features || [],
-                                imageUrl: hall.image_url1 || 'https://placehold.co/600x400/e2e8f0/64748b?text=Image+Not+Found'
-                            };
-                        });
+                                return { 
+                                    id: hall.unique_id,
+                                    name: hall.name,
+                                    departmentId: hall.department_id,
+                                    schoolId: hall.school_id,
+                                    ownerName: ownerName,
+                                    capacity: hall.capacity,
+                                    type: hall.type,
+                                    floor: hall.floor,
+                                    zone: hall.zone,
+                                    features: hall.features || [],
+                                    imageUrl: hall.image_url1 || 'https://placehold.co/600x400/e2e8f0/64748b?text=Image+Not+Found'
+                                };
+                            });
 
                     } catch(e) {
                          console.error("Could not load halls:", e.message);
@@ -303,6 +317,15 @@
                 },
 
                 // --- Computed Properties for Filtering ---
+                get isAnyFilterActive() {
+                    return this.filters.type !== 'SEMINAR' || 
+                           this.filters.capacity !== null || 
+                           this.filters.features.length > 0 || 
+                           this.filters.floor !== '' || 
+                           this.filters.zone !== '' || 
+                           this.selectedSchoolId !== null || 
+                           this.selectedDepartmentId !== null;
+                },
                 get filteredSchools() {
                     if (!this.searchTerms.school) return this.schoolOptions;
                     return this.schoolOptions.filter(o => o.label.toLowerCase().includes(this.searchTerms.school.toLowerCase()));
@@ -339,6 +362,18 @@
                 },
 
                 // --- UI Actions ---
+                clearFilters() {
+                    this.filters = {
+                        type: 'SEMINAR',
+                        capacity: null,
+                        features: [],
+                        floor: '',
+                        zone: ''
+                    };
+                    this.selectedSchoolId = null;
+                    this.selectedDepartmentId = null;
+                    this.searchTerms = { school: '', department: '' };
+                },
                 selectOption(type, id) {
                     if (type === 'school') {
                         this.selectedSchoolId = id;
