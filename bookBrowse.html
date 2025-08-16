@@ -40,6 +40,14 @@
                 <!-- Filters Column -->
                 <aside class="lg:col-span-1">
                     <div class="space-y-6">
+                        <!-- Clear Filters Button -->
+                        <div>
+                            <button @click="clearFilters()" class="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center justify-center space-x-2 transition-colors">
+                                <i class="fas fa-times-circle"></i>
+                                <span>Clear All Filters</span>
+                            </button>
+                        </div>
+
                         <!-- Hall Type -->
                         <div>
                             <label class="font-semibold text-gray-700">Hall Type:</label>
@@ -181,6 +189,8 @@
                     type: 'SEMINAR',
                     capacity: null,
                     features: [],
+                    floor: '',
+                    zone: ''
                 },
                 dropdowns: { school: false, department: false },
                 searchTerms: { school: '', department: '' },
@@ -339,6 +349,18 @@
                 },
 
                 // --- UI Actions ---
+                clearFilters() {
+                    this.filters = {
+                        type: 'SEMINAR',
+                        capacity: null,
+                        features: [],
+                        floor: '',
+                        zone: ''
+                    };
+                    this.selectedSchoolId = null;
+                    this.selectedDepartmentId = null;
+                    this.searchTerms = { school: '', department: '' };
+                },
                 selectOption(type, id) {
                     if (type === 'school') {
                         this.selectedSchoolId = id;
