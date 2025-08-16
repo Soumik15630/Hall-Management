@@ -281,31 +281,33 @@
                         const url = AppConfig.apiBaseUrl + AppConfig.endpoints.allHall;
                         const data = await this.fetchWithAuth(url);
                         
-                        this.allHalls = data.map(hall => {
-                            let ownerName = 'Administration'; // Default
-                            const dept = this.departmentOptions.find(d => d.value === hall.department_id);
-                            const school = this.schoolOptions.find(s => s.value === hall.school_id);
+                        this.allHalls = data
+                            .filter(hall => hall.availability === true) // Only include available halls
+                            .map(hall => {
+                                let ownerName = 'Administration'; // Default
+                                const dept = this.departmentOptions.find(d => d.value === hall.department_id);
+                                const school = this.schoolOptions.find(s => s.value === hall.school_id);
 
-                            if (dept) {
-                                ownerName = dept.label;
-                            } else if (school) {
-                                ownerName = school.label;
-                            }
+                                if (dept) {
+                                    ownerName = dept.label;
+                                } else if (school) {
+                                    ownerName = school.label;
+                                }
 
-                            return { 
-                                id: hall.unique_id,
-                                name: hall.name,
-                                departmentId: hall.department_id,
-                                schoolId: hall.school_id,
-                                ownerName: ownerName,
-                                capacity: hall.capacity,
-                                type: hall.type,
-                                floor: hall.floor,
-                                zone: hall.zone,
-                                features: hall.features || [],
-                                imageUrl: hall.image_url1 || 'https://placehold.co/600x400/e2e8f0/64748b?text=Image+Not+Found'
-                            };
-                        });
+                                return { 
+                                    id: hall.unique_id,
+                                    name: hall.name,
+                                    departmentId: hall.department_id,
+                                    schoolId: hall.school_id,
+                                    ownerName: ownerName,
+                                    capacity: hall.capacity,
+                                    type: hall.type,
+                                    floor: hall.floor,
+                                    zone: hall.zone,
+                                    features: hall.features || [],
+                                    imageUrl: hall.image_url1 || 'https://placehold.co/600x400/e2e8f0/64748b?text=Image+Not+Found'
+                                };
+                            });
 
                     } catch(e) {
                          console.error("Could not load halls:", e.message);
