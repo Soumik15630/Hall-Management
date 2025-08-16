@@ -163,24 +163,25 @@ window.EmployeeView = (function() {
             const statusColor = emp.status === 'ACTIVE' ? 'text-green-400' : 'text-red-400';
             return `
             <tr data-employee-id="${emp.id}" class="${isSelected ? 'bg-blue-900/30' : ''} hover:bg-slate-800/50 transition-colors">
-                <td class="py-4 pl-4 pr-3 text-sm sm:pl-6">
+                <td class="py-4 pl-4 pr-3 text-sm sm:pl-6 align-top">
                     <input type="checkbox" class="row-checkbox rounded bg-slate-700 border-slate-500 text-blue-500 focus:ring-blue-500" ${isSelected ? 'checked' : ''}>
                 </td>
-                <td class="whitespace-nowrap px-3 py-4 text-sm">
+                <td class="px-3 py-4 text-sm align-top">
                     <div class="font-medium text-blue-400">${emp.name}</div>
-                    <div class="text-slate-400">${emp.email}</div>
+                    <div class="text-slate-400 text-xs break-all">${emp.email}</div>
                     <div class="text-slate-400">${emp.phone || ''}</div>
                 </td>
-                <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300">${emp.designation}</td>
-                <td class="whitespace-nowrap px-3 py-4 text-sm">
+                <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300 align-top">${emp.designation}</td>
+                <td class="px-3 py-4 text-sm align-top">
                     <div class="font-medium text-blue-400">Department</div>
                     <div class="text-slate-400">${emp.department}</div>
                     <div class="font-medium text-blue-400 mt-1">School</div>
                     <div class="text-slate-400">${emp.school}</div>
                 </td>
-                <td class="whitespace-nowrap px-3 py-4 text-sm font-semibold ${statusColor}">${emp.status}</td>
+                <td class="whitespace-nowrap px-3 py-4 text-sm font-semibold ${statusColor} align-top">${emp.status}</td>
             </tr>
-        `}).join('');
+        `
+    }).join('');
 
         tableBody.innerHTML = tableHtml;
         updateActionButtonsState();
