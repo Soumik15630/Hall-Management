@@ -1,5 +1,6 @@
 // Approve Bookings View Module
 window.ApproveBookingsView = (function() {
+    // --- STATE MANAGEMENT ---
     const defaultFilters = () => ({
         bookedOn: { from: '', to: '' },
         hall: { name: '' },
@@ -117,15 +118,16 @@ window.ApproveBookingsView = (function() {
             const userName = booking.user?.employee?.employee_name?.trim() || 'N/A';
             const startDateTime = new Date(`${booking.start_date.substring(0, 10)}T${booking.start_time}`);
             const endDateTime = new Date(`${booking.end_date.substring(0, 10)}T${booking.end_time}`);
+            const statusInfo = formatStatus(booking.status);
 
             return `
             <tr class="hover:bg-slate-800/50 transition-colors" data-booking-id="${booking.unique_id}">
-                <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300">${new Date(booking.created_at).toLocaleDateString()}</td>
+                <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300">${formatDate(booking.created_at)}</td>
                 <td class="whitespace-nowrap px-3 py-4 text-sm">
                     <div class="font-medium text-white">${hallName}</div>
                     <div class="text-slate-400">${booking.hall_id}</div>
                 </td>
-                <td class="whitespace-nowrap px-3 py-4 text-sm">
+                <td class="px-3 py-4 text-sm text-slate-300" style="white-space: normal; max-width: 250px; word-wrap: break-word;">
                     <div class="font-medium text-white">${booking.purpose}</div>
                     <div class="text-slate-400">${booking.class_code || ''}</div>
                 </td>
@@ -134,7 +136,7 @@ window.ApproveBookingsView = (function() {
                     <div class="font-medium text-white">${userName}</div>
                     <div class="text-slate-400">${booking.user_id}</div>
                 </td>
-                <td class="whitespace-nowrap px-3 py-4 text-sm font-semibold text-yellow-400">${booking.status}</td>
+                <td class="whitespace-nowrap px-3 py-4 text-sm font-semibold ${statusInfo.className}">${statusInfo.text}</td>
                 <td class="whitespace-nowrap px-3 py-4 text-sm">
                     <div class="flex gap-2">
                         <button data-action="approve" class="px-3 py-1 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-md transition">Approve</button>
@@ -173,26 +175,22 @@ window.ApproveBookingsView = (function() {
         const backdrop = document.getElementById('modal-backdrop');
         if (!modal || !backdrop) return;
         backdrop.classList.remove('hidden', 'opacity-0');
-        modal.classList.remove('hidden', 'opacity-0');
+        modal.classList.remove('hidden');
     }
 
     function closeModal() {
         const backdrop = document.getElementById('modal-backdrop');
-        const modals = document.querySelectorAll('.modal');
-        backdrop?.classList.add('opacity-0');
-        modals.forEach(modal => {
-            modal.classList.add('opacity-0');
+        if(backdrop) {
+            backdrop.classList.add('opacity-0');
+            setTimeout(() => backdrop.classList.add('hidden'), 300);
+        }
+        document.querySelectorAll('.modal').forEach(modal => {
+            if (modal.id.startsWith('filter-modal-')) {
+                modal.remove();
+            } else {
+                modal.classList.add('hidden');
+            }
         });
-        setTimeout(() => {
-            backdrop?.classList.add('hidden');
-            modals.forEach(modal => {
-                 if (modal.id.startsWith('filter-modal-')) {
-                    modal.remove();
-                } else {
-                    modal.classList.add('hidden');
-                }
-            });
-        }, 300);
     }
     
     function createFilterModal(column, title, contentHtml) {
@@ -277,7 +275,7 @@ window.ApproveBookingsView = (function() {
                 break;
             case 'hall':
                 title = 'Filter by Hall';
-                const hallNames = [...new Set(state.bookings.map(b => b.hall.name))];
+                const hallNames = [...new Set(state.bookings.map(b => b.hall.name))].sort();
                 contentHtml = `
                     <div>
                         <label for="filter-hall-name-input" class="block text-sm font-medium mb-1">Hall Name</label>
@@ -292,8 +290,8 @@ window.ApproveBookingsView = (function() {
                 title = 'Filter by Purpose';
                 contentHtml = `
                     <div>
-                        <label for="filter-purpose" class="block text-sm font-medium mb-1">Purpose</label>
-                        <input type="text" id="filter-purpose" value="${state.filters.purpose}" placeholder="Contains..." class="glowing-input w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white">
+                        <label for="filter-purpose" class="block text-sm font-medium mb-1">Purpose contains</label>
+                        <input type="text" id="filter-purpose" value="${state.filters.purpose}" placeholder="e.g., Meeting, Class" class="glowing-input w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white">
                     </div>`;
                 break;
             case 'dateTime':
@@ -312,7 +310,7 @@ window.ApproveBookingsView = (function() {
                 break;
             case 'bookedBy':
                 title = 'Filter by User';
-                const userNames = [...new Set(state.bookings.map(b => b.user.employee.employee_name))];
+                const userNames = [...new Set(state.bookings.map(b => b.user.employee.employee_name))].sort();
                 contentHtml = `
                     <div>
                         <label for="filter-user-name-input" class="block text-sm font-medium mb-1">User Name</label>
@@ -326,7 +324,10 @@ window.ApproveBookingsView = (function() {
             case 'status':
                 title = 'Filter by Status';
                 const statuses = [...new Set(state.bookings.map(b => b.status))];
-                const statusOptions = statuses.map(s => `<option value="${s}" ${state.filters.status === s ? 'selected' : ''}>${formatStatus(s).text}</option>`).join('');
+                const statusOptions = statuses.map(s => {
+                    const statusInfo = formatStatus(s);
+                    return `<option value="${s}" ${state.filters.status === s ? 'selected' : ''}>${statusInfo.text}</option>`;
+                }).join('');
                 contentHtml = `
                     <select id="filter-status" class="glowing-select w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white">
                         <option value="">Any</option>
@@ -386,12 +387,33 @@ window.ApproveBookingsView = (function() {
     async function handleBookingAction(bookingId, action) {
         const status = action === 'approve' ? 'APPROVED' : 'REJECTED';
         try {
+            // Find the row in the UI
+            const row = document.querySelector(`tr[data-booking-id="${bookingId}"]`);
+            if (row) {
+                // Dim the row and show a spinner
+                row.style.opacity = '0.5';
+                const actionCell = row.querySelector('td:last-child');
+                if (actionCell) {
+                    actionCell.innerHTML = `<div class="flex justify-center items-center"><svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg></div>`;
+                }
+            }
+
             const response = await updateBookingStatus(bookingId, status);
-            alert(response.message || `Booking action completed successfully.`);
-            await initialize();
+            
+            // Update the state locally to avoid a full re-fetch
+            const bookingIndex = state.bookings.findIndex(b => b.unique_id === bookingId);
+            if (bookingIndex !== -1) {
+                state.bookings.splice(bookingIndex, 1); // Remove the booking from the list
+            }
+            applyFiltersAndRender(); // Re-render the table with the updated data
+            
+            showToast(response.message || `Booking ${action}ed successfully.`);
+
         } catch (error) {
             console.error(`Failed to ${action} booking:`, error);
-            alert(`Error: Could not ${action} the booking. ${error.message}`);
+            showToast(`Error: Could not ${action} the booking. ${error.message}`, 'error');
+            // Restore the row if the API call failed
+            applyFiltersAndRender();
         }
     }
 
@@ -407,7 +429,7 @@ window.ApproveBookingsView = (function() {
             if (filterIcon) {
                 openFilterModalFor(filterIcon.dataset.filterColumn);
             }
-            if (e.target.closest('#clear-approve-bookings-filters-btn')) {
+            if (e.target.closest('#clear-filters-btn')) {
                 state.filters = defaultFilters();
                 applyFiltersAndRender();
             }
@@ -432,6 +454,7 @@ window.ApproveBookingsView = (function() {
                 const action = button.dataset.action;
 
                 if (bookingId && (action === 'approve' || action === 'reject')) {
+                    // Replace confirm with a custom modal if available, for now, it's ok
                     if (confirm(`Are you sure you want to ${action} this booking?`)) {
                         handleBookingAction(bookingId, action);
                     }
@@ -456,6 +479,7 @@ window.ApproveBookingsView = (function() {
     function cleanup() {
         if (abortController) abortController.abort();
         state = { bookings: [], filteredBookings: [], filters: defaultFilters() };
+        closeModal();
     }
 
     return {
