@@ -278,9 +278,15 @@ window.BrowseBookView = (function() {
                 const imageUrl = hall.image_url;
                 const hallId = hall.unique_id || hall.id; 
                 
+                // MODIFICATION: Added a white background and padding to the image container.
                 return `
-                <div data-hall-id="${hallId}" class="hall-card bg-slate-900/70 rounded-lg border border-slate-700 flex flex-col">
-                    ${state.viewMode === 'with-image' ? `<img src="${imageUrl}" alt="${hall.name}" class="w-full h-32 object-cover rounded-t-lg" onerror="this.src='https://placehold.co/600x400/0f172a/93c5fd?text=${encodeURIComponent(hall.name)}'">` : ''}
+                <div data-hall-id="${hallId}" class="hall-card bg-slate-900/70 rounded-lg border border-slate-700 flex flex-col overflow-hidden group">
+                    ${state.viewMode === 'with-image' ? `
+                    <div class="overflow-hidden bg-white p-4">
+                        <img src="${imageUrl}" alt="${hall.name}" 
+                             class="w-full h-40 object-contain transition-transform duration-300 ease-in-out group-hover:scale-105" 
+                             onerror="this.src='https://placehold.co/600x400/0f172a/93c5fd?text=${encodeURIComponent(hall.name)}'">
+                    </div>` : ''}
                     <div class="p-4 flex flex-col flex-grow justify-between">
                         <div>
                             <h4 class="font-bold text-blue-400">${hall.name}</h4>

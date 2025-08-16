@@ -1,4 +1,4 @@
-// finalBookingForm.js - Enhanced Implementation with Color-Coded Slots
+// finalBookingForm.js - Simplified for Individual Bookings Only
 
 window.FinalBookingFormView = (function() {
     
@@ -9,24 +9,17 @@ window.FinalBookingFormView = (function() {
         availabilityData: [],
         selectedSlots: [], // Format: [{ date: 'YYYY-MM-DD', time: 'HH:MM' }]
         currentDate: new Date(),
-        bookingType: 'INDIVIDUAL', // Can be 'INDIVIDUAL' or 'SEMESTER'
         purpose: '',
         classCode: '',
         isDragging: false,
         dragSelectionMode: 'add',
         dragDate: null,
         currentSelectedDate: null, // For tracking which date is selected for time buttons
-        semester: {
-            fromDate: '',
-            toDate: '',
-            daysOfWeek: [], // e.g., [1, 3, 5] for Mon, Wed, Fri
-        }
     };
     let abortController;
     let tooltipHideTimer; // Timer for hiding the tooltip
     const timeSlots = ['09:30', '10:30', '11:30', '12:30', '13:30', '14:30', '15:30', '16:30'];
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const apiDayNames = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
 
     // --- UI HELPERS ---
     /**
@@ -260,32 +253,6 @@ window.FinalBookingFormView = (function() {
         }
     }
 
-    async function addIndividualBooking(bookingDetails) {
-        return await fetchFromAPI(AppConfig.endpoints.bookingRequest, { 
-            method: 'POST', 
-            headers: {
-                'Content-Type': 'application/json',
-                ...getAuthHeaders()
-            },
-            body: JSON.stringify(bookingDetails) 
-        });
-    }
-    
-    async function addMultipleIndividualBookings(bookingRequests) {
-        const results = [];
-        
-        for (const request of bookingRequests) {
-            try {
-                const result = await addIndividualBooking(request);
-                results.push({ success: true, data: result, request });
-            } catch (error) {
-                results.push({ success: false, error: error.message, request });
-            }
-        }
-        
-        return results;
-    }
-
     // --- ENHANCED VALIDATION LOGIC ---
     function validateSingleDayBooking(newSlot) {
         if (state.selectedSlots.length === 0) {
@@ -447,62 +414,22 @@ window.FinalBookingFormView = (function() {
         const container = document.getElementById('final-booking-form-content'); 
         if (!container) return;
 
-        const isIndividual = state.bookingType === 'INDIVIDUAL';
-
         container.innerHTML = `
             <div id="final-booking-form-container" class="container mx-auto max-w-7xl">
                 <div id="calendar-tooltip" class="hidden absolute z-[60] p-3 text-sm bg-slate-900/95 backdrop-blur-sm text-white rounded-md shadow-lg border border-slate-700 transition-opacity duration-200 opacity-0 pointer-events-none"></div>
                 
-                <!-- [FIX] Added Hall Name Display Section -->
                 <div class="text-center mb-8">
                     <h2 class="text-2xl font-bold text-white tracking-tight">${state.hall?.name || ''}</h2>
                     <p class="text-md text-slate-400">${state.hall?.location || ''}</p>
                 </div>
 
                 <div class="space-y-8">
-                    <section id="booking-type-section" class="bg-slate-900/70 p-4 sm:p-6 rounded-lg shadow-md border border-slate-700">
-                         <h3 class="text-xl font-semibold text-white mb-4 border-b border-slate-700 pb-2">Booking Type</h3>
-                         <div class="flex rounded-lg bg-slate-800 p-1 max-w-sm">
-                            <button type="button" data-booking-type="INDIVIDUAL" class="booking-type-btn flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-colors duration-300 ${isIndividual ? 'bg-blue-600 text-white' : 'text-slate-300'}">Individual</button>
-                            <button type="button" data-booking-type="SEMESTER" class="booking-type-btn flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-colors duration-300 ${!isIndividual ? 'bg-blue-600 text-white' : 'text-slate-300'}">Semester</button>
-                        </div>
-                    </section>
-
-                    <div id="individual-booking-section" class="${isIndividual ? '' : 'hidden'} space-y-8">
+                    <div id="individual-booking-section" class="space-y-8">
                         <section id="calendar-section" class="bg-slate-900/70 p-4 sm:p-6 rounded-lg shadow-md border border-slate-700">
                             ${renderCalendar()}
                         </section>
                         ${renderTimeSlotSelector()}
                     </div>
-
-                    <div id="semester-booking-section" class="${!isIndividual ? '' : 'hidden'} space-y-8">
-                        <section class="bg-slate-900/70 p-4 sm:p-6 rounded-lg shadow-md border border-slate-700">
-                            <h3 class="text-xl font-semibold text-white mb-4 border-b border-slate-700 pb-2">Semester Booking Details</h3>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                                <div>
-                                    <label for="semester-from-date" class="block text-slate-300 text-sm font-medium mb-2">FROM DATE</label>
-                                    <input type="date" id="semester-from-date" class="block w-full p-3 bg-slate-700 border border-slate-600 rounded-md text-white focus:ring-blue-500 focus:border-blue-500">
-                                </div>
-                                <div>
-                                    <label for="semester-to-date" class="block text-slate-300 text-sm font-medium mb-2">TO DATE</label>
-                                    <input type="date" id="semester-to-date" class="block w-full p-3 bg-slate-700 border border-slate-600 rounded-md text-white focus:ring-blue-500 focus:border-blue-500">
-                                </div>
-                            </div>
-                             <div>
-                                <label class="block text-slate-300 text-sm font-medium mb-2">CHOOSE SLOT(S)</label>
-                                <div id="semester-time-slots" class="grid grid-cols-4 gap-2">
-                                    ${timeSlots.map(time => `<button type="button" data-time="${time}" class="semester-slot-btn p-2 rounded-lg bg-slate-700 hover:bg-slate-600 transition border border-slate-600">${formatTimeForDisplay(time)}</button>`).join('')}
-                                </div>
-                            </div>
-                            <div class="mt-6">
-                                <label class="block text-slate-300 text-sm font-medium mb-2">SELECT DAYS OF THE WEEK</label>
-                                <div id="semester-days" class="grid grid-cols-7 gap-2">
-                                    ${dayNames.map((day, index) => `<button type="button" data-day="${index}" class="semester-day-btn p-2 rounded-lg bg-slate-700 hover:bg-slate-600 transition border border-slate-600">${day}</button>`).join('')}
-                                </div>
-                            </div>
-                        </section>
-                    </div>
-
 
                     <form id="bookingForm" class="space-y-8">
                         <section class="bg-slate-900/70 p-4 sm:p-6 rounded-lg shadow-md border border-slate-700">
@@ -834,58 +761,22 @@ window.FinalBookingFormView = (function() {
     }
     
     function updateUI() {
-        const isIndividual = state.bookingType === 'INDIVIDUAL';
+        const calendarContainer = document.getElementById('calendar-section');
+        if (calendarContainer) {
+            const oldScroller = calendarContainer.querySelector('.overflow-x-auto');
+            const scrollLeft = oldScroller ? oldScroller.scrollLeft : 0;
+
+            calendarContainer.innerHTML = renderCalendar();
+
+            const newScroller = calendarContainer.querySelector('.overflow-x-auto');
+            if (newScroller) {
+                newScroller.scrollLeft = scrollLeft;
+            }
+        }
         
-        document.getElementById('individual-booking-section').classList.toggle('hidden', !isIndividual);
-        document.getElementById('semester-booking-section').classList.toggle('hidden', isIndividual);
-
-        document.querySelectorAll('.booking-type-btn').forEach(btn => {
-            const type = btn.dataset.bookingType;
-            if (type === state.bookingType) {
-                btn.classList.add('bg-blue-600', 'text-white');
-                btn.classList.remove('text-slate-300');
-            } else {
-                btn.classList.remove('bg-blue-600', 'text-white');
-                btn.classList.add('text-slate-300');
-            }
-        });
-
-        if (isIndividual) {
-            const calendarContainer = document.getElementById('calendar-section');
-            if (calendarContainer) {
-                const oldScroller = calendarContainer.querySelector('.overflow-x-auto');
-                const scrollLeft = oldScroller ? oldScroller.scrollLeft : 0;
-
-                calendarContainer.innerHTML = renderCalendar();
-
-                const newScroller = calendarContainer.querySelector('.overflow-x-auto');
-                if (newScroller) {
-                    newScroller.scrollLeft = scrollLeft;
-                }
-            }
-            
-            const timeSelectorSection = document.getElementById('time-slot-selector-section');
-            if (timeSelectorSection) {
-                timeSelectorSection.outerHTML = renderTimeSlotSelector();
-            }
-        } else {
-            document.querySelectorAll('.semester-slot-btn, .semester-day-btn').forEach(btn => {
-                const isSlot = btn.classList.contains('semester-slot-btn');
-                const value = isSlot ? btn.dataset.time : parseInt(btn.dataset.day, 10);
-                const isSelected = isSlot 
-                    ? state.selectedSlots.some(slot => slot.time === value)
-                    : state.semester.daysOfWeek.includes(value);
-
-                btn.classList.toggle('bg-blue-600', isSelected);
-                btn.classList.toggle('text-white', isSelected);
-                btn.classList.toggle('border-blue-500', isSelected);
-                btn.classList.toggle('shadow-lg', isSelected);
-                btn.classList.toggle('transform', isSelected);
-                btn.classList.toggle('scale-105', isSelected);
-
-                btn.classList.toggle('bg-slate-700', !isSelected);
-                btn.classList.toggle('border-slate-600', !isSelected);
-            });
+        const timeSelectorSection = document.getElementById('time-slot-selector-section');
+        if (timeSelectorSection) {
+            timeSelectorSection.outerHTML = renderTimeSlotSelector();
         }
         
         syncFormWithState();
@@ -911,8 +802,6 @@ window.FinalBookingFormView = (function() {
             return 'slot-past'; // Greyed out
         }
         
-        // const booking = getBookingForSlot(dateString, time); // Now passed as argument
-        
         if (booking) {
             if (booking.status === 'PENDING') {
                 return 'slot-pending'; // Yellow
@@ -921,7 +810,6 @@ window.FinalBookingFormView = (function() {
         }
         
         // If available, check if it's a weekend or weekday
-        // [FIX] Use getDay() to get the day in the local timezone, preventing timezone conflicts.
         const dayOfWeek = new Date(dateString + 'T00:00:00').getDay();
         if (dayOfWeek === 0 || dayOfWeek === 6) { // 0 is Sunday, 6 is Saturday
             return 'slot-available-weekend'; // Light Green
@@ -945,18 +833,12 @@ window.FinalBookingFormView = (function() {
             availabilityData, 
             selectedSlots: [], 
             currentDate: new Date(), 
-            bookingType: 'INDIVIDUAL', 
             purpose: '', 
             classCode: '', 
             isDragging: false, 
             dragSelectionMode: 'add', 
             dragDate: null,
             currentSelectedDate: null,
-            semester: {
-                fromDate: '',
-                toDate: '',
-                daysOfWeek: [],
-            }
         };
         render();
     }
@@ -974,71 +856,33 @@ window.FinalBookingFormView = (function() {
             purposeInput?.focus();
             return;
         }
-
-        let payload;
-
-        if (state.bookingType === 'INDIVIDUAL') {
-            if (state.selectedSlots.length === 0) {
-                alert('Please select at least one time slot.');
-                return;
-            }
-            const selectedDate = state.selectedSlots[0].date;
-            const times = state.selectedSlots.map(slot => slot.time).sort();
-            const lastSlotStartTime = times[times.length - 1];
-            const [hour, minute] = lastSlotStartTime.split(':').map(Number);
-
-            const tempDate = new Date();
-            tempDate.setHours(hour, minute, 0, 0);
-            tempDate.setHours(tempDate.getHours() + 1);
-
-            const endHour = String(tempDate.getHours()).padStart(2, '0');
-            const endMinute = String(tempDate.getMinutes()).padStart(2, '0');
-            const actualEndTime = `${endHour}:${endMinute}`;
-
-            payload = {
-                hall_id: state.hallIdFromUrl,
-                purpose: purposeInput.value.trim(),
-                booking_type: 'INDIVIDUAL',
-                start_date: new Date(selectedDate).toISOString(),
-                end_date: new Date(selectedDate).toISOString(),
-                start_time: times[0],
-                end_time: actualEndTime,
-            };
-        } else { // SEMESTER
-            const fromDate = document.getElementById('semester-from-date').value;
-            const toDate = document.getElementById('semester-to-date').value;
-            if (!fromDate || !toDate) {
-                alert('Please select a start and end date for the semester booking.');
-                return;
-            }
-            if (state.selectedSlots.length === 0) {
-                alert('Please select at least one time slot for the semester booking.');
-                return;
-            }
-             if (state.semester.daysOfWeek.length === 0) {
-                alert('Please select at least one day of the week.');
-                return;
-            }
-
-            const times = state.selectedSlots.map(slot => slot.time).sort();
-            const lastSlotStartTime = times[times.length - 1];
-            const [hour, minute] = lastSlotStartTime.split(':').map(Number);
-            const tempDate = new Date();
-            tempDate.setHours(hour, minute, 0, 0);
-            tempDate.setHours(tempDate.getHours() + 1);
-            const actualEndTime = `${String(tempDate.getHours()).padStart(2, '0')}:${String(tempDate.getMinutes()).padStart(2, '0')}`;
-
-            payload = {
-                hall_id: state.hallIdFromUrl,
-                purpose: purposeInput.value.trim(),
-                booking_type: 'SEMESTER',
-                start_date: new Date(fromDate).toISOString(),
-                end_date: new Date(toDate).toISOString(),
-                start_time: times[0],
-                end_time: actualEndTime,
-                days_of_week: state.semester.daysOfWeek.map(dayIndex => apiDayNames[dayIndex]),
-            };
+        if (state.selectedSlots.length === 0) {
+            alert('Please select at least one time slot.');
+            return;
         }
+
+        const selectedDate = state.selectedSlots[0].date;
+        const times = state.selectedSlots.map(slot => slot.time).sort();
+        const lastSlotStartTime = times[times.length - 1];
+        const [hour, minute] = lastSlotStartTime.split(':').map(Number);
+
+        const tempDate = new Date();
+        tempDate.setHours(hour, minute, 0, 0);
+        tempDate.setHours(tempDate.getHours() + 1);
+
+        const endHour = String(tempDate.getHours()).padStart(2, '0');
+        const endMinute = String(tempDate.getMinutes()).padStart(2, '0');
+        const actualEndTime = `${endHour}:${endMinute}`;
+
+        const payload = {
+            hall_id: state.hallIdFromUrl,
+            purpose: purposeInput.value.trim(),
+            booking_type: 'INDIVIDUAL',
+            start_date: new Date(selectedDate).toISOString(),
+            end_date: new Date(selectedDate).toISOString(),
+            start_time: times[0],
+            end_time: actualEndTime,
+        };
 
         if (classCodeInput?.value.trim()) {
             payload.class_code = classCodeInput.value.trim();
@@ -1105,20 +949,15 @@ window.FinalBookingFormView = (function() {
             calendarSection.addEventListener('mousedown', handleDragStart, { signal });
             calendarSection.addEventListener('mouseenter', handleDragOver, { signal, capture: true });
             
-            // Use event delegation on the grid for tooltips
             const calendarGrid = calendarSection.querySelector('.calendar-grid');
             if (calendarGrid) {
-                // When the mouse enters a new element within the grid
                 calendarGrid.addEventListener('mouseover', (e) => {
-                    // We only care if the element is a slot with tooltip data
                     if (e.target.closest('.slot[data-tooltip-content]')) {
                         handleTooltipShow(e);
                     }
                 }, { signal });
 
-                // When the mouse leaves an element within the grid
                 calendarGrid.addEventListener('mouseout', (e) => {
-                    // We only care if we are leaving a slot that had tooltip data
                     if (e.target.closest('.slot[data-tooltip-content]')) {
                         handleTooltipHide();
                     }
@@ -1129,15 +968,12 @@ window.FinalBookingFormView = (function() {
         }
         window.addEventListener('mouseup', handleDragStop, { signal });
 
-        // Add listeners to the tooltip itself to keep it open when the user hovers over it
         const tooltip = document.getElementById('calendar-tooltip');
         if (tooltip) {
             tooltip.addEventListener('mouseenter', () => {
-                // When the mouse enters the tooltip, cancel any pending instruction to hide it
                 clearTimeout(tooltipHideTimer);
             }, { signal });
             tooltip.addEventListener('mouseleave', () => {
-                // When the mouse leaves the tooltip, start the process to hide it
                 handleTooltipHide();
             }, { signal });
         }
@@ -1146,38 +982,6 @@ window.FinalBookingFormView = (function() {
     function handleContainerClick(e) {
         const target = e.target.closest('button');
         if (!target) return;
-
-        if (target.classList.contains('booking-type-btn')) {
-            state.bookingType = target.dataset.bookingType;
-            state.selectedSlots = [];
-            state.semester.daysOfWeek = [];
-            render();
-            return;
-        }
-        
-        if (target.classList.contains('semester-slot-btn')) {
-            const time = target.dataset.time;
-            const index = state.selectedSlots.findIndex(s => s.time === time);
-            if (index > -1) {
-                state.selectedSlots.splice(index, 1);
-            } else {
-                state.selectedSlots.push({ date: null, time });
-            }
-            updateUI();
-            return;
-        }
-
-        if (target.classList.contains('semester-day-btn')) {
-            const day = parseInt(target.dataset.day, 10);
-            const index = state.semester.daysOfWeek.indexOf(day);
-            if (index > -1) {
-                state.semester.daysOfWeek.splice(index, 1);
-            } else {
-                state.semester.daysOfWeek.push(day);
-            }
-            updateUI();
-            return;
-        }
         
         if (target.id === 'prev-month-btn') { 
             state.currentDate.setMonth(state.currentDate.getMonth() - 1); 
@@ -1309,7 +1113,6 @@ window.FinalBookingFormView = (function() {
         const { date, time } = slotEl.dataset;
         
         if (slotEl.classList.contains('slot-booked') || slotEl.classList.contains('slot-pending')) {
-            // The tooltip handles showing info on hover, but clicking can still open the modal
             const booking = getBookingForSlot(date, time);
             if (booking) showBookingDetails(booking);
             return;
@@ -1431,14 +1234,11 @@ window.FinalBookingFormView = (function() {
     function handleTooltipShow(e) {
         const slot = e.target.closest('.slot');
         const tooltip = document.getElementById('calendar-tooltip');
-        // Ensure we have a slot, a tooltip element, and the slot has content for the tooltip
         if (slot && tooltip && slot.dataset.tooltipContent) {
-            // If a hide timer is running, cancel it. This is key for moving between slots.
             clearTimeout(tooltipHideTimer);
             
             tooltip.innerHTML = unescape(slot.dataset.tooltipContent);
             tooltip.classList.remove('hidden');
-            // Use a micro-task to ensure the 'hidden' class is removed before we remove opacity
             setTimeout(() => {
                 tooltip.classList.remove('opacity-0');
             }, 10);
@@ -1448,22 +1248,18 @@ window.FinalBookingFormView = (function() {
     function handleTooltipHide() {
         const tooltip = document.getElementById('calendar-tooltip');
         if (tooltip) {
-            // Set a timer to hide the tooltip. This delay allows the user's mouse
-            // to travel from a slot to the tooltip itself without it disappearing.
             tooltipHideTimer = setTimeout(() => {
                 tooltip.classList.add('opacity-0');
-                // After the fade-out transition completes, add the 'hidden' class to remove it from layout
                 setTimeout(() => {
                     tooltip.classList.add('hidden');
-                }, 200); // This duration should match the CSS transition duration
-            }, 300); // A 300ms delay before starting the hide process
+                }, 200); 
+            }, 300); 
         }
     }
 
     function handleTooltipMove(e) {
         const tooltip = document.getElementById('calendar-tooltip');
         if (tooltip && !tooltip.classList.contains('hidden')) {
-            // Position tooltip near the cursor, with boundary checks
             const x = e.clientX + 15;
             const y = e.clientY + 15;
             const scrollX = window.scrollX;
@@ -1472,7 +1268,6 @@ window.FinalBookingFormView = (function() {
             tooltip.style.left = `${scrollX + x}px`;
             tooltip.style.top = `${scrollY + y}px`;
 
-            // Prevent tooltip from going off-screen
             const rect = tooltip.getBoundingClientRect();
             if (rect.right > window.innerWidth) {
                 tooltip.style.left = `${scrollX + e.clientX - rect.width - 15}px`;
@@ -1487,11 +1282,11 @@ window.FinalBookingFormView = (function() {
     function cleanup() {
         if (abortController) abortController.abort();
         window.removeEventListener('mouseup', handleDragStop);
-        hideLoader(); // Ensure loader is removed on cleanup
+        hideLoader();
     }
 
     async function initialize(hallId) {
-        showLoader(); // Show loader at the very beginning
+        showLoader();
         try {
             let hallData = null;
             let preSelectedSlots = [];
@@ -1559,7 +1354,6 @@ window.FinalBookingFormView = (function() {
                     </div>`;
             }
         } finally {
-            // This block ensures the loader is hidden whether the try block succeeds or fails.
             hideLoader();
         }
     }

@@ -23,12 +23,21 @@ window.EmployeeView = (function() {
     // --- END: Simple API Cache ---
 
     // --- STATE MANAGEMENT ---
+    const defaultFilters = () => ({
+        employee: { name: '', email: '', phone: '' },
+        designation: '',
+        office: { school: '', department: '' },
+        status: ''
+    });
+
     let state = {
         allEmployees: [],
+        filteredEmployees: [],
         allSchools: [],
         allDepartments: [],
         selectedRows: [],
         multiSelection: false,
+        filters: defaultFilters(),
         modalState: {
             employeeId: null,
             belongsTo: 'ADMINISTRATION',
@@ -119,6 +128,24 @@ window.EmployeeView = (function() {
         );
         return await Promise.all(deletePromises);
     }
+    
+    // --- FILTERING ---
+    function applyFiltersAndRender() {
+        const { employee, designation, office, status } = state.filters;
+
+        state.filteredEmployees = state.allEmployees.filter(emp => {
+            if (employee.name && !emp.name.toLowerCase().includes(employee.name.toLowerCase())) return false;
+            if (employee.email && !emp.email.toLowerCase().includes(employee.email.toLowerCase())) return false;
+            if (employee.phone && !emp.phone.toLowerCase().includes(employee.phone.toLowerCase())) return false;
+            if (designation && emp.designation !== designation) return false;
+            if (office.school && emp.school !== office.school) return false;
+            if (office.department && emp.department !== office.department) return false;
+            if (status && emp.status !== status) return false;
+            return true;
+        });
+
+        renderEmployeeTable();
+    }
 
 
     // --- RENDERING ---
@@ -126,12 +153,12 @@ window.EmployeeView = (function() {
         const tableBody = document.getElementById('employee-details-body');
         if (!tableBody) return;
 
-        if (!state.allEmployees || state.allEmployees.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="5" class="text-center py-10 text-slate-400">No employee details found.</td></tr>`;
+        if (!state.filteredEmployees || state.filteredEmployees.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="5" class="text-center py-10 text-slate-400">No employee details match the current filters.</td></tr>`;
             return;
         }
         
-        const tableHtml = state.allEmployees.map(emp => {
+        const tableHtml = state.filteredEmployees.map(emp => {
             const isSelected = state.selectedRows.includes(emp.id);
             const statusColor = emp.status === 'ACTIVE' ? 'text-green-400' : 'text-red-400';
             return `
@@ -157,6 +184,23 @@ window.EmployeeView = (function() {
 
         tableBody.innerHTML = tableHtml;
         updateActionButtonsState();
+        updateFilterIcons();
+        if(window.lucide) lucide.createIcons();
+    }
+
+    function updateFilterIcons() {
+        document.querySelectorAll('#employee-details-view .filter-icon').forEach(icon => {
+            const column = icon.dataset.filterColumn;
+            let isActive = false;
+            switch(column) {
+                case 'employee': isActive = state.filters.employee.name || state.filters.employee.email || state.filters.employee.phone; break;
+                case 'designation': isActive = !!state.filters.designation; break;
+                case 'office': isActive = state.filters.office.school || state.filters.office.department; break;
+                case 'status': isActive = !!state.filters.status; break;
+            }
+            icon.classList.toggle('text-blue-400', isActive);
+            icon.classList.toggle('text-slate-400', !isActive);
+        });
     }
 
     // --- UI & STATE UPDATES ---
@@ -171,7 +215,7 @@ window.EmployeeView = (function() {
         
         if (selectAllCheckbox) {
             selectAllCheckbox.disabled = !state.multiSelection;
-            selectAllCheckbox.checked = state.multiSelection && selectedCount > 0 && selectedCount === state.allEmployees.length;
+            selectAllCheckbox.checked = state.multiSelection && selectedCount > 0 && selectedCount === state.filteredEmployees.length;
         }
     }
 
@@ -208,10 +252,183 @@ window.EmployeeView = (function() {
         });
         setTimeout(() => {
             backdrop?.classList.add('hidden');
-            modals.forEach(modal => modal.classList.add('hidden'));
+            modals.forEach(modal => {
+                 if (modal.id.startsWith('filter-modal-')) {
+                    modal.remove();
+                } else {
+                    modal.classList.add('hidden');
+                }
+            });
         }, 300);
         confirmationCallback = null;
     }
+    
+    function createFilterModal(column, title, contentHtml) {
+        const container = document.getElementById('filter-modal-container');
+        if (!container) return;
+
+        const modalId = `filter-modal-${column}`;
+        const existingModal = document.getElementById(modalId);
+        if (existingModal) existingModal.remove();
+
+        const modalHtml = `
+        <div id="${modalId}" class="modal fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div class="modal-content relative bg-slate-800 rounded-lg shadow-xl max-w-md w-full p-6 transform transition-all">
+                <h3 class="text-lg font-bold text-white mb-4">${title}</h3>
+                <div id="filter-form-${column}" class="space-y-4 text-slate-300">
+                    ${contentHtml}
+                </div>
+                <div class="mt-6 flex justify-between gap-4">
+                    <button data-action="clear-filter" data-column="${column}" class="px-4 py-2 text-sm font-semibold text-blue-400 hover:text-blue-300">Clear Filter</button>
+                    <div class="flex gap-4">
+                        <button class="modal-close-btn px-4 py-2 text-sm font-semibold text-slate-300 bg-slate-600 hover:bg-slate-700 rounded-lg transition">Cancel</button>
+                        <button data-action="apply-filter" data-column="${column}" class="glowing-btn px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition">Apply</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        `;
+        container.insertAdjacentHTML('beforeend', modalHtml);
+    }
+    
+    function setupSearchableDropdown(inputId, optionsId, hiddenId, data) {
+        const input = document.getElementById(inputId);
+        const optionsContainer = document.getElementById(optionsId);
+        const hiddenInput = document.getElementById(hiddenId);
+
+        if (!input || !optionsContainer || !hiddenInput) return;
+
+        const populateOptions = (term = '') => {
+            const filteredData = data.filter(item => item.toLowerCase().includes(term.toLowerCase()));
+            optionsContainer.innerHTML = filteredData.map(item => `<div class="p-2 cursor-pointer hover:bg-slate-700" data-value="${item}">${item}</div>`).join('');
+        };
+
+        input.addEventListener('focus', () => {
+            populateOptions(input.value);
+            optionsContainer.classList.remove('hidden');
+        });
+
+        input.addEventListener('input', () => populateOptions(input.value));
+
+        optionsContainer.addEventListener('mousedown', e => {
+            const { value } = e.target.dataset;
+            if (value) {
+                hiddenInput.value = value;
+                input.value = value;
+                optionsContainer.classList.add('hidden');
+            }
+        });
+
+        input.addEventListener('blur', () => setTimeout(() => optionsContainer.classList.add('hidden'), 150));
+        
+        if (hiddenInput.value) {
+            input.value = hiddenInput.value;
+        }
+    }
+
+    async function openFilterModalFor(column) {
+        let title, contentHtml;
+        switch (column) {
+            case 'employee':
+                title = 'Filter by Employee Details';
+                contentHtml = `
+                    <div>
+                        <label for="filter-emp-name" class="block text-sm font-medium mb-1">Name</label>
+                        <input type="text" id="filter-emp-name" value="${state.filters.employee.name}" placeholder="Contains..." class="glowing-input w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white">
+                    </div>
+                    <div>
+                        <label for="filter-emp-email" class="block text-sm font-medium mb-1">Email</label>
+                        <input type="text" id="filter-emp-email" value="${state.filters.employee.email}" placeholder="Contains..." class="glowing-input w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white">
+                    </div>
+                    <div>
+                        <label for="filter-emp-phone" class="block text-sm font-medium mb-1">Phone</label>
+                        <input type="text" id="filter-emp-phone" value="${state.filters.employee.phone}" placeholder="Contains..." class="glowing-input w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white">
+                    </div>`;
+                break;
+            case 'designation':
+                title = 'Filter by Designation';
+                const designations = [...new Set(state.allEmployees.map(e => e.designation))];
+                const designationOptions = designations.map(d => `<option value="${d}" ${state.filters.designation === d ? 'selected' : ''}>${d}</option>`).join('');
+                contentHtml = `
+                    <select id="filter-designation" class="glowing-select w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white">
+                        <option value="">Any</option>
+                        ${designationOptions}
+                    </select>`;
+                break;
+            case 'office':
+                title = 'Filter by Office';
+                contentHtml = `
+                    <div>
+                        <label for="filter-school-input" class="block text-sm font-medium mb-1">School</label>
+                        <div class="relative">
+                            <input type="text" id="filter-school-input" class="glowing-input w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white" placeholder="Search for a school..." autocomplete="off">
+                            <div id="filter-school-options" class="absolute z-20 w-full bg-slate-900 border border-slate-600 rounded-lg mt-1 hidden max-h-48 overflow-y-auto"></div>
+                        </div>
+                        <input type="hidden" id="filter-school" value="${state.filters.office.school}">
+                    </div>
+                    <div>
+                        <label for="filter-department-input" class="block text-sm font-medium mb-1">Department</label>
+                        <div class="relative">
+                            <input type="text" id="filter-department-input" class="glowing-input w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white" placeholder="Search for a department..." autocomplete="off">
+                            <div id="filter-department-options" class="absolute z-10 w-full bg-slate-900 border border-slate-600 rounded-lg mt-1 hidden max-h-48 overflow-y-auto"></div>
+                        </div>
+                        <input type="hidden" id="filter-department" value="${state.filters.office.department}">
+                    </div>`;
+                break;
+            case 'status':
+                title = 'Filter by Status';
+                contentHtml = `
+                    <fieldset class="flex gap-6">
+                        <label class="flex items-center"><input type="radio" name="filter-status-option" value="" ${state.filters.status === '' ? 'checked' : ''} class="form-radio h-4 w-4 bg-slate-700 border-slate-600 text-blue-500 focus:ring-blue-500 mr-2">Any</label>
+                        <label class="flex items-center"><input type="radio" name="filter-status-option" value="ACTIVE" ${state.filters.status === 'ACTIVE' ? 'checked' : ''} class="form-radio h-4 w-4 bg-slate-700 border-slate-600 text-green-500 focus:ring-green-500 mr-2">Active</label>
+                        <label class="flex items-center"><input type="radio" name="filter-status-option" value="INACTIVE" ${state.filters.status === 'INACTIVE' ? 'checked' : ''} class="form-radio h-4 w-4 bg-slate-700 border-slate-600 text-red-500 focus:ring-red-500 mr-2">Inactive</label>
+                    </fieldset>`;
+                break;
+        }
+        createFilterModal(column, title, contentHtml);
+        
+        if (column === 'office') {
+            const { schools, departments } = await getSchoolsAndDepartments();
+            const schoolNames = schools.map(s => s.school_name);
+            setupSearchableDropdown('filter-school-input', 'filter-school-options', 'filter-school', schoolNames);
+            const departmentNames = departments.map(d => d.department_name);
+            setupSearchableDropdown('filter-department-input', 'filter-department-options', 'filter-department', departmentNames);
+        }
+        
+        openModal(`filter-modal-${column}`);
+    }
+
+    function handleApplyFilter(column) {
+        const form = document.getElementById(`filter-form-${column}`);
+        if (!form) return;
+
+        switch (column) {
+            case 'employee':
+                state.filters.employee.name = form.querySelector('#filter-emp-name').value;
+                state.filters.employee.email = form.querySelector('#filter-emp-email').value;
+                state.filters.employee.phone = form.querySelector('#filter-emp-phone').value;
+                break;
+            case 'designation':
+                state.filters.designation = form.querySelector('#filter-designation').value;
+                break;
+            case 'office':
+                state.filters.office.school = form.querySelector('#filter-school').value;
+                state.filters.office.department = form.querySelector('#filter-department').value;
+                break;
+            case 'status':
+                state.filters.status = form.querySelector('input[name="filter-status-option"]:checked').value;
+                break;
+        }
+        applyFiltersAndRender();
+        closeModal();
+    }
+
+    function handleClearFilter(column) {
+        state.filters[column] = defaultFilters()[column];
+        applyFiltersAndRender();
+        closeModal();
+    }
+
 
     function showConfirmation(title, message, onConfirm) {
         document.getElementById('confirmation-title').textContent = title;
@@ -316,6 +533,27 @@ window.EmployeeView = (function() {
         if (abortController) abortController.abort();
         abortController = new AbortController();
         const { signal } = abortController;
+        const view = document.getElementById('employee-details-view');
+        if(!view) return;
+
+        view.addEventListener('click', e => {
+            const filterIcon = e.target.closest('.filter-icon');
+            if (filterIcon) {
+                openFilterModalFor(filterIcon.dataset.filterColumn);
+            }
+            if (e.target.closest('#clear-employee-filters-btn')) {
+                state.filters = defaultFilters();
+                applyFiltersAndRender();
+            }
+        }, { signal });
+
+        document.getElementById('filter-modal-container')?.addEventListener('click', e => {
+            const button = e.target.closest('button');
+            if (!button) return;
+            if (button.dataset.action === 'apply-filter') handleApplyFilter(button.dataset.column);
+            if (button.dataset.action === 'clear-filter') handleClearFilter(button.dataset.column);
+            if (button.classList.contains('modal-close-btn')) closeModal();
+        }, { signal });
 
         document.getElementById('employee-multiselect-toggle')?.addEventListener('change', (e) => {
             state.multiSelection = e.target.checked;
@@ -325,7 +563,7 @@ window.EmployeeView = (function() {
         
         document.getElementById('select-all-employee-checkbox')?.addEventListener('change', (e) => {
             if (state.multiSelection) {
-                state.selectedRows = e.target.checked ? state.allEmployees.map(emp => emp.id) : [];
+                state.selectedRows = e.target.checked ? state.filteredEmployees.map(emp => emp.id) : [];
                 renderEmployeeTable();
             }
         }, { signal });
@@ -383,7 +621,7 @@ window.EmployeeView = (function() {
     
     function cleanup() {
         if(abortController) abortController.abort();
-        state = { allEmployees: [], allSchools: [], allDepartments: [], selectedRows: [], multiSelection: false, modalState: {} };
+        state = { allEmployees: [], filteredEmployees: [], allSchools: [], allDepartments: [], selectedRows: [], multiSelection: false, filters: defaultFilters(), modalState: {} };
         const multiSelectToggle = document.getElementById('employee-multiselect-toggle');
         if(multiSelectToggle) multiSelectToggle.checked = false;
         closeModal();
@@ -396,7 +634,7 @@ window.EmployeeView = (function() {
             state.allSchools = await fetchRawSchools();
             state.allDepartments = await fetchRawDepartments();
 
-            renderEmployeeTable();
+            applyFiltersAndRender();
             setupEventHandlers();
         } catch (error) {
             console.error('Error loading employee details:', error);

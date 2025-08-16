@@ -133,12 +133,24 @@
                             <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-white sm:pl-6">
                                 <input type="checkbox" id="select-all-checkbox" class="rounded bg-slate-700 border-slate-500 text-blue-500 focus:ring-blue-500" disabled>
                             </th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">Date</th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">Hall Details</th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">Belongs to</th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">Features</th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">Incharge Details</th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">Status</th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                                <span class="flex items-center gap-2">Date <i data-filter-column="date" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
+                            </th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                                <span class="flex items-center gap-2">Hall Details <i data-filter-column="hall" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
+                            </th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                                <span class="flex items-center gap-2">Belongs to <i data-filter-column="belongsTo" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
+                            </th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                                <span class="flex items-center gap-2">Features <i data-filter-column="features" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
+                            </th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                                <span class="flex items-center gap-2">Incharge Details <i data-filter-column="incharge" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
+                            </th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                                <span class="flex items-center gap-2">Status <i data-filter-column="status" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
+                            </th>
                         </tr>
                     </thead>
                     <tbody id="hall-details-body" class="divide-y divide-slate-800 bg-slate-900/30"></tbody>
@@ -158,6 +170,9 @@
                     </button>
                 </div>
                 <div class="flex items-center space-x-4">
+                     <button id="clear-archive-filters-btn" class="flex items-center px-4 py-2 text-sm font-semibold text-slate-300 bg-slate-700 hover:bg-slate-600 rounded-lg transition">
+                        <i data-lucide="filter-x" class="w-4 h-4 mr-2"></i>Clear All Filters
+                    </button>
                     <label for="archive-multiselect-toggle" class="flex items-center cursor-pointer">
                         <span class="mr-3 text-sm font-medium text-slate-300">Multi-Select</span>
                         <div class="relative">
@@ -175,11 +190,21 @@
                             <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-white sm:pl-6">
                                 <input type="checkbox" id="select-all-archive-checkbox" class="rounded bg-slate-700 border-slate-500 text-blue-500 focus:ring-blue-500" disabled>
                             </th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">Date</th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">Hall Details</th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">Belongs to</th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">Features</th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">Incharge Details</th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                                <span class="flex items-center gap-2">Date <i data-filter-column="date" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
+                            </th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                                <span class="flex items-center gap-2">Hall Details <i data-filter-column="hall" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
+                            </th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                                <span class="flex items-center gap-2">Belongs to <i data-filter-column="belongsTo" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
+                            </th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                                <span class="flex items-center gap-2">Features <i data-filter-column="features" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
+                            </th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                                <span class="flex items-center gap-2">Incharge Details <i data-filter-column="incharge" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
+                            </th>
                             <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">Status</th>
                         </tr>
                     </thead>
@@ -203,6 +228,9 @@
                     </button>
                 </div>
                 <div class="flex items-center space-x-4">
+                    <button id="clear-employee-filters-btn" class="flex items-center px-4 py-2 text-sm font-semibold text-slate-300 bg-slate-700 hover:bg-slate-600 rounded-lg transition">
+                        <i data-lucide="filter-x" class="w-4 h-4 mr-2"></i>Clear All Filters
+                    </button>
                     <label for="employee-multiselect-toggle" class="flex items-center cursor-pointer">
                         <span class="mr-3 text-sm font-medium text-slate-300">Multi-Select</span>
                         <div class="relative">
@@ -220,10 +248,18 @@
                             <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-white sm:pl-6">
                                 <input type="checkbox" id="select-all-employee-checkbox" class="rounded bg-slate-700 border-slate-500 text-blue-500 focus:ring-blue-500" disabled>
                             </th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">Employee Details</th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">Designation</th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">Office</th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">Status</th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                                <span class="flex items-center gap-2">Employee Details <i data-filter-column="employee" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
+                            </th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                                <span class="flex items-center gap-2">Designation <i data-filter-column="designation" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
+                            </th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                                <span class="flex items-center gap-2">Office <i data-filter-column="office" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
+                            </th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                                <span class="flex items-center gap-2">Status <i data-filter-column="status" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
+                            </th>
                         </tr>
                     </thead>
                     <tbody id="employee-details-body" class="divide-y divide-slate-800 bg-slate-900/30"></tbody>
@@ -358,20 +394,35 @@
         <div class="bg-slate-800/50 rounded-xl shadow-2xl p-4 sm:p-6 lg:p-8 h-full flex flex-col">
              <div class="flex justify-between items-center mb-6 flex-shrink-0">
                 <h1 class="text-3xl font-bold text-white" style="color: #60a5fa;">My Bookings</h1>
-                <button id="cancel-bookings-btn" disabled class="px-4 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
-                    <i data-lucide="trash-2" class="w-4 h-4 mr-2 inline-block"></i>Cancel Selected
-                </button>
+                <div class="flex items-center space-x-4">
+                    <button id="clear-my-bookings-filters-btn" class="flex items-center px-4 py-2 text-sm font-semibold text-slate-300 bg-slate-700 hover:bg-slate-600 rounded-lg transition">
+                        <i data-lucide="filter-x" class="w-4 h-4 mr-2"></i>Clear All Filters
+                    </button>
+                    <button id="cancel-bookings-btn" disabled class="px-4 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i data-lucide="trash-2" class="w-4 h-4 mr-2 inline-block"></i>Cancel Selected
+                    </button>
+                </div>
             </div>
             <div class="table-container flex-grow min-h-0 min-w-0">
                 <table class="min-w-full divide-y divide-slate-700">
                     <thead class="bg-slate-900/50 sticky top-0">
                         <tr>
                             <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-white sm:pl-6"><input type="checkbox" class="rounded bg-slate-700 border-slate-500 text-blue-500 focus:ring-blue-500"></th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">Booked On</th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">Hall Details</th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">Purpose</th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">Date & Time</th>
-                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">Status</th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                                <span class="flex items-center gap-2">Booked On <i data-filter-column="bookedOn" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
+                            </th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                                <span class="flex items-center gap-2">Hall Details <i data-filter-column="hall" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
+                            </th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                                <span class="flex items-center gap-2">Purpose <i data-filter-column="purpose" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
+                            </th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                                <span class="flex items-center gap-2">Date & Time <i data-filter-column="dateTime" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
+                            </th>
+                            <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-white">
+                                <span class="flex items-center gap-2">Status <i data-filter-column="status" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
+                            </th>
                         </tr>
                     </thead>
                     <tbody id="my-bookings-body" class="divide-y divide-slate-800 bg-slate-900/30"></tbody>
@@ -661,6 +712,9 @@
             </form>
         </div>
     </div>
+
+    <!-- Container for dynamically generated filter modals -->
+    <div id="filter-modal-container"></div>
 
     <div id="filter-hall-details-modal" class="modal fixed inset-0 z-50 flex items-center justify-center p-4 hidden"></div>
     <div id="filter-purpose-modal" class="modal fixed inset-0 z-50 flex items-center justify-center p-4 hidden"></div>

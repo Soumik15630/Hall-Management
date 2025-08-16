@@ -34,12 +34,11 @@ window.ForwardView = (function() {
     }
 
     /**
-     * Fetches bookings that are pending and need to be forwarded.
-     * This endpoint should return bookings with status PENDING_HOD_APPROVAL
-     * where the user's department is different from the hall's department.
+     * Fetches all bookings that are pending HOD approval.
+     * Filtering will be done on the frontend to determine which ones to forward.
      */
     async function fetchForwardBookingsData() {
-        // Assuming 'api/booking/pending-for-forwarding' is the correct endpoint for this view.
+        // Fetch all bookings pending HOD approval.
         return await fetchFromAPI('api/booking/pending-approval');
     }
 
@@ -201,8 +200,40 @@ window.ForwardView = (function() {
      */
     async function initialize() {
         try {
-            const data = await fetchForwardBookingsData();
-            renderForwardBookingsTable(data);
+            const allPendingBookings = await fetchForwardBookingsData();
+
+            // NOTE: Assuming an 'Auth' module/object is available globally
+            // which provides the currently logged-in user's details.
+            const currentUser = Auth.getCurrentUser();
+            if (!currentUser || !currentUser.employee) {
+                throw new Error("Could not retrieve current user details for filtering.");
+            }
+
+            const userDeptId = currentUser.employee.department_id;
+            const userSchoolId = currentUser.employee.school_id;
+
+            const bookingsToForward = allPendingBookings.filter(booking => {
+                // A booking should be forwarded only if the requested hall
+                // does NOT belong to the current HOD's department or school.
+                if (!booking.hall) return false; // Cannot determine, so don't show.
+
+                const hallDeptId = booking.hall.department_id;
+                const hallSchoolId = booking.hall.school_id;
+                
+                // If the hall belongs to a department, it must be different from the user's department.
+                if (hallDeptId) {
+                    return hallDeptId !== userDeptId;
+                }
+                
+                // If the hall belongs to a school (but not a specific dept), it must be different from the user's school.
+                if (hallSchoolId) {
+                    return hallSchoolId !== userSchoolId;
+                }
+
+                return false; // Don't show if hall has no department or school info.
+            });
+
+            renderForwardBookingsTable(bookingsToForward);
             setupEventHandlers();
         } catch (error) {
             console.error('Error loading forward bookings view:', error);
