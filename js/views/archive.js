@@ -159,28 +159,29 @@ window.ArchiveView = (function() {
             const isSelected = state.selectedRows.includes(hall.hallCode);
             return `
             <tr data-hall-code="${hall.hallCode}" class="${isSelected ? 'bg-blue-900/30' : ''} hover:bg-slate-800/50 transition-colors">
-                <td class="py-4 pl-4 pr-3 text-sm sm:pl-6">
+                <td class="py-4 pl-4 pr-3 text-sm sm:pl-6 align-top">
                     <input type="checkbox" class="row-checkbox rounded bg-slate-700 border-slate-500 text-blue-500 focus:ring-blue-500" ${isSelected ? 'checked' : ''}>
                 </td>
-                <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300">${hall.displayDate}</td>
-                <td class="whitespace-nowrap px-3 py-4 text-sm">
+                <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300 align-top">${hall.displayDate}</td>
+                <td class="px-3 py-4 text-sm align-top">
                     <div class="font-medium text-blue-400">${hall.hallName}</div>
-                    <div class="text-slate-400">${hall.hallCode}</div>
+                    <div class="text-slate-400 text-xs break-all">${hall.hallCode}</div>
                 </td>
-                <td class="whitespace-nowrap px-3 py-4 text-sm">
+                <td class="px-3 py-4 text-sm align-top">
                     <div class="font-medium text-blue-400">${hall.schoolName}</div>
                     <div class="text-slate-400">${hall.departmentName}</div>
                 </td>
-                <td class="px-3 py-4 text-sm text-slate-300" style="white-space: normal; max-width: 250px; word-wrap: break-word;">${hall.displayFeatures}</td>
-                <td class="whitespace-nowrap px-3 py-4 text-sm">
+                <td class="px-3 py-4 text-sm text-slate-300 align-top">${hall.displayFeatures}</td>
+                <td class="px-3 py-4 text-sm align-top">
                     <div class="font-medium text-blue-400">${hall.inchargeName}</div>
                     <div class="text-slate-400">${hall.inchargeRole}</div>
                 </td>
-                <td class="whitespace-nowrap px-3 py-4 text-sm">
+                <td class="whitespace-nowrap px-3 py-4 text-sm align-top">
                     <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-red-900/50 text-red-400">Archived</span>
                 </td>
             </tr>
-        `}).join('');
+        `
+    }).join('');
 
         tableBody.innerHTML = tableHtml;
         updateActionButtonsState();
