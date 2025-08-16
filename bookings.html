@@ -5,10 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Bookings</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Assume config.js contains AppConfig -->
+    <!-- Assume config.js contains AppConfig and helper functions like getAuthHeaders and logout -->
     <script src="config.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <style>
         body {
             font-family: 'Montserrat', sans-serif;
@@ -37,6 +38,41 @@
             border-color: #0B1940;
         }
         [x-cloak] { display: none !important; }
+        .btn {
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-weight: 600;
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            display: inline-flex;
+            align-items: center;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .btn-danger {
+            background-color: #EF4444;
+            color: white;
+            border: 1px solid #EF4444;
+        }
+        .btn-danger:hover {
+            background-color: #DC2626;
+        }
+        .btn-secondary {
+            background-color: #6B7280;
+            color: white;
+            border: 1px solid #6B7280;
+        }
+        .btn-secondary:hover {
+            background-color: #4B5563;
+        }
+        .btn-secondary:disabled {
+            background-color: #D1D5DB;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
@@ -49,15 +85,18 @@
         <div class="container mx-auto bg-white p-4 sm:p-6 rounded-lg shadow-xl">
             <h2 class="text-3xl font-bold text-center text-indigo-900 mb-6">My Bookings</h2>
             
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
-                <div class="flex space-x-2">
-                    <button @click="selectedBookings = []" class="bg-white border border-gray-600 text-gray-600 px-4 py-2 rounded-md shadow hover:bg-gray-100 disabled:opacity-50 flex items-center" :disabled="selectedBookings.length === 0">
-                        <i class="fas fa-ban mr-2"></i>Cancel
-                    </button>
-                </div>
-                <div class="space-x-2">
-                    <button @click="clearFilters()" class="bg-white border border-gray-400 text-gray-700 px-4 py-2 rounded-md shadow hover:bg-gray-100">Clear Filters</button>
-                </div>
+            <div class="flex justify-end items-center mb-4 gap-4">
+                <!-- Buttons on the right -->
+                <button @click="clearFilters()" 
+                        class="btn"
+                        :class="isFilterActive ? 'btn-danger' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'">
+                    Clear Filters
+                </button>
+                <button @click="selectedBookings = []" 
+                        class="btn btn-secondary"
+                        :disabled="selectedBookings.length === 0">
+                    <i class="fas fa-ban mr-2"></i>Cancel
+                </button>
             </div>
 
             <div class="overflow-x-auto">
@@ -144,7 +183,10 @@
 
         <!-- All Modals -->
         <div x-show="showDateFilterModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30" @click.away="showDateFilterModal = false" x-cloak>
-            <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md" @click.stop>
+            <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md relative" @click.stop>
+                <button @click="showDateFilterModal = false" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800">
+                    <i class="fas fa-times fa-lg"></i>
+                </button>
                 <h3 class="text-2xl font-bold text-gray-800 mb-4">Filter by Booked Date</h3>
                 <div class="space-y-4">
                     <div>
@@ -163,7 +205,10 @@
         </div>
         
         <div x-show="showHallFilterModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30" @click.away="showHallFilterModal = false" x-cloak>
-             <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md" @click.stop>
+             <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md relative" @click.stop>
+                <button @click="showHallFilterModal = false" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800">
+                    <i class="fas fa-times fa-lg"></i>
+                </button>
                 <h3 class="text-2xl font-bold text-gray-800 mb-4">Filter by Hall</h3>
                 <div class="space-y-4">
                      <div>
@@ -183,7 +228,10 @@
         </div>
         
         <div x-show="showDateTimeFilterModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30" @click.away="showDateTimeFilterModal = false" x-cloak>
-            <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md" @click.stop>
+            <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md relative" @click.stop>
+                <button @click="showDateTimeFilterModal = false" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800">
+                    <i class="fas fa-times fa-lg"></i>
+                </button>
                 <h3 class="text-2xl font-bold text-gray-800 mb-4">Filter by Event Date</h3>
                 <div class="space-y-4">
                     <div>
@@ -202,7 +250,10 @@
         </div>
 
         <div x-show="showStatusFilterModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30" @click.away="showStatusFilterModal = false" x-cloak>
-            <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md" @click.stop>
+            <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md relative" @click.stop>
+                <button @click="showStatusFilterModal = false" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800">
+                    <i class="fas fa-times fa-lg"></i>
+                </button>
                 <h3 class="text-2xl font-bold text-gray-800 mb-4">Filter by Status</h3>
                 <div class="space-y-4">
                     <div>
@@ -227,7 +278,6 @@
 
     <div id="footer-placeholder"></div>
 
-    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <script>
         function myBookings() {
             return {
@@ -357,6 +407,10 @@
                 get uniqueHallNames() {
                     const names = this.allBookings.map(b => b.hall.name);
                     return [...new Set(names)];
+                },
+
+                get isFilterActive() {
+                    return Object.values(this.filters).some(value => value !== '');
                 },
 
                 get filteredBookings() {
