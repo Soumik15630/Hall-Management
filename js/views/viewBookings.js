@@ -26,7 +26,7 @@ window.ViewBookingsView = (function() {
         const text = status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
         let className = 'text-yellow-400';
         if (status.includes('REJECTED')) className = 'text-red-400';
-        else if (status.includes('APPROVED')) className = 'text-green-400';
+        if (status.includes('CONFIRMED')) className = 'text-green-400';
         return { text, className };
     }
 
