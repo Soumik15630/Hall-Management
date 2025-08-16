@@ -214,7 +214,8 @@ window.HallDetailsView = (function() {
                     <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColor}">${statusText}</span>
                 </td>
             </tr>
-        `}).join('');
+        `
+    }).join('');
 
         tableBody.innerHTML = tableHtml;
         updateActionButtonsState();
