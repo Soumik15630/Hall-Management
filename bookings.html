@@ -88,8 +88,9 @@
             <div class="flex justify-end items-center mb-4 gap-4">
                 <!-- Buttons on the right -->
                 <button @click="clearFilters()" 
-                        class="btn"
-                        :class="isFilterActive ? 'btn-danger' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'">
+                        x-show="isFilterActive"
+                        x-transition
+                        class="btn btn-danger">
                     Clear Filters
                 </button>
                 <button @click="selectedBookings = []" 
