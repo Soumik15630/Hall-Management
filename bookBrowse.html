@@ -42,7 +42,9 @@
                     <div class="space-y-6">
                         <!-- Clear Filters Button -->
                         <div>
-                            <button @click="clearFilters()" class="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center justify-center space-x-2 transition-colors">
+                            <button @click="clearFilters()" 
+                                    :disabled="!isAnyFilterActive"
+                                    class="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-md shadow-lg flex items-center justify-center space-x-2 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed">
                                 <i class="fas fa-times-circle"></i>
                                 <span>Clear All Filters</span>
                             </button>
@@ -313,6 +315,15 @@
                 },
 
                 // --- Computed Properties for Filtering ---
+                get isAnyFilterActive() {
+                    return this.filters.type !== 'SEMINAR' || 
+                           this.filters.capacity !== null || 
+                           this.filters.features.length > 0 || 
+                           this.filters.floor !== '' || 
+                           this.filters.zone !== '' || 
+                           this.selectedSchoolId !== null || 
+                           this.selectedDepartmentId !== null;
+                },
                 get filteredSchools() {
                     if (!this.searchTerms.school) return this.schoolOptions;
                     return this.schoolOptions.filter(o => o.label.toLowerCase().includes(this.searchTerms.school.toLowerCase()));
