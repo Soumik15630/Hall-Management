@@ -225,11 +225,11 @@
 
                     <div class="flex justify-end space-x-4 pt-6">
                         <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-md shadow-lg transition-colors duration-300">Submit</button>
-                        <button @click="window.location.replace('manageHall.html')" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-8 rounded-md shadow-lg transition-colors duration-300">CANCEL</button>
+                        <button type="button" @click="window.location.href='manageHall.html'" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-8 rounded-md shadow-lg transition-colors duration-300">CANCEL</button>
                     </div>
                 </form>
             </div>
-
+            
             <!-- MAP MODAL POPUP -->
             <div x-show="showMapModal" 
                  x-transition:enter="transition ease-out duration-300"
@@ -309,9 +309,6 @@
     </div>
 
     <script>
-        // Global map modal store
-        window.mapModalStore = null;
-
         document.addEventListener('alpine:init', () => {
             Alpine.store('modal', {
                 show: false,
@@ -356,30 +353,31 @@
                     lng: ''
                 },
                 
-                // Removed 'features' from dropdowns as it's no longer a dropdown
                 dropdowns: { school: false, department: false, deptSchool: false, general: false },
                 searchTerms: { school: '', department: '', deptSchool: '', general: '' },
                 isLoading: { schools: false, departments: false, hall: false },
                 
-                // --- Options now loaded from config.js ---
-                floorOptions: window.AppConfig ? AppConfig.formOptions.floors : [],
-                zoneOptions: window.AppConfig ? AppConfig.formOptions.zones : [],
-                featuresOptions: window.AppConfig ? AppConfig.formOptions.features : [],
-                generalOptions: window.AppConfig ? AppConfig.formOptions.generalSections : [],
-                unavailabilityOptions: window.AppConfig ? AppConfig.formOptions.unavailabilityReasons : [],
+                floorOptions: AppConfig.formOptions.floors,
+                zoneOptions: AppConfig.formOptions.zones,
+                featuresOptions: AppConfig.formOptions.features,
+                generalOptions: AppConfig.formOptions.generalSections,
+                unavailabilityOptions: AppConfig.formOptions.unavailabilityReasons,
                 schoolOptions: [], 
                 departmentOptions: [],
                 
                 // --- AUTHENTICATION LOGIC ---
                 async fetchWithAuth(url, options = {}) {
-                    // Mock authentication for now - replace with your actual auth logic
-                    const headers = { 'Content-Type': 'application/json' };
+                    const headers = getAuthHeaders();
+                    if (!headers) {
+                        logout();
+                        throw new Error('User not authenticated');
+                    }
                     
                     const config = { ...options, headers: {...headers, ...options.headers} };
                     const response = await fetch(url, config);
 
                     if (response.status === 401) {
-                        console.error('Authentication failed');
+                        logout();
                         throw new Error('Authentication failed');
                     }
                     return response;
@@ -387,185 +385,90 @@
                 // --- END AUTHENTICATION LOGIC ---
 
                 init() {
-                    console.log('Alpine component initialized');
-                    // Set up global store reference
-                    window.mapModalStore = this;
-                    
-                    // Initialize with empty options if config not loaded
-                    if (!window.AppConfig) {
-                        console.warn('AppConfig not found, using empty options');
-                        this.floorOptions = [];
-                        this.zoneOptions = [];
-                        this.featuresOptions = [];
-                        this.generalOptions = [];
-                        this.unavailabilityOptions = [];
+                    if (!getAuthHeaders()) {
+                        console.error("No auth token found. Redirecting to login.");
+                        logout();
+                        return;
                     }
                 },
 
-                // Map functionality
                 openMapModal() {
-                    console.log('Opening map modal...');
                     this.showMapModal = true;
                     this.tempPin = null;
-                    
-                    // Wait for the modal to be rendered before initializing map
                     this.$nextTick(() => {
-                        setTimeout(() => {
-                            this.initializeMap();
-                        }, 300); // Small delay to ensure modal is fully rendered
+                        setTimeout(() => this.initializeMap(), 300);
                     });
                 },
 
                 closeMapModal() {
-                    console.log('Closing map modal...');
                     this.showMapModal = false;
                     this.tempPin = null;
                     if (this.map) {
                         this.map.remove();
                         this.map = null;
                     }
-                    this.currentPin = null;
-                    this.streetLayer = null;
-                    this.satelliteLayer = null;
                 },
 
                 initializeMap() {
-                    console.log('Initializing map...');
                     const mapContainer = document.getElementById('mapContainer');
-                    if (!mapContainer) {
-                        console.error('Map container not found');
-                        return;
-                    }
+                    if (!mapContainer || this.map) return;
 
-                    // Remove existing map if it exists
-                    if (this.map) {
-                        this.map.remove();
-                        this.map = null;
-                    }
-
-                    // Clear the container
-                    mapContainer.innerHTML = '';
-
-                    // Default center (you can change this to your preferred location)
-                    const defaultCenter = [12.019284, 79.853336]; // Puducherry coordinates
+                    const defaultCenter = [12.019284, 79.853336];
                     const existingCoords = this.coordinates.lat && this.coordinates.lng ? 
                         [parseFloat(this.coordinates.lat), parseFloat(this.coordinates.lng)] : 
                         defaultCenter;
 
-                    try {
-                        // Initialize map
-                        this.map = L.map('mapContainer', {
-                            center: existingCoords,
-                            zoom: 15,
-                            zoomControl: true
-                        });
+                    this.map = L.map('mapContainer').setView(existingCoords, 15);
+                    this.streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '© OpenStreetMap contributors'
+                    }).addTo(this.map);
+                    this.satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                        attribution: 'Tiles © Esri'
+                    });
 
-                        // Add street view layer (default)
-                        this.streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                            attribution: '© OpenStreetMap contributors'
-                        });
-
-                        // Add satellite view layer
-                        this.satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-                            attribution: 'Tiles © Esri'
-                        });
-
-                        // Add default layer
-                        this.streetLayer.addTo(this.map);
-                        this.currentMapView = 'street';
-
-                        // Add existing pin if coordinates exist
-                        if (this.coordinates.lat && this.coordinates.lng) {
-                            this.tempPin = {
-                                lat: parseFloat(this.coordinates.lat),
-                                lng: parseFloat(this.coordinates.lng)
-                            };
-                            this.addPinToMap(this.tempPin.lat, this.tempPin.lng);
-                        }
-
-                        // Add click event to map
-                        this.map.on('click', (e) => {
-                            this.onMapClick(e);
-                        });
-
-                        console.log('Map initialized successfully');
-                    } catch (error) {
-                        console.error('Error initializing map:', error);
+                    if (this.coordinates.lat && this.coordinates.lng) {
+                        this.tempPin = { lat: parseFloat(this.coordinates.lat), lng: parseFloat(this.coordinates.lng) };
+                        this.addPinToMap(this.tempPin.lat, this.tempPin.lng);
                     }
+                    this.map.on('click', (e) => this.onMapClick(e));
                 },
 
                 toggleMapView() {
                     if (!this.map) return;
-                    
-                    try {
-                        if (this.currentMapView === 'street') {
-                            this.map.removeLayer(this.streetLayer);
-                            this.satelliteLayer.addTo(this.map);
-                            this.currentMapView = 'satellite';
-                        } else {
-                            this.map.removeLayer(this.satelliteLayer);
-                            this.streetLayer.addTo(this.map);
-                            this.currentMapView = 'street';
-                        }
-                    } catch (error) {
-                        console.error('Error toggling map view:', error);
+                    if (this.currentMapView === 'street') {
+                        this.map.removeLayer(this.streetLayer);
+                        this.satelliteLayer.addTo(this.map);
+                        this.currentMapView = 'satellite';
+                    } else {
+                        this.map.removeLayer(this.satelliteLayer);
+                        this.streetLayer.addTo(this.map);
+                        this.currentMapView = 'street';
                     }
                 },
 
                 onMapClick(e) {
                     const { lat, lng } = e.latlng;
-                    
-                    // Remove existing pin
-                    if (this.currentPin) {
-                        this.map.removeLayer(this.currentPin);
-                    }
-
-                    // Store temporary pin coordinates
+                    if (this.currentPin) this.map.removeLayer(this.currentPin);
                     this.tempPin = { lat, lng };
-                    
-                    // Add new pin to map
                     this.addPinToMap(lat, lng);
                 },
 
                 addPinToMap(lat, lng) {
-                    if (!this.map) return;
-                    
-                    try {
-                        // Custom pin icon
-                        const pinIcon = L.divIcon({
-                            html: '<i class="fas fa-map-marker-alt text-red-500 text-3xl drop-shadow-lg"></i>',
-                            iconSize: [30, 30],
-                            iconAnchor: [15, 30],
-                            className: 'custom-pin'
-                        });
-
-                        // Add pin to map
-                        this.currentPin = L.marker([lat, lng], { icon: pinIcon })
-                            .addTo(this.map)
-                            .bindPopup(`
-                                <div class="text-center">
-                                    <strong>Selected Location</strong><br>
-                                    Lat: ${lat.toFixed(6)}<br>
-                                    Lng: ${lng.toFixed(6)}
-                                </div>
-                            `)
-                            .openPopup();
-                    } catch (error) {
-                        console.error('Error adding pin to map:', error);
-                    }
+                    const pinIcon = L.divIcon({
+                        html: '<i class="fas fa-map-marker-alt text-red-500 text-3xl drop-shadow-lg"></i>',
+                        iconSize: [30, 30],
+                        iconAnchor: [15, 30],
+                        className: 'custom-pin'
+                    });
+                    this.currentPin = L.marker([lat, lng], { icon: pinIcon }).addTo(this.map)
+                        .bindPopup(`<b>Selected Location</b><br>Lat: ${lat.toFixed(6)}<br>Lng: ${lng.toFixed(6)}`).openPopup();
                 },
 
                 confirmLocation() {
                     if (!this.tempPin) return;
-                    
-                    // Update coordinates in the form (convert to strings with proper precision)
                     this.coordinates.lat = this.tempPin.lat.toFixed(6);
                     this.coordinates.lng = this.tempPin.lng.toFixed(6);
-                    
-                    // Close modal
                     this.closeMapModal();
-                    
-                    console.log('Location confirmed:', this.coordinates);
                 },
 
                 get filteredSchools() { return this.schoolOptions.filter(o => o.label.toLowerCase().includes(this.searchTerms.school.toLowerCase())); },
@@ -580,14 +483,12 @@
                 async fetchSchools() { 
                     this.isLoading.schools = true; 
                     try { 
-                        // Mock data - replace with actual API call
-                        const mockSchools = [
-                            { unique_id: 'school1', school_name: 'School of Engineering' },
-                            { unique_id: 'school2', school_name: 'School of Arts & Sciences' }
-                        ];
-                        this.schoolOptions = mockSchools.map(s => ({ value: s.unique_id, label: s.school_name }));
+                        const response = await this.fetchWithAuth(AppConfig.apiBaseUrl + AppConfig.endpoints.allschool);
+                        if (!response.ok) throw new Error('Network error'); 
+                        const d = await response.json(); 
+                        this.schoolOptions = d.filter(s => s && s.unique_id && s.school_name).map(s => ({ value: s.unique_id, label: s.school_name })); 
                     } catch (e) { 
-                        console.error('Could not load school data:', e.message);
+                        Alpine.store('modal').open(false, `Could not load school data: ${e.message}`); 
                     } finally { 
                         this.isLoading.schools = false; 
                     } 
@@ -595,14 +496,12 @@
                 async fetchDepartments() { 
                     this.isLoading.departments = true; 
                     try { 
-                        // Mock data - replace with actual API call
-                        const mockDepts = [
-                            { unique_id: 'dept1', department_name: 'Computer Science', school_id: 'school1' },
-                            { unique_id: 'dept2', department_name: 'Mathematics', school_id: 'school2' }
-                        ];
-                        this.departmentOptions = mockDepts.map(t => ({ value: t.unique_id, label: t.department_name, schoolId: t.school_id }));
+                        const response = await this.fetchWithAuth(AppConfig.apiBaseUrl + AppConfig.endpoints.alldept);
+                        if (!response.ok) throw new Error('Network error'); 
+                        const d = await response.json(); 
+                        this.departmentOptions = d.filter(t => t && t.unique_id && t.department_name && t.school_id).map(t => ({ value: t.unique_id, label: t.department_name, schoolId: t.school_id })); 
                     } catch (e) { 
-                        console.error('Could not load department data:', e.message);
+                        Alpine.store('modal').open(false, `Could not load department data: ${e.message}`); 
                     } finally { 
                         this.isLoading.departments = false; 
                     } 
@@ -658,16 +557,12 @@
                     this.selectedGeneralOptionId = null;
                     this.isAvailable = 'yes';
                     this.unavailabilityReason = '';
-                    this.coordinates = { lat: '', lng: '' };
                     this.searchTerms = { school: '', department: '', deptSchool: '', general: '' };
                     document.getElementById('addHallForm')?.reset();
                 },
 
                 async submitForm() {
-                    if (!this.hallType) { 
-                        Alpine.store('modal').open(false, 'Please select a hall type.'); 
-                        return; 
-                    }
+                    if (!this.hallType) { Alpine.store('modal').open(false, 'Please select a hall type.'); return; }
                     const form = document.getElementById('addHallForm');
                     if (!form.checkValidity()) { 
                         Alpine.store('modal').open(false, 'Please fill out all required fields.');
@@ -688,9 +583,10 @@
                         assigned_to: form.assigned_to.value || undefined,
                     };
                     
-                    // Use coordinates from the reactive data
-                    if(this.coordinates.lat) payload.latitude = parseFloat(this.coordinates.lat);
-                    if(this.coordinates.lng) payload.longitude = parseFloat(this.coordinates.lng);
+                    const latitude = form.latitude.value;
+                    const longitude = form.longitude.value;
+                    if(latitude) payload.latitude = parseFloat(latitude);
+                    if(longitude) payload.longitude = parseFloat(longitude);
 
                     if (this.isAvailable === 'no') {
                         payload.unavailability_reason = this.unavailabilityReason;
@@ -703,8 +599,16 @@
                     console.log('Sending Payload:', JSON.stringify(payload, null, 2));
 
                     try {
-                        // Mock successful submission - replace with actual API call
-                        console.log('Mock: Hall added successfully');
+                        const url = `${AppConfig.apiBaseUrl}${AppConfig.endpoints.addHall}`;
+                        const response = await this.fetchWithAuth(url, { 
+                            method: 'POST',
+                            body: JSON.stringify(payload) 
+                        });
+                        
+                        const result = await response.json();
+                        if (!response.ok) { 
+                            throw new Error(result.message || `HTTP error! ${response.status}`);
+                        }
                         Alpine.store('modal').open(true, 'Hall added successfully!');
                     } catch (error) {
                         Alpine.store('modal').open(false, `Failed to add hall. ${error.message}`);
