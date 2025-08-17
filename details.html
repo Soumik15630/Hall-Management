@@ -102,13 +102,41 @@
         .scroll-indicator-arrow {
           animation: slide-right 2.5s ease-in-out infinite;
         }
+
+        .custom-tooltip {
+            position: fixed; /* Use fixed positioning relative to viewport */
+            background-color: #1f2937;
+            color: white;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            z-index: 50;
+            pointer-events: none;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            white-space: nowrap;
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
     <div id="nav-placeholder"></div>
 
     <main class="flex-grow p-6" x-data="hallDetails()">
-        <div class="container mx-auto max-w-7xl bg-white p-6 rounded-lg shadow-xl">
+        <div class="container mx-auto max-w-7xl bg-white p-6 rounded-lg shadow-xl relative">
+            
+            <!-- Custom Tooltip -->
+            <div x-show="tooltip.visible" 
+                 x-ref="tooltipEl"
+                 :style="`top: ${tooltip.y}px; left: ${tooltip.x}px;`"
+                 x-text="tooltip.content"
+                 class="custom-tooltip"
+                 x-transition:enter="transition ease-out duration-100"
+                 x-transition:enter-start="opacity-0 transform scale-95"
+                 x-transition:enter-end="opacity-100 transform scale-100"
+                 x-transition:leave="transition ease-in duration-75"
+                 x-transition:leave-start="opacity-100 transform scale-100"
+                 x-transition:leave-end="opacity-0 transform scale-95">
+            </div>
+
             <template x-if="isLoading">
                 <p class="text-center text-gray-500 py-10">Loading hall details...</p>
             </template>
@@ -218,7 +246,11 @@
                                     <template x-for="time in timeSlots" :key="time">
                                         <div :style="`display: grid; grid-template-columns: repeat(${calendar.days.length}, minmax(50px, 1fr)); gap: 4px;`">
                                             <template x-for="day in calendar.days" :key="`${calendar.year}-${calendar.month}-${day.date}-${time}`">
-                                                <div class="slot" :class="getSlotClasses(day, time)" :title="getSlotTooltip(day, time)"></div>
+                                                <div class="slot" 
+                                                     :class="getSlotClasses(day, time)" 
+                                                     @mouseenter="showTooltip($event, day, time)"
+                                                     @mouseleave="hideTooltip()">
+                                                </div>
                                             </template>
                                         </div>
                                     </template>
@@ -265,6 +297,7 @@
             timeSlots: ['09:30', '10:30', '11:30', '12:30', '13:30', '14:30', '15:30', '16:30'],
             showScrollIndicator: true,
             scrollIndicatorTimeout: null,
+            tooltip: { visible: false, content: '', x: 0, y: 0 },
 
             async init() {
                 const urlParams = new URLSearchParams(window.location.search);
@@ -487,7 +520,46 @@
                 };
             },
 
-            getSlotTooltip(day, time) {
+            showTooltip(event, day, time) {
+                const content = this.getSlotTooltipContent(day, time);
+                if (!content) {
+                    this.hideTooltip();
+                    return;
+                }
+
+                this.tooltip.content = content;
+                this.tooltip.visible = true;
+
+                this.$nextTick(() => {
+                    const tooltipEl = this.$refs.tooltipEl;
+                    if (!tooltipEl) return;
+
+                    const offsetX = 15;
+                    const offsetY = 15;
+
+                    let newX = event.clientX + offsetX;
+                    let newY = event.clientY + offsetY;
+
+                    // Check if the tooltip would overflow the right edge of the viewport
+                    if (newX + tooltipEl.offsetWidth > window.innerWidth) {
+                        newX = event.clientX - tooltipEl.offsetWidth - offsetX;
+                    }
+
+                    // Check for overflow on the bottom edge
+                    if (newY + tooltipEl.offsetHeight > window.innerHeight) {
+                        newY = event.clientY - tooltipEl.offsetHeight - offsetY;
+                    }
+
+                    this.tooltip.x = newX;
+                    this.tooltip.y = newY;
+                });
+            },
+
+            hideTooltip() {
+                this.tooltip.visible = false;
+            },
+
+            getSlotTooltipContent(day, time) {
                 const status = this.getSlotStatus(day, time);
                 const myBooking = this.myProcessedBookings[day.fullDate]?.[time];
 
@@ -510,7 +582,7 @@
                     case 'pending-individual': return `Pending (Individual): ${localDate} at ${displayTime}`;
                     case 'pending-semester': return `Pending (Semester): ${localDate} at ${displayTime}`;
                     case 'past': return `Past Slot: ${localDate} at ${displayTime}`;
-                    default: return `${localDate} at ${displayTime}`;
+                    default: return '';
                 }
             },
 
