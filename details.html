@@ -59,6 +59,17 @@
             background-color: #e5e7eb; 
             border: 1px solid #d1d5db; 
         }
+        /* My Booking Colors */
+        .my-booking-confirmed {
+            background-color: #bfdbfe; /* Blue-200 */
+            border: 1px solid #60a5fa; /* Blue-400 */
+            cursor: not-allowed;
+        }
+        .my-booking-pending {
+            background-color: #a7f3d0; /* Emerald-200 */
+            border: 1px solid #34d399; /* Emerald-400 */
+            cursor: not-allowed;
+        }
         .date-header-day { 
             color: #ef4444; /* Red for Sundays */
         }
@@ -223,6 +234,8 @@
                             <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 slot-booked-semester"></span> Booked (Sem)</div>
                             <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 slot-pending-individual"></span> Pending (Indv)</div>
                             <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 slot-pending-semester"></span> Pending (Sem)</div>
+                            <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 my-booking-confirmed"></span> My Confirmed</div>
+                            <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 my-booking-pending"></span> My Pending</div>
                             <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 slot-past"></span> Past</div>
                         </div>
                     </div>
@@ -248,6 +261,7 @@
             currentDate: new Date(),
             calendar: { year: 0, month: 0, monthName: '', days: [] },
             processedBookings: {},
+            myProcessedBookings: {},
             timeSlots: ['09:30', '10:30', '11:30', '12:30', '13:30', '14:30', '15:30', '16:30'],
             showScrollIndicator: true,
             scrollIndicatorTimeout: null,
@@ -265,6 +279,7 @@
 
                 try {
                     await this.fetchHallData(hallId);
+                    await this.fetchMyBookings();
                     await this.fetchPendingBookings(hallId);
                     await this.fetchScheduleData(hallId);
                     this.generateCalendar();
@@ -315,6 +330,41 @@
                     schoolName: data.school?.school_name,
                     departmentName: data.department?.department_name
                 };
+            },
+
+            async fetchMyBookings() {
+                const url = AppConfig.apiBaseUrl + AppConfig.endpoints.myBookings;
+                const myBookingData = await this.fetchWithAuth(url);
+                if (myBookingData.data) {
+                    myBookingData.data.forEach(booking => {
+                        const status = this.formatStatus(booking.status).toLowerCase();
+                        if (status.includes('rejected') || status.includes('cancelled')) {
+                            return; // Skip these bookings
+                        }
+                        
+                        let currentTime = new Date(booking.start_date);
+                        const endDate = new Date(booking.end_date);
+                        
+                        while(currentTime <= endDate) {
+                            const dateKey = currentTime.toISOString().split('T')[0];
+                            const [startHour, startMinute] = booking.start_time.split(':').map(Number);
+                            const [endHour, endMinute] = booking.end_time.split(':').map(Number);
+
+                            for (let h = startHour; h < endHour; h++) {
+                                const timeKey = `${String(h).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}`;
+                                if (this.timeSlots.includes(timeKey)) {
+                                    if (!this.myProcessedBookings[dateKey]) this.myProcessedBookings[dateKey] = {};
+                                    this.myProcessedBookings[dateKey][timeKey] = {
+                                        status: status.includes('pending') ? 'pending' : 'confirmed',
+                                        purpose: booking.purpose,
+                                        class_code: booking.class_code
+                                    };
+                                }
+                            }
+                            currentTime.setDate(currentTime.getDate() + 1);
+                        }
+                    });
+                }
             },
 
             async fetchPendingBookings(hallId) {
@@ -410,6 +460,11 @@
                     return 'past';
                 }
                 
+                const myBookingInfo = this.myProcessedBookings[day.fullDate]?.[time];
+                if(myBookingInfo) {
+                    return `my-booking-${myBookingInfo.status}`;
+                }
+
                 const bookingInfo = this.processedBookings[day.fullDate]?.[time];
                 if (bookingInfo) {
                     return `${bookingInfo.status}-${bookingInfo.type.toLowerCase()}`;
@@ -426,6 +481,8 @@
                     'slot-booked-semester': status === 'booked-semester',
                     'slot-pending-individual': status === 'pending-individual',
                     'slot-pending-semester': status === 'pending-semester',
+                    'my-booking-confirmed': status === 'my-booking-confirmed',
+                    'my-booking-pending': status === 'my-booking-pending',
                     'slot-available-weekday': status === 'available-weekday',
                     'slot-available-weekend': status === 'available-weekend',
                 };
@@ -433,6 +490,16 @@
 
             getSlotTooltip(day, time) {
                 const status = this.getSlotStatus(day, time);
+                const myBooking = this.myProcessedBookings[day.fullDate]?.[time];
+
+                if (myBooking) {
+                    let tooltip = `Purpose: ${myBooking.purpose}`;
+                    if (myBooking.class_code) {
+                        tooltip += ` | Class Code: ${myBooking.class_code}`;
+                    }
+                    return tooltip;
+                }
+                
                 const localDate = new Date(`${day.fullDate}T00:00:00Z`).toLocaleDateString(undefined, { timeZone: 'UTC' });
                 const displayTime = this.formatTimeForDisplay(time);
                 
@@ -446,6 +513,11 @@
                     case 'past': return `Past Slot: ${localDate} at ${displayTime}`;
                     default: return `${localDate} at ${displayTime}`;
                 }
+            },
+
+            formatStatus(status) {
+                if (!status) return 'Unknown';
+                return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
             },
             
             formatTimeForDisplay(time) {
