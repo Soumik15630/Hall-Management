@@ -32,11 +32,11 @@
             transition: all 0.2s ease-in-out;
         }
         .slot-available-weekday { 
-            background-color: #bbf7d0;
+            background-color: #4dcd7a; /* Darker green for weekdays */
             border: 1px solid #16a34a; 
         }
         .slot-available-weekend { 
-            background-color: #dcfce7;
+            background-color: #dcfce7; /* Lighter green for weekends */
             border: 1px solid #86efac; 
         }
         .slot-booked-individual { 
@@ -56,18 +56,18 @@
             border: 1px solid #818cf8; /* Indigo-400 */
         }
         .slot-past { 
-            background-color: #e5e7eb; 
+            background-color: hwb(220 90% 8%); 
             border: 1px solid #d1d5db; 
         }
         /* My Booking Colors */
         .my-booking-confirmed {
-            background-color: #bfdbfe; /* Blue-200 */
-            border: 1px solid #60a5fa; /* Blue-400 */
+            background-color: #b9ffaf; /* Custom Green */
+            border: 3px solid #62c54e; /* Custom Green Border */
             cursor: not-allowed;
         }
         .my-booking-pending {
-            background-color: #a7f3d0; /* Emerald-200 */
-            border: 1px solid #34d399; /* Emerald-400 */
+            background-color: #fff9e1; /* Custom Yellow */
+            border: 3px solid #ffce53; /* Custom Yellow Border */
             cursor: not-allowed;
         }
         .date-header-day { 
@@ -453,8 +453,7 @@
             getSlotStatus(day, time) {
                 const now = new Date();
                 const [hour, minute] = time.split(':');
-                const slotDateTime = new Date(day.fullDate);
-                slotDateTime.setUTCHours(hour, minute, 0, 0);
+                const slotDateTime = new Date(this.calendar.year, this.calendar.month, day.date, hour, minute);
 
                 if (slotDateTime < now) {
                     return 'past';
