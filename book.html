@@ -43,7 +43,7 @@
             transition: all 0.2s ease-in-out;
         }
         .slot-available-weekday { 
-            background-color: #bbf7d0; /* Darker green for weekdays */
+            background-color: #4dcd7a; /* Darker green for weekdays */
             border: 1px solid #16a34a; 
         }
         .slot-available-weekday:hover { 
@@ -82,9 +82,20 @@
             opacity: 0.8;
         }
         .slot-past { 
-            background-color: #e5e7eb; 
+            background-color: hwb(220 90% 8%); 
             border: 1px solid #d1d5db; 
             cursor: not-allowed; 
+        }
+        /* My Booking Colors */
+        .my-booking-confirmed {
+            background-color: #b9ffaf; /* Blue-200 */
+            border: 3px solid #62c54e; /* Blue-400 */
+            cursor: not-allowed;
+        }
+        .my-booking-pending {
+            background-color: #fff9e1; /* Emerald-200 */
+            border: 3px solid #ffce53; /* Emerald-400 */
+            cursor: not-allowed;
         }
         .date-header-day { 
             color: #ef4444; /* Red for Sundays */
@@ -208,7 +219,7 @@
                                         <template x-for="time in timeSlots" :key="time">
                                             <div :style="`display: grid; grid-template-columns: repeat(${calendar.days.length}, minmax(50px, 1fr)); gap: 4px;`">
                                                 <template x-for="day in calendar.days" :key="`${calendar.year}-${calendar.month}-${day.date}-${time}`">
-                                                    <button type="button" class="slot" :class="getSlotClasses(day, time)" @mousedown.prevent="startDrag(day, time)" @mouseenter="dragOver(day, time)"></button>
+                                                    <button type="button" class="slot" :class="getSlotClasses(day, time)" @mousedown.prevent="startDrag(day, time)" @mouseenter="dragOver(day, time)" :title="getSlotTooltip(day, time)"></button>
                                                 </template>
                                             </div>
                                         </template>
@@ -223,6 +234,8 @@
                                 <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 slot-booked-semester"></span> Booked (Sem)</div>
                                 <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 slot-pending-individual"></span> Pending (Indv)</div>
                                 <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 slot-pending-semester"></span> Pending (Sem)</div>
+                                <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 my-booking-confirmed"></span> My Confirmed</div>
+                                <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 my-booking-pending"></span> My Pending</div>
                                 <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 slot-past"></span> Past</div>
                                 <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 slot-selected"></span> Selected</div>
                             </div>
@@ -342,6 +355,7 @@
                 currentDate: new Date(),
                 calendar: { year: 0, month: 0, monthName: '', days: [] },
                 processedBookings: {},
+                myProcessedBookings: {},
                 isDragging: false,
                 dragSelectionMode: 'add', // 'add' or 'remove'
                 dragDate: null, // To ensure dragging only happens on one day at a time
@@ -366,6 +380,7 @@
                     }
                     try {
                         await this.fetchHallData(this.hallId);
+                        await this.fetchMyBookings();
                         await this.fetchPendingBookings(this.hallId);
                         await this.fetchScheduleData(this.hallId);
                         this.generateCalendar();
@@ -420,6 +435,41 @@
                     const url = AppConfig.apiBaseUrl + AppConfig.endpoints.getHallById + hallId;
                     const data = await this.fetchWithAuth(url);
                     this.hallName = data.name;
+                },
+
+                async fetchMyBookings() {
+                    const url = AppConfig.apiBaseUrl + AppConfig.endpoints.myBookings;
+                    const myBookingData = await this.fetchWithAuth(url);
+                    if (myBookingData.data) {
+                        myBookingData.data.forEach(booking => {
+                            const status = this.formatStatus(booking.status).toLowerCase();
+                            if (status.includes('rejected') || status.includes('cancelled')) {
+                                return; // Skip these bookings
+                            }
+                            
+                            let currentTime = new Date(booking.start_date);
+                            const endDate = new Date(booking.end_date);
+                            
+                            while(currentTime <= endDate) {
+                                const dateKey = currentTime.toISOString().split('T')[0];
+                                const [startHour, startMinute] = booking.start_time.split(':').map(Number);
+                                const [endHour, endMinute] = booking.end_time.split(':').map(Number);
+
+                                for (let h = startHour; h < endHour; h++) {
+                                    const timeKey = `${String(h).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}`;
+                                    if (this.timeSlots.includes(timeKey)) {
+                                        if (!this.myProcessedBookings[dateKey]) this.myProcessedBookings[dateKey] = {};
+                                        this.myProcessedBookings[dateKey][timeKey] = {
+                                            status: status.includes('pending') ? 'pending' : 'confirmed',
+                                            purpose: booking.purpose,
+                                            class_code: booking.class_code
+                                        };
+                                    }
+                                }
+                                currentTime.setDate(currentTime.getDate() + 1);
+                            }
+                        });
+                    }
                 },
                 
                 // Fetches and processes PENDING booking data from the API
@@ -522,6 +572,11 @@
 
                     const dateString = `${this.calendar.year}-${String(this.calendar.month + 1).padStart(2, '0')}-${String(day.date).padStart(2, '0')}`;
                     
+                    const myBookingInfo = this.myProcessedBookings[dateString]?.[time];
+                    if(myBookingInfo) {
+                        return `my-booking-${myBookingInfo.status}`;
+                    }
+
                     if (this.bookingType === 'SEMESTER' && this.startDate && this.endDate && this.selectedDays.length > 0 && this.selectedTimes.length > 0) {
                         const start = new Date(this.startDate); start.setHours(0,0,0,0);
                         const end = new Date(this.endDate); end.setHours(0,0,0,0);
@@ -555,17 +610,43 @@
                         'slot-booked-semester': status === 'booked-semester',
                         'slot-pending-individual': status === 'pending-individual',
                         'slot-pending-semester': status === 'pending-semester',
+                        'my-booking-confirmed': status === 'my-booking-confirmed',
+                        'my-booking-pending': status === 'my-booking-pending',
                         'slot-available-weekday': status === 'available-weekday',
                         'slot-available-weekend': status === 'available-weekend',
                         'slot-selected': status === 'selected',
                     };
                 },
 
+                getSlotTooltip(day, time) {
+                    const status = this.getSlotStatus(day, time);
+                    const dateString = `${this.calendar.year}-${String(this.calendar.month + 1).padStart(2, '0')}-${String(day.date).padStart(2, '0')}`;
+                    const myBooking = this.myProcessedBookings[dateString]?.[time];
+
+                    if (myBooking) {
+                        let tooltip = `Purpose: ${myBooking.purpose}`;
+                        if (myBooking.class_code) {
+                            tooltip += ` | Class Code: ${myBooking.class_code}`;
+                        }
+                        return tooltip;
+                    }
+                    
+                    // Default tooltips for other statuses
+                    const localDate = new Date(dateString + 'T00:00:00Z').toLocaleDateString();
+                    const displayTime = this.formatTimeForDisplay(time);
+                    
+                    if(status.startsWith('booked')) return `Booked by another user: ${localDate} at ${displayTime}`;
+                    if(status.startsWith('pending')) return `Pending for another user: ${localDate} at ${displayTime}`;
+                    if(status === 'past') return `Past Slot: ${localDate} at ${displayTime}`;
+                    if(status.startsWith('available')) return `Available: ${localDate} at ${displayTime}`;
+                    return '';
+                },
+
                 // --- Drag selection logic for INDIVIDUAL bookings ---
                 startDrag(day, time) {
                     this.hideScrollIndicator();
                     const status = this.getSlotStatus(day, time);
-                    if (status.startsWith('booked') || status === 'past') return;
+                    if (status.startsWith('booked') || status.startsWith('my-booking') || status === 'past') return;
                     
                     if (this.bookingType === 'SEMESTER') return;
                     this.isDragging = true;
@@ -620,6 +701,11 @@
                     const index = this.selectedDays.indexOf(day);
                     if (index === -1) this.selectedDays.push(day);
                     else this.selectedDays.splice(index, 1);
+                },
+
+                formatStatus(status) {
+                    if (!status) return 'Unknown';
+                    return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
                 },
 
                 formatTimeForDisplay(time) {
@@ -693,6 +779,7 @@
                         // Refresh schedule data after successful booking
                         this.isLoading = true;
                         this.processedBookings = {};
+                        this.myProcessedBookings = {};
                         await this.init(); // Re-initialize to fetch all data again
 
                     } catch (error) {
