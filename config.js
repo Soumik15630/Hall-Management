@@ -80,7 +80,7 @@ const AppConfig = {
             { value: 'north', label: 'North Zone' },
             { value: 'south', label: 'South Zone' },
             { value: 'east', label: 'East Zone' },
-            { value: 'west', label: 'Wet Zone' }
+            { value: 'west', label: 'West Zone' }
         ],
         // Options for the hall features dropdown
         features: [
