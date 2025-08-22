@@ -58,6 +58,8 @@
             width: calc(100% - 8px);
             z-index: 10;
             color: white;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
         .month-event {
              font-size: 0.75rem;
@@ -85,6 +87,30 @@
         }
         .month-day.today {
             background-color: #ebf8ff;
+        }
+
+        /* Day view specific styles */
+        .day-view-container {
+            position: relative;
+            min-height: 600px;
+        }
+        
+        .day-time-grid {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+        }
+        
+        .day-time-slot {
+            height: 64px; /* 4rem = 64px */
+            border-bottom: 1px solid #e5e7eb;
+            position: relative;
+        }
+        
+        .day-time-slot:last-child {
+            border-bottom: none;
         }
     </style>
 </head>
@@ -156,20 +182,62 @@
                 </div>
             </template>
             
-            <!-- Day View (REWRITTEN) -->
+            <!-- Day View (FIXED) -->
             <template x-if="view === 'day'">
-                <div>
-                    <div class="text-center font-semibold p-2 border-b text-lg" x-text="headerDate"></div>
-                    <div class="day-view-grid border-t border-gray-200">
-                        <div class="time-slot text-right pr-2 border-r border-gray-200">
-                             <template x-for="time in timeSlots" :key="time">
-                                 <div class="h-16 flex items-start justify-end pt-1 text-sm text-gray-500" x-text="time"></div>
+                <div class="border border-gray-200 rounded-lg">
+                    <div class="text-center font-semibold p-3 border-b bg-gray-50 text-lg" 
+                         :class="{'bg-blue-50 text-blue-800': isToday(currentDate)}" 
+                         x-text="getDayViewHeader()"></div>
+                    
+                    <div class="day-view-grid">
+                        <!-- Time Column -->
+                        <div class="border-r border-gray-200 bg-gray-50">
+                            <template x-for="(time, index) in timeSlots" :key="time">
+                                <div class="h-16 flex items-start justify-end pr-3 pt-1 text-sm text-gray-600 font-medium border-b border-gray-100"
+                                     :class="{'border-b-0': index === timeSlots.length - 1}"
+                                     x-text="time"></div>
                             </template>
                         </div>
-                        <div class="day-column relative border-t">
-                             <!-- NEW LOGIC: Loop over the new dayEvents array -->
-                             <template x-for="event in dayEvents" :key="event.id">
-                                 <div class="day-event" :style="getEventStyle(event)" x-text="event.title" :class="getEventClasses(event, 'day-event')"></div>
+                        
+                        <!-- Events Column -->
+                        <div class="day-view-container relative">
+                            <!-- Time Grid Background -->
+                            <div class="day-time-grid">
+                                <template x-for="(time, index) in timeSlots" :key="time">
+                                    <div class="day-time-slot"></div>
+                                </template>
+                            </div>
+                            
+                            <!-- Events -->
+                            <template x-for="event in dayEvents" :key="event.id">
+                                <div class="day-event" 
+                                     :style="getEventStyle(event)" 
+                                     :class="getEventClasses(event, 'day-event')"
+                                     :title="getEventTooltip(event)">
+                                    <div class="font-medium text-xs mb-1" x-text="getEventTimeRange(event)"></div>
+                                    <div class="text-xs" x-text="event.title"></div>
+                                </div>
+                            </template>
+                            
+                            <!-- No Events Message -->
+                            <template x-if="dayEvents.length === 0 && !isLoading.bookings">
+                                <div class="absolute inset-0 flex items-center justify-center text-gray-500">
+                                    <div class="text-center">
+                                        <i class="fas fa-calendar-day text-4xl mb-3 opacity-50"></i>
+                                        <p class="text-lg">No bookings for this day</p>
+                                        <p class="text-sm">Your hall bookings will appear here</p>
+                                    </div>
+                                </div>
+                            </template>
+                            
+                            <!-- Loading State -->
+                            <template x-if="isLoading.bookings">
+                                <div class="absolute inset-0 flex items-center justify-center text-gray-500">
+                                    <div class="text-center">
+                                        <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                                        <p>Loading bookings...</p>
+                                    </div>
+                                </div>
                             </template>
                         </div>
                     </div>
@@ -197,7 +265,7 @@
                 currentDate: new Date(),
                 weekDays: [],
                 monthDays: [],
-                dayEvents: [], // NEW: Dedicated array for day view events
+                dayEvents: [],
                 timeSlots: ['9:30AM', '10:30AM', '11:30AM', '12:30PM', '1:30PM', '2:30PM', '3:30PM', '4:30PM'],
                 events: [],
                 schoolOptions: [],
@@ -214,12 +282,14 @@
                     await this.fetchBookings();
 
                     // Watch for changes and update the calendar and day view
-                    this.$watch('view', (newView) => {
+                    this.$watch('view', () => {
                         this.updateCalendar();
-                        if (newView === 'day') {
-                            this.updateDayViewEvents();
-                        }
                     });
+                    
+                    this.$watch('currentDate', () => {
+                        this.updateCalendar();
+                    });
+                    
                     this.updateCalendar();
                 },
 
@@ -234,6 +304,31 @@
                     const month = String(date.getMonth() + 1).padStart(2, '0');
                     const day = String(date.getDate()).padStart(2, '0');
                     return `${year}-${month}-${day}`;
+                },
+
+                isToday(date) {
+                    const today = new Date();
+                    return date.toDateString() === today.toDateString();
+                },
+
+                getDayViewHeader() {
+                    const options = { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                    };
+                    return this.currentDate.toLocaleDateString('en-US', options);
+                },
+
+                getEventTimeRange(event) {
+                    return `${event.startTime} - ${event.endTime}`;
+                },
+
+                getEventTooltip(event) {
+                    const status = event.status.charAt(0).toUpperCase() + event.status.slice(1).toLowerCase();
+                    const type = event.type.charAt(0).toUpperCase() + event.type.slice(1).toLowerCase();
+                    return `${event.title}\nTime: ${event.startTime} - ${event.endTime}\nStatus: ${status}\nType: ${type}`;
                 },
                 // --- END HELPER FUNCTIONS ---
 
@@ -300,6 +395,8 @@
                                         }];
                                     }
                                 });
+                            
+                            console.log('Fetched events:', this.events); // Debug log
                         }
                     } catch (error) {
                         console.error('Failed to fetch bookings:', error.message);
@@ -348,14 +445,14 @@
                 updateCalendar() {
                     if (this.view === 'week') this.generateWeek();
                     if (this.view === 'month') this.generateMonth();
-                    // NEW: Always update the day view events when the calendar updates
                     if (this.view === 'day') this.updateDayViewEvents();
                 },
 
-                // NEW: Explicit function to update the day view events
+                // FIXED: Update the day view events properly
                 updateDayViewEvents() {
                     const selectedDateStr = this.formatLocalDate(this.currentDate);
                     this.dayEvents = this.events.filter(e => e.date === selectedDateStr);
+                    console.log(`Day events for ${selectedDateStr}:`, this.dayEvents); // Debug log
                 },
 
                 get headerDate() {
@@ -454,6 +551,7 @@
                 switchToDayView(date) {
                     this.currentDate = this.parseLocalDate(date);
                     this.view = 'day';
+                    // The updateCalendar will be triggered by the watcher
                 },
 
                 getEventsForDay(date) {
@@ -469,16 +567,34 @@
                 },
 
                 getEventStyle(event) {
-                    const calendarStartMinutes = 9 * 60 + 30;
-                    const eventStartParts = event.startTime.split(':');
-                    const eventStartMinutes = parseInt(eventStartParts[0]) * 60 + parseInt(eventStartParts[1]);
-                    const eventEndParts = event.endTime.split(':');
-                    const eventEndMinutes = parseInt(eventEndParts[0]) * 60 + parseInt(eventEndParts[1]);
+                    const calendarStartMinutes = 9 * 60 + 30; // 9:30 AM in minutes
+                    
+                    // Parse start time
+                    const startTimeParts = event.startTime.split(':');
+                    const startHours = parseInt(startTimeParts[0]);
+                    const startMinutes = parseInt(startTimeParts[1]);
+                    const eventStartMinutes = startHours * 60 + startMinutes;
+                    
+                    // Parse end time
+                    const endTimeParts = event.endTime.split(':');
+                    const endHours = parseInt(endTimeParts[0]);
+                    const endMins = parseInt(endTimeParts[1]);
+                    const eventEndMinutes = endHours * 60 + endMins;
+                    
+                    // Calculate position and height
                     const minutesFromTop = eventStartMinutes - calendarStartMinutes;
                     const durationMinutes = eventEndMinutes - eventStartMinutes;
-                    const top = (minutesFromTop / 60) * 4;
-                    const height = (durationMinutes / 60) * 4;
-                    return { top: `${top}rem`, height: `${height}rem` };
+                    
+                    // Convert to rem units (1 hour = 4rem, so 1 minute = 4/60 rem)
+                    const top = (minutesFromTop / 60) * 4; // 4rem per hour
+                    const height = Math.max((durationMinutes / 60) * 4, 0.5); // Minimum height of 0.5rem
+                    
+                    return { 
+                        top: `${top}rem`, 
+                        height: `${height}rem`,
+                        left: '4px',
+                        right: '4px'
+                    };
                 }
             }
         }
