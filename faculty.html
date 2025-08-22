@@ -215,6 +215,22 @@
                     this.updateCalendar();
                 },
 
+                // --- NEW HELPER FUNCTIONS FOR ROBUST DATE HANDLING ---
+                // Parses a 'YYYY-MM-DD' string into a Date object in the local timezone.
+                parseLocalDate(dateString) {
+                    const [year, month, day] = dateString.split('-').map(Number);
+                    return new Date(year, month - 1, day);
+                },
+
+                // Formats a Date object into a 'YYYY-MM-DD' string in the local timezone.
+                formatLocalDate(date) {
+                    const year = date.getFullYear();
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    return `${year}-${month}-${day}`;
+                },
+                // --- END HELPER FUNCTIONS ---
+
                 async fetchWithAuth(url, options = {}) {
                     const headers = getAuthHeaders();
                     if (!headers) {
@@ -269,7 +285,8 @@
                                     } else {
                                         return [{
                                             id: item.id,
-                                            date: new Date(item.start_date).toISOString().split('T')[0],
+                                            // FIX: Directly use the date string part to avoid timezone conversion errors.
+                                            date: item.start_date.split('T')[0],
                                             startTime: item.start_time,
                                             endTime: item.end_time,
                                             title: `${item.hall?.name || 'Unknown Hall'} - ${item.purpose}`,
@@ -292,12 +309,14 @@
                     const dayMap = { "SUNDAY": 0, "MONDAY": 1, "TUESDAY": 2, "WEDNESDAY": 3, "THURSDAY": 4, "FRIDAY": 5, "SATURDAY": 6 };
                     const targetDays = booking.days_of_week.map(day => dayMap[day.toUpperCase()]);
 
-                    let currentDate = new Date(booking.start_date);
-                    const endDate = new Date(booking.end_date);
+                    // FIX: Use robust helper function to parse dates in local time.
+                    let currentDate = this.parseLocalDate(booking.start_date);
+                    const endDate = this.parseLocalDate(booking.end_date);
 
                     while (currentDate <= endDate) {
                         if (targetDays.includes(currentDate.getDay())) {
-                            const dateStr = currentDate.toISOString().split('T')[0];
+                            // FIX: Use robust helper function to format date string.
+                            const dateStr = this.formatLocalDate(currentDate);
                             expandedEvents.push({
                                 id: `${booking.id}-${dateStr}`,
                                 date: dateStr,
@@ -336,8 +355,8 @@
                         return this.currentDate.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
                     }
                     if (this.view === 'week' && this.weekDays.length > 0) {
-                        const startOfWeek = new Date(this.weekDays[0].date + 'T00:00:00');
-                        const endOfWeek = new Date(this.weekDays[6].date + 'T00:00:00');
+                        const startOfWeek = this.parseLocalDate(this.weekDays[0].date);
+                        const endOfWeek = this.parseLocalDate(this.weekDays[6].date);
                         const startMonth = startOfWeek.toLocaleDateString('en-US', { month: 'long' });
                         const endMonth = endOfWeek.toLocaleDateString('en-US', { month: 'long' });
                         if (startMonth === endMonth) {
@@ -349,7 +368,8 @@
                 },
 
                 get currentDateISO() {
-                    return this.currentDate.toISOString().split('T')[0];
+                    // FIX: Use robust helper function for consistency.
+                    return this.formatLocalDate(this.currentDate);
                 },
 
                 generateWeek() {
@@ -365,7 +385,7 @@
                         day.setDate(startOfWeek.getDate() + i);
                         this.weekDays.push({
                             label: `${day.toLocaleDateString('en-US', { weekday: 'short' })} ${day.getDate()}/${day.getMonth() + 1}`,
-                            date: day.toISOString().split('T')[0],
+                            date: this.formatLocalDate(day),
                             isToday: day.getTime() === today.getTime()
                         });
                     }
@@ -382,14 +402,14 @@
                     for (let i = firstDayOfWeek; i > 0; i--) {
                         const day = lastDayOfPrevMonth - i + 1;
                         const date = new Date(year, month - 1, day);
-                        this.monthDays.push({ date: date.toISOString().split('T')[0], dayNumber: day, isCurrentMonth: false });
+                        this.monthDays.push({ date: this.formatLocalDate(date), dayNumber: day, isCurrentMonth: false });
                     }
                     const today = new Date();
                     today.setHours(0,0,0,0);
                     for (let i = 1; i <= lastDayOfMonth.getDate(); i++) {
                         const date = new Date(year, month, i);
                         this.monthDays.push({
-                            date: date.toISOString().split('T')[0],
+                            date: this.formatLocalDate(date),
                             dayNumber: i,
                             isCurrentMonth: true,
                             isToday: date.getTime() === today.getTime()
@@ -399,7 +419,7 @@
                     let day = 1;
                     for (let i = lastDayOfWeek; i < 6; i++) {
                          const date = new Date(year, month + 1, day);
-                         this.monthDays.push({ date: date.toISOString().split('T')[0], dayNumber: day, isCurrentMonth: false });
+                         this.monthDays.push({ date: this.formatLocalDate(date), dayNumber: day, isCurrentMonth: false });
                          day++;
                     }
                 },
@@ -426,7 +446,8 @@
                 },
                 
                 switchToDayView(date) {
-                    this.currentDate = new Date(date + 'T00:00:00');
+                    // FIX: Use robust helper function to parse date string correctly.
+                    this.currentDate = this.parseLocalDate(date);
                     this.view = 'day';
                 },
 
