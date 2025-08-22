@@ -167,7 +167,8 @@
                             </template>
                         </div>
                         <div class="day-column relative border-t">
-                             <template x-for="event in getEventsForDay(currentDateISO)" :key="event.id">
+                             <!-- FIX: Call formatLocalDate directly to ensure reactivity -->
+                             <template x-for="event in getEventsForDay(formatLocalDate(currentDate))" :key="event.id">
                                  <div class="day-event" :style="getEventStyle(event)" x-text="event.title" :class="getEventClasses(event, 'day-event')"></div>
                             </template>
                         </div>
@@ -285,7 +286,6 @@
                                     } else {
                                         return [{
                                             id: item.id,
-                                            // FIX: Directly use the date string part to avoid timezone conversion errors.
                                             date: item.start_date.split('T')[0],
                                             startTime: item.start_time,
                                             endTime: item.end_time,
@@ -309,13 +309,12 @@
                     const dayMap = { "SUNDAY": 0, "MONDAY": 1, "TUESDAY": 2, "WEDNESDAY": 3, "THURSDAY": 4, "FRIDAY": 5, "SATURDAY": 6 };
                     const targetDays = booking.days_of_week.map(day => dayMap[day.toUpperCase()]);
 
-                    // FIX: Use robust helper function to parse dates in local time.
-                    let currentDate = this.parseLocalDate(booking.start_date);
-                    const endDate = this.parseLocalDate(booking.end_date);
+                    // FIX: Ensure we only parse the date part of the string from the API.
+                    let currentDate = this.parseLocalDate(booking.start_date.split('T')[0]);
+                    const endDate = this.parseLocalDate(booking.end_date.split('T')[0]);
 
                     while (currentDate <= endDate) {
                         if (targetDays.includes(currentDate.getDay())) {
-                            // FIX: Use robust helper function to format date string.
                             const dateStr = this.formatLocalDate(currentDate);
                             expandedEvents.push({
                                 id: `${booking.id}-${dateStr}`,
@@ -368,7 +367,6 @@
                 },
 
                 get currentDateISO() {
-                    // FIX: Use robust helper function for consistency.
                     return this.formatLocalDate(this.currentDate);
                 },
 
@@ -446,7 +444,6 @@
                 },
                 
                 switchToDayView(date) {
-                    // FIX: Use robust helper function to parse date string correctly.
                     this.currentDate = this.parseLocalDate(date);
                     this.view = 'day';
                 },
