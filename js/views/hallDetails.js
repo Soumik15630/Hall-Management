@@ -62,6 +62,42 @@ window.HallDetailsView = (function() {
         }
         return response;
     }
+    
+    // --- UTILITY FUNCTIONS ---
+    function createCleanPayload(hall) {
+        // This function creates a payload with only the keys the API expects,
+        // preventing "unrecognized_keys" errors. It also handles potential
+        // null values for numbers and adds the required 'belongs_to' field.
+        const expectedKeys = [
+            'name', 'type', 'capacity', 'floor', 'zone', 
+            'school_id', 'department_id', 'features', 'availability', 
+            'unavailability_reason', 'belongs_to'
+        ];
+        
+        const payload = {};
+        for (const key of expectedKeys) {
+            // Only include keys that exist on the original object
+            if (hall.hasOwnProperty(key)) {
+                payload[key] = hall[key];
+            }
+        }
+
+        // FIX: Determine and set the 'belongs_to' value based on the server's requirements.
+        if (hall.department_id) {
+            payload.belongs_to = 'DEPARTMENT';
+        } else if (hall.school_id) {
+            payload.belongs_to = 'SCHOOL';
+        } else {
+            payload.belongs_to = 'ADMINISTRATION';
+        }
+
+        // Ensure latitude and longitude are numbers, defaulting to 0 if null/undefined.
+        payload.latitude = Number(hall.latitude) || 0;
+        payload.longitude = Number(hall.longitude) || 0;
+
+        return payload;
+    }
+
 
     function formatTitleCase(str) {
         if (!str) return 'N/A';
@@ -224,7 +260,7 @@ window.HallDetailsView = (function() {
     }
     
     function updateFilterIcons() {
-        document.querySelectorAll('.filter-icon').forEach(icon => {
+        document.querySelectorAll('#hall-details-view .filter-icon').forEach(icon => {
             const column = icon.dataset.filterColumn;
             let isActive = false;
             switch(column) {
@@ -293,6 +329,23 @@ window.HallDetailsView = (function() {
                 modal.classList.add('hidden');
             }
         });
+    }
+
+    function populateFeaturesModal(hall) {
+        const container = document.getElementById('features-checkbox-container');
+        if (!container) return;
+
+        const allFeatures = getFeatures();
+        const currentFeatures = hall.features || [];
+
+        container.innerHTML = allFeatures.map(feature => `
+            <label class="flex items-center text-slate-300">
+                <input type="checkbox" value="${feature}"
+                       class="form-checkbox h-4 w-4 bg-slate-700 text-blue-500 border-slate-600 rounded focus:ring-blue-500 mr-2"
+                       ${currentFeatures.includes(feature) ? 'checked' : ''}>
+                ${formatTitleCase(feature)}
+            </label>
+        `).join('');
     }
     
     // --- FILTER MODAL LOGIC ---
@@ -556,26 +609,57 @@ window.HallDetailsView = (function() {
         const view = document.getElementById('hall-details-view');
         if (!view) return;
 
+        // General click listener for the view
         view.addEventListener('click', e => {
             const filterIcon = e.target.closest('.filter-icon');
             if (filterIcon) {
                 openFilterModalFor(filterIcon.dataset.filterColumn);
+                return;
             }
-            if (e.target.closest('#clear-filters-btn')) {
+            if (e.target.closest('#clear-hall-filters-btn')) {
                 state.filters = defaultFilters();
                 applyFiltersAndRender();
+                return;
+            }
+            if (e.target.closest('#status-btn')) {
+                 if (state.selectedRows.length > 0) {
+                    openModal('update-status-modal');
+                }
+                return;
+            }
+            if (e.target.closest('#features-btn')) {
+                if (state.selectedRows.length === 1) {
+                    const selectedHall = state.allHalls.find(h => h.hallCode === state.selectedRows[0]);
+                    if (selectedHall) {
+                        populateFeaturesModal(selectedHall);
+                        openModal('modify-features-modal');
+                    }
+                }
+                return;
             }
         }, { signal });
 
+        // Listener for filter modals
         document.getElementById('filter-modal-container')?.addEventListener('click', e => {
             const button = e.target.closest('button');
             if (!button) return;
             if (button.dataset.action === 'apply-filter') handleApplyFilter(button.dataset.column);
             if (button.dataset.action === 'clear-filter') handleClearFilter(button.dataset.column);
-            if (button.classList.contains('modal-close-btn')) closeModal();
+        }, { signal });
+
+        // General listener for closing any modal
+        document.body.addEventListener('click', e => {
+            if (e.target.closest('.modal-close-btn')) {
+                closeModal();
+            }
+            // FIX: Added event listener for the "Clear All" button in the features modal.
+            if (e.target.id === 'clear-all-features') {
+                const checkboxes = document.querySelectorAll('#features-checkbox-container input[type="checkbox"]');
+                checkboxes.forEach(cb => cb.checked = false);
+            }
         }, { signal });
         
-        // Other handlers
+        // Listeners for table interactions
         document.getElementById('multiselect-toggle')?.addEventListener('change', e => {
             state.multiSelection = e.target.checked;
             if (!state.multiSelection) state.selectedRows = [];
@@ -596,7 +680,94 @@ window.HallDetailsView = (function() {
             }
         }, { signal });
         
-        // Modal setup...
+        // Listeners for action modals
+        const statusModal = document.getElementById('update-status-modal');
+        if (statusModal) {
+            statusModal.addEventListener('change', e => {
+                if (e.target.name === 'status-option') {
+                    const reasonContainer = document.getElementById('status-reason-container');
+                    const dateRangeContainer = document.getElementById('status-date-range');
+                    if (e.target.value === 'false') {
+                        reasonContainer.classList.remove('hidden');
+                        dateRangeContainer.classList.remove('hidden');
+                    } else {
+                        reasonContainer.classList.add('hidden');
+                        dateRangeContainer.classList.add('hidden');
+                    }
+                }
+            }, { signal });
+        }
+
+        document.getElementById('submit-status-update')?.addEventListener('click', async () => {
+            const newStatus = document.querySelector('input[name="status-option"]:checked').value === 'true';
+            const updates = { availability: newStatus };
+
+            if (!newStatus) {
+                updates.unavailability_reason = document.getElementById('status-reason-select').value;
+                const fromDate = document.getElementById('status-from-date').value;
+                const toDate = document.getElementById('status-to-date').value;
+                if (!updates.unavailability_reason || !fromDate || !toDate) {
+                    console.error("Reason and dates are required for unavailability.");
+                    // You would show a user-facing error here in a real app
+                    return;
+                }
+                 // NOTE: Based on the server error, 'unavailable_from' and 'unavailable_to' are
+                 // not recognized keys. We will only send 'unavailability_reason'.
+            }
+
+            try {
+                const updatePromises = state.selectedRows.map(hallId => {
+                    const originalHall = state.allHalls.find(h => h.id === hallId);
+                    if (!originalHall) return Promise.reject(`Hall with ID ${hallId} not found.`);
+
+                    // Create a clean payload with only expected keys and merge the updates
+                    const payload = { ...createCleanPayload(originalHall), ...updates };
+                    
+                    return fetchFromAPI(`${AppConfig.endpoints.hall}/${hallId}`, { 
+                        method: 'PUT', 
+                        body: JSON.stringify(payload) 
+                    });
+                });
+
+                await Promise.all(updatePromises);
+                
+                closeModal();
+                await initialize(); // Re-fetch data to show changes
+                state.selectedRows = [];
+                updateActionButtonsState();
+            } catch (error) {
+                console.error('Failed to update status:', error);
+            }
+        }, { signal });
+
+        document.getElementById('submit-features-update')?.addEventListener('click', async () => {
+            const selectedHallCode = state.selectedRows[0];
+            if (!selectedHallCode) return;
+
+            const selectedFeatures = Array.from(document.querySelectorAll('#features-checkbox-container input:checked')).map(cb => cb.value);
+            
+            const originalHall = state.allHalls.find(h => h.id === selectedHallCode);
+            if (!originalHall) {
+                console.error(`Hall with ID ${selectedHallCode} not found.`);
+                return;
+            }
+
+            // Create a clean payload and merge the new features array
+            const payload = { ...createCleanPayload(originalHall), features: selectedFeatures };
+
+            try {
+                await fetchFromAPI(`${AppConfig.endpoints.hall}/${selectedHallCode}`, { 
+                    method: 'PUT', 
+                    body: JSON.stringify(payload) 
+                });
+                closeModal();
+                await initialize(); // Re-fetch data to show changes
+                state.selectedRows = [];
+                updateActionButtonsState();
+            } catch (error) {
+                console.error('Failed to update features:', error);
+            }
+        }, { signal });
     }
 
     function cleanup() {
