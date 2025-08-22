@@ -261,12 +261,12 @@
                         <label for="status" class="block text-sm font-medium text-gray-700">Status:</label>
                         <select id="status" x-model="filters.status" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
                             <option value="">-- All Statuses --</option>
-                            <option value="Confirmed">Confirmed</option>
-                            <option value="Approved">Approved</option>
-                            <option value="Pending To Forward">Pending To Forward</option>
-                            <option value="Pending Hod Approval">Pending Hod Approval</option>
-                            <option value="Cancelled">Cancelled</option>
-                            <option value="Rejected">Rejected</option>
+                            <option value="CONFIRMED">Confirmed</option>
+                            <option value="PENDING_HOD_APPROVAL">Pending HOD Approval</option>
+                            <option value="PENDING_HALL_HOD_APPROVAL">Pending Hall HOD Approval</option>
+                            <option value="REJECTED_BY_HOD">Rejected by HOD</option>
+                            <option value="REJECTED_BY_HALL_HOD">Rejected by Hall HOD</option>
+                            <option value="CANCELLED">Cancelled</option>
                         </select>
                     </div>
                 </div>
@@ -323,29 +323,32 @@
                         if (!bookingResult.success) throw new Error("Failed to fetch bookings.");
                         
                         const rawBookings = bookingResult.data;
-                        this.allBookings = rawBookings.map(item => this.mapInitialBookingData(item));
-                        this.isLoading = false;
+                        let processedBookings = rawBookings.map(item => this.mapInitialBookingData(item));
 
                         // 2. Efficiently fetch details for all unique halls
                         const uniqueHallIds = [...new Set(rawBookings.map(b => b.hall_id))].filter(id => id);
-                        const hallPromises = uniqueHallIds.map(id => 
-                            this.fetchWithAuth(`${AppConfig.apiBaseUrl}${AppConfig.endpoints.hall}/${id}`)
-                        );
-                        
-                        const hallResults = await Promise.all(hallPromises);
-                        const hallMap = new Map(hallResults.map(h => [h.unique_id, h]));
+                        if (uniqueHallIds.length > 0) {
+                            const hallPromises = uniqueHallIds.map(id => 
+                                this.fetchWithAuth(`${AppConfig.apiBaseUrl}${AppConfig.endpoints.hall}/${id}`)
+                            );
+                            
+                            const hallResults = await Promise.all(hallPromises);
+                            const hallMap = new Map(hallResults.map(h => [h.unique_id, h]));
 
-                        // 3. Enrich the booking data with the fetched hall details
-                        this.allBookings = this.allBookings.map(booking => {
-                            const hallDetails = hallMap.get(booking.hall.id);
-                            if (hallDetails) {
-                                return this.mapEnrichedBookingData(booking, hallDetails);
-                            }
-                            return booking;
-                        });
+                            // 3. Enrich the booking data with the fetched hall details
+                            processedBookings = processedBookings.map(booking => {
+                                const hallDetails = hallMap.get(booking.hall.id);
+                                if (hallDetails) {
+                                    return this.mapEnrichedBookingData(booking, hallDetails);
+                                }
+                                return booking;
+                            });
+                        }
+                        this.allBookings = processedBookings;
 
                     } catch (error) {
                         console.error('Failed to fetch and process bookings:', error.message);
+                    } finally {
                         this.isLoading = false;
                     }
                 },
@@ -363,7 +366,8 @@
                         },
                         purpose: item.purpose,
                         dateTimeRange: this.formatDateTimeRange(item.start_date, item.start_time, item.end_date, item.end_time),
-                        status: this.formatStatus(item.status),
+                        rawStatus: item.status, // Keep original status for filtering
+                        status: this.formatStatus(item.status), // Formatted status for display
                         startDateForFilter: item.start_date
                     };
                 },
@@ -396,8 +400,15 @@
                 },
 
                 formatStatus(status) {
-                    if (!status) return 'Unknown';
-                    return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                    const statusMap = {
+                        'CONFIRMED': 'Confirmed',
+                        'PENDING_HOD_APPROVAL': 'Pending HOD Approval',
+                        'PENDING_HALL_HOD_APPROVAL': 'Pending Hall HOD Approval',
+                        'REJECTED_BY_HOD': 'Rejected by HOD',
+                        'REJECTED_BY_HALL_HOD': 'Rejected by Hall HOD',
+                        'CANCELLED': 'Cancelled'
+                    };
+                    return statusMap[status] || status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
                 },
                 
                 formatHallType(type) {
@@ -429,7 +440,8 @@
                         if (this.filters.hallName && booking.hall.name !== this.filters.hallName) return false;
                         if (startDateTime && bookingEventDate < startDateTime) return false;
                         if (endDateTime && bookingEventDate > endDateTime) return false;
-                        if (this.filters.status && booking.status !== this.filters.status) return false;
+                        // Compare filter against the raw, original status
+                        if (this.filters.status && booking.rawStatus !== this.filters.status) return false;
 
                         return true;
                     });
