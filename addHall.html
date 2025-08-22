@@ -606,20 +606,20 @@
                         });
                         
                         const result = await response.json();
-                        if (!response.ok) { 
-                            // Throw the entire JSON result so the catch block can parse the 'errors' array
+                        if (!response.ok) {
                             throw result;
                         }
                         Alpine.store('modal').open(true, 'Hall added successfully!');
                     } catch (error) {
                         let errorMessage = 'An unexpected error occurred. Please try again.';
-
-                        // Check if the error object from the API has the specific 'errors' array
-                        if (error && Array.isArray(error.errors) && error.errors.length > 0) {
-                            // Concatenate all error messages from the array, separated by a line break
+                        // Check for the new format: { success, message, error: [...] }
+                        if (error && Array.isArray(error.error) && error.error.length > 0) {
+                            errorMessage = error.error.map(e => `<b>${e.path.join('.')}:</b> ${e.message}`).join('<br>');
+                        }
+                        // Fallback for the previous format: { success, errors: [...] }
+                        else if (error && Array.isArray(error.errors) && error.errors.length > 0) {
                             errorMessage = error.errors.map(e => e.message).join('<br>');
                         } else if (error && error.message) {
-                            // Fallback for other types of errors that have a 'message' property
                             errorMessage = error.message;
                         }
 

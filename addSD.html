@@ -243,7 +243,7 @@
                         data.incharge_email = formData.get('incharge_email_school');
                         data.incharge_intercom = this.deanIntercom;
                         data.incharge_status = this.deanStatus;
-                        data.designation = "DEAN"; // Static value for school
+                        data.designation = "Dean"; // Static value
                     } else {
                         endpoint = AppConfig.apiBaseUrl + AppConfig.endpoints.addDept;
                         data.department_name = formData.get('department_name');
@@ -253,7 +253,7 @@
                         data.incharge_email = formData.get('incharge_email_dept');
                         data.incharge_intercom = this.hodIntercom;
                         data.incharge_status = this.hodStatus;
-                        data.designation = "HOD"; // Static value for department
+                        data.designation = "HOD"; // Static value
                     }
 
                     try {
@@ -264,7 +264,6 @@
                         
                         const result = await response.json();
                         if (!response.ok) {
-                            // Throw the entire result object to the catch block
                             throw result;
                         }
 
@@ -274,9 +273,9 @@
 
                     } catch (error) {
                         let errorMessage = 'An unexpected error occurred.';
-                        // Check for the new structured error format
-                        if (error && Array.isArray(error.errors) && error.errors.length > 0) {
-                            errorMessage = error.errors.map(e => e.message).join('<br>');
+                        // Check for the new format
+                        if (error && Array.isArray(error.error) && error.error.length > 0) {
+                            errorMessage = error.error.map(e => `<b>${e.path.join('.')}:</b> ${e.message}`).join('<br>');
                         } else if (error && error.message) {
                             errorMessage = `Entry not added. Reason: ${error.message}`;
                         }

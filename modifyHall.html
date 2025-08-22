@@ -409,11 +409,21 @@
                         
                         const result = await response.json();
                         if (!response.ok) { 
-                            throw new Error(result.message || `HTTP error! ${response.status}`);
+                            // Throw the entire JSON result so the catch block can parse the error
+                            throw result;
                         }
                         Alpine.store('modal').open(true, 'Hall updated successfully!');
                     } catch (error) {
-                        Alpine.store('modal').open(false, `Failed to update hall. ${error.message}`);
+                        let errorMessage = 'An unexpected error occurred. Please try again.';
+                        // Check for the new format: { success, message, error: [...] }
+                        if (error && Array.isArray(error.error) && error.error.length > 0) {
+                            errorMessage = error.error.map(e => `<b>${e.path.join('.')}:</b> ${e.message}`).join('<br>');
+                        }
+                        // Fallback for a simple message object
+                        else if (error && error.message) {
+                            errorMessage = `Failed to update hall. ${error.message}`;
+                        }
+                        Alpine.store('modal').open(false, errorMessage);
                     }
                 }
             }));

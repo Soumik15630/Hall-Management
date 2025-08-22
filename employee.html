@@ -299,27 +299,29 @@
                     payload.section = this.selectedSectionId;
                 }
                 
-                console.log('Sending Payload:', JSON.stringify(payload, null, 2));
-
                 try {
                     const response = await this.fetchWithAuth(AppConfig.apiBaseUrl + AppConfig.endpoints.addemp, { 
                         method: 'POST', 
                         body: JSON.stringify(payload) 
                     });
 
+                    const result = await response.json();
                     if (!response.ok) {
-                        const errorText = await response.text();
-                        try {
-                            const errorJson = JSON.parse(errorText);
-                            throw new Error(errorJson.message || `HTTP error! ${response.status}`);
-                        } catch(e) {
-                             throw new Error(`HTTP error! ${response.status} - ${errorText}`);
-                        }
+                        throw result;
                     }
+                    
                     this.resetForm();
                     Alpine.store('modal').open(true, 'Employee added successfully!');
+
                 } catch (error) {
-                    Alpine.store('modal').open(false, `Failed to add employee. ${error.message}`);
+                    let errorMessage = 'An unexpected error occurred.';
+                    // Check for the new format
+                    if (error && Array.isArray(error.error) && error.error.length > 0) {
+                        errorMessage = error.error.map(e => `<b>${e.path.join('.')}:</b> ${e.message}`).join('<br>');
+                    } else if (error && error.message) {
+                        errorMessage = `Failed to add employee. ${error.message}`;
+                    }
+                    Alpine.store('modal').open(false, errorMessage);
                 }
             }
         }));
