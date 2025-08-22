@@ -9,6 +9,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <!-- Defer AlpineJS script to ensure it runs after the DOM is parsed -->
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <!-- Leaflet CSS and JS for map functionality -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
     <style>
         /* Custom styles for Montserrat font and scrollable dropdowns */
         body {
@@ -29,6 +32,44 @@
         }
         /* Hide elements managed by AlpineJS until it's initialized */
         [x-cloak] { display: none !important; }
+        
+        /* Map styles */
+        .map-container {
+            height: 100%;
+            width: 100%;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .map-popup {
+            backdrop-filter: blur(8px);
+        }
+        
+        /* Custom map button styles */
+        .map-view-toggle {
+            position: absolute;
+            top: 10px;
+            left: 50px;
+            z-index: 1000;
+            background: white;
+            border: 2px solid rgba(0,0,0,0.2);
+            border-radius: 4px;
+            padding: 5px 10px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.65);
+        }
+        
+        .map-view-toggle:hover {
+            background: #f4f4f4;
+        }
+
+        /* Custom pin icon styles */
+        .custom-pin {
+            background: transparent !important;
+            border: none !important;
+        }
     </style>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
@@ -86,8 +127,24 @@
                                     </template>
                                 </select>
                             </div>
-                            <div><label for="latitude" class="block text-gray-600 text-sm font-medium mb-2">LATITUDE</label><input type="number" step="any" id="latitude" name="latitude" placeholder="e.g., 11.9416" class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800"></div>
-                            <div><label for="longitude" class="block text-gray-600 text-sm font-medium mb-2">LONGITUDE</label><input type="number" step="any" id="longitude" name="longitude" placeholder="e.g., 79.8083" class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800"></div>
+                            <div><label for="latitude" class="block text-gray-600 text-sm font-medium mb-2">LATITUDE</label><input type="number" step="any" id="latitude" name="latitude" placeholder="e.g., 11.9416" x-model="coordinates.lat" class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800"></div>
+                            <div><label for="longitude" class="block text-gray-600 text-sm font-medium mb-2">LONGITUDE</label><input type="number" step="any" id="longitude" name="longitude" placeholder="e.g., 79.8083" x-model="coordinates.lng" class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800"></div>
+                            
+                            <!-- NEW MAP LOCATION SECTION -->
+                            <div class="md:col-span-2">
+                                <label class="block text-gray-600 text-sm font-medium mb-2">LOCATE ON MAP</label>
+                                <div class="mt-2">
+                                    <button type="button" @click="openMapModal()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-md shadow-lg transition-colors duration-200 flex items-center space-x-2">
+                                        <i class="fas fa-map-marker-alt"></i>
+                                        <span>Locate</span>
+                                    </button>
+                                    <p class="text-xs text-gray-500 mt-1">Click to open map and drop a pin at the hall location</p>
+                                    <div x-show="coordinates.lat && coordinates.lng" class="mt-2 text-sm text-green-600 font-medium">
+                                        <i class="fas fa-check-circle mr-1"></i>
+                                        Location selected: <span x-text="coordinates.lat && parseFloat(coordinates.lat).toFixed(6)"></span>, <span x-text="coordinates.lng && parseFloat(coordinates.lng).toFixed(6)"></span>
+                                    </div>
+                                </div>
+                            </div>
                             
                             <!-- FEATURES SECTION: Grid Layout -->
                             <div class="md:col-span-2">
@@ -168,9 +225,74 @@
 
                     <div class="flex justify-end space-x-4 pt-6">
                         <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-md shadow-lg transition-colors duration-300">Submit</button>
-                        <button @click="window.location.replace('manageHall.html')" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-8 rounded-md shadow-lg transition-colors duration-300">CANCEL</button>
+                        <button type="button" @click="window.location.href='manageHall.html'" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-8 rounded-md shadow-lg transition-colors duration-300">CANCEL</button>
                     </div>
                 </form>
+            </div>
+            
+            <!-- MAP MODAL POPUP -->
+            <div x-show="showMapModal" 
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0"
+                 x-transition:enter-end="opacity-100"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0"
+                 class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center map-popup" 
+                 style="z-index: 9999;" 
+                 @click.self="closeMapModal()">
+                <div class="bg-white rounded-xl shadow-2xl w-[90vw] h-[85vh] max-w-6xl relative flex flex-col overflow-hidden" @click.stop>
+                    <!-- Modal Header -->
+                    <div class="flex-shrink-0 flex justify-between items-center p-6 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+                        <div>
+                            <h3 class="text-2xl font-bold">Select Hall Location</h3>
+                            <p class="text-blue-100 text-sm mt-1">Click on the map to drop a pin at the hall location</p>
+                        </div>
+                        <button @click="closeMapModal()" class="text-white hover:text-gray-200 text-2xl font-bold w-10 h-10 flex items-center justify-center rounded-full hover:bg-white hover:bg-opacity-20 transition-colors duration-200">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    
+                    <!-- Map Container -->
+                    <div class="relative flex-1 overflow-hidden">
+                        <div id="mapContainer" class="map-container"></div>
+                        
+                        <!-- Map View Toggle Button -->
+                        <div class="map-view-toggle" @click="toggleMapView()">
+                            <i class="fas fa-layer-group mr-1"></i>
+                            <span x-text="currentMapView === 'satellite' ? 'Street View' : 'Satellite'"></span>
+                        </div>
+                        
+                        <!-- Instructions -->
+                        <div class="absolute bottom-4 left-4 bg-white bg-opacity-95 rounded-lg p-3 shadow-lg max-w-xs z-[1000]">
+                            <p class="text-sm text-gray-700 font-medium flex items-center">
+                                <i class="fas fa-info-circle text-blue-500 mr-2"></i>
+                                <span x-show="!tempPin">Click anywhere on the map to place a pin</span>
+                                <span x-show="tempPin" class="text-green-600">Pin placed! Click Continue to confirm.</span>
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <!-- Modal Footer -->
+                    <div class="flex-shrink-0 p-6 border-t border-gray-200 bg-gray-50 flex justify-between items-center">
+                        <div class="text-sm text-gray-600">
+                            <span x-show="tempPin">
+                                Selected coordinates: 
+                                <span class="font-mono font-medium" x-text="tempPin ? `${tempPin.lat.toFixed(6)}, ${tempPin.lng.toFixed(6)}` : ''"></span>
+                            </span>
+                            <span x-show="!tempPin">No location selected</span>
+                        </div>
+                        <div class="flex space-x-3">
+                            <button @click="closeMapModal()" class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-md shadow-lg transition-colors duration-200">
+                                Cancel
+                            </button>
+                            <button @click="confirmLocation()" :disabled="!tempPin" :class="tempPin ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-300 cursor-not-allowed'" class="text-white font-semibold py-3 px-6 rounded-md shadow-lg transition-colors duration-200">
+                                <i class="fas fa-check mr-2"></i>
+                                Continue
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </main>
@@ -208,14 +330,33 @@
 
             Alpine.data('addHallForm', () => ({
                 hallId: null,
-                hallType: '', selectedFeatures: [], selectedBelongsTo: '',
-                selectedSchoolId: null, selectedDepartmentId: null, selectedDeptSchoolId: null, selectedGeneralOptionId: null,
-                isAvailable: 'yes', unavailabilityReason: '',
-                // Removed 'features' from dropdowns as it's no longer a dropdown
+                hallType: '', 
+                selectedFeatures: [], 
+                selectedBelongsTo: '',
+                selectedSchoolId: null, 
+                selectedDepartmentId: null, 
+                selectedDeptSchoolId: null, 
+                selectedGeneralOptionId: null,
+                isAvailable: 'yes', 
+                unavailabilityReason: '',
+                
+                // Map-related properties
+                showMapModal: false,
+                map: null,
+                currentPin: null,
+                streetLayer: null,
+                satelliteLayer: null,
+                currentMapView: 'street',
+                tempPin: null,
+                coordinates: {
+                    lat: '',
+                    lng: ''
+                },
+                
                 dropdowns: { school: false, department: false, deptSchool: false, general: false },
                 searchTerms: { school: '', department: '', deptSchool: '', general: '' },
                 isLoading: { schools: false, departments: false, hall: false },
-                // --- Options now loaded from config.js ---
+                
                 floorOptions: AppConfig.formOptions.floors,
                 zoneOptions: AppConfig.formOptions.zones,
                 featuresOptions: AppConfig.formOptions.features,
@@ -249,6 +390,85 @@
                         logout();
                         return;
                     }
+                },
+
+                openMapModal() {
+                    this.showMapModal = true;
+                    this.tempPin = null;
+                    this.$nextTick(() => {
+                        setTimeout(() => this.initializeMap(), 300);
+                    });
+                },
+
+                closeMapModal() {
+                    this.showMapModal = false;
+                    this.tempPin = null;
+                    if (this.map) {
+                        this.map.remove();
+                        this.map = null;
+                    }
+                },
+
+                initializeMap() {
+                    const mapContainer = document.getElementById('mapContainer');
+                    if (!mapContainer || this.map) return;
+
+                    const defaultCenter = [12.019284, 79.853336];
+                    const existingCoords = this.coordinates.lat && this.coordinates.lng ? 
+                        [parseFloat(this.coordinates.lat), parseFloat(this.coordinates.lng)] : 
+                        defaultCenter;
+
+                    this.map = L.map('mapContainer').setView(existingCoords, 15);
+                    this.streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '© OpenStreetMap contributors'
+                    }).addTo(this.map);
+                    this.satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                        attribution: 'Tiles © Esri'
+                    });
+
+                    if (this.coordinates.lat && this.coordinates.lng) {
+                        this.tempPin = { lat: parseFloat(this.coordinates.lat), lng: parseFloat(this.coordinates.lng) };
+                        this.addPinToMap(this.tempPin.lat, this.tempPin.lng);
+                    }
+                    this.map.on('click', (e) => this.onMapClick(e));
+                },
+
+                toggleMapView() {
+                    if (!this.map) return;
+                    if (this.currentMapView === 'street') {
+                        this.map.removeLayer(this.streetLayer);
+                        this.satelliteLayer.addTo(this.map);
+                        this.currentMapView = 'satellite';
+                    } else {
+                        this.map.removeLayer(this.satelliteLayer);
+                        this.streetLayer.addTo(this.map);
+                        this.currentMapView = 'street';
+                    }
+                },
+
+                onMapClick(e) {
+                    const { lat, lng } = e.latlng;
+                    if (this.currentPin) this.map.removeLayer(this.currentPin);
+                    this.tempPin = { lat, lng };
+                    this.addPinToMap(lat, lng);
+                },
+
+                addPinToMap(lat, lng) {
+                    const pinIcon = L.divIcon({
+                        html: '<i class="fas fa-map-marker-alt text-red-500 text-3xl drop-shadow-lg"></i>',
+                        iconSize: [30, 30],
+                        iconAnchor: [15, 30],
+                        className: 'custom-pin'
+                    });
+                    this.currentPin = L.marker([lat, lng], { icon: pinIcon }).addTo(this.map)
+                        .bindPopup(`<b>Selected Location</b><br>Lat: ${lat.toFixed(6)}<br>Lng: ${lng.toFixed(6)}`).openPopup();
+                },
+
+                confirmLocation() {
+                    if (!this.tempPin) return;
+                    this.coordinates.lat = this.tempPin.lat.toFixed(6);
+                    this.coordinates.lng = this.tempPin.lng.toFixed(6);
+                    this.closeMapModal();
                 },
 
                 get filteredSchools() { return this.schoolOptions.filter(o => o.label.toLowerCase().includes(this.searchTerms.school.toLowerCase())); },

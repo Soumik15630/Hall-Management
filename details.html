@@ -32,11 +32,11 @@
             transition: all 0.2s ease-in-out;
         }
         .slot-available-weekday { 
-            background-color: #bbf7d0;
+            background-color: #4dcd7a; /* Darker green for weekdays */
             border: 1px solid #16a34a; 
         }
         .slot-available-weekend { 
-            background-color: #dcfce7;
+            background-color: #dcfce7; /* Lighter green for weekends */
             border: 1px solid #86efac; 
         }
         .slot-booked-individual { 
@@ -56,8 +56,19 @@
             border: 1px solid #818cf8; /* Indigo-400 */
         }
         .slot-past { 
-            background-color: #e5e7eb; 
+            background-color: hwb(220 90% 8%); 
             border: 1px solid #d1d5db; 
+        }
+        /* My Booking Colors */
+        .my-booking-confirmed {
+            background-color: #b9ffaf; /* Custom Green */
+            border: 3px solid #62c54e; /* Custom Green Border */
+            cursor: not-allowed;
+        }
+        .my-booking-pending {
+            background-color: #fff9e1; /* Custom Yellow */
+            border: 3px solid #ffce53; /* Custom Yellow Border */
+            cursor: not-allowed;
         }
         .date-header-day { 
             color: #ef4444; /* Red for Sundays */
@@ -91,13 +102,41 @@
         .scroll-indicator-arrow {
           animation: slide-right 2.5s ease-in-out infinite;
         }
+
+        .custom-tooltip {
+            position: fixed; /* Use fixed positioning relative to viewport */
+            background-color: #1f2937;
+            color: white;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            z-index: 50;
+            pointer-events: none;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            white-space: nowrap;
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
     <div id="nav-placeholder"></div>
 
     <main class="flex-grow p-6" x-data="hallDetails()">
-        <div class="container mx-auto max-w-7xl bg-white p-6 rounded-lg shadow-xl">
+        <div class="container mx-auto max-w-7xl bg-white p-6 rounded-lg shadow-xl relative">
+            
+            <!-- Custom Tooltip -->
+            <div x-show="tooltip.visible" 
+                 x-ref="tooltipEl"
+                 :style="`top: ${tooltip.y}px; left: ${tooltip.x}px;`"
+                 x-text="tooltip.content"
+                 class="custom-tooltip"
+                 x-transition:enter="transition ease-out duration-100"
+                 x-transition:enter-start="opacity-0 transform scale-95"
+                 x-transition:enter-end="opacity-100 transform scale-100"
+                 x-transition:leave="transition ease-in duration-75"
+                 x-transition:leave-start="opacity-100 transform scale-100"
+                 x-transition:leave-end="opacity-0 transform scale-95">
+            </div>
+
             <template x-if="isLoading">
                 <p class="text-center text-gray-500 py-10">Loading hall details...</p>
             </template>
@@ -207,7 +246,11 @@
                                     <template x-for="time in timeSlots" :key="time">
                                         <div :style="`display: grid; grid-template-columns: repeat(${calendar.days.length}, minmax(50px, 1fr)); gap: 4px;`">
                                             <template x-for="day in calendar.days" :key="`${calendar.year}-${calendar.month}-${day.date}-${time}`">
-                                                <div class="slot" :class="getSlotClasses(day, time)" :title="getSlotTooltip(day, time)"></div>
+                                                <div class="slot" 
+                                                     :class="getSlotClasses(day, time)" 
+                                                     @mouseenter="showTooltip($event, day, time)"
+                                                     @mouseleave="hideTooltip()">
+                                                </div>
                                             </template>
                                         </div>
                                     </template>
@@ -223,6 +266,8 @@
                             <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 slot-booked-semester"></span> Booked (Sem)</div>
                             <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 slot-pending-individual"></span> Pending (Indv)</div>
                             <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 slot-pending-semester"></span> Pending (Sem)</div>
+                            <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 my-booking-confirmed"></span> My Confirmed</div>
+                            <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 my-booking-pending"></span> My Pending</div>
                             <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2 slot-past"></span> Past</div>
                         </div>
                     </div>
@@ -248,9 +293,11 @@
             currentDate: new Date(),
             calendar: { year: 0, month: 0, monthName: '', days: [] },
             processedBookings: {},
+            myProcessedBookings: {},
             timeSlots: ['09:30', '10:30', '11:30', '12:30', '13:30', '14:30', '15:30', '16:30'],
             showScrollIndicator: true,
             scrollIndicatorTimeout: null,
+            tooltip: { visible: false, content: '', x: 0, y: 0 },
 
             async init() {
                 const urlParams = new URLSearchParams(window.location.search);
@@ -265,6 +312,7 @@
 
                 try {
                     await this.fetchHallData(hallId);
+                    await this.fetchMyBookings();
                     await this.fetchPendingBookings(hallId);
                     await this.fetchScheduleData(hallId);
                     this.generateCalendar();
@@ -315,6 +363,41 @@
                     schoolName: data.school?.school_name,
                     departmentName: data.department?.department_name
                 };
+            },
+
+            async fetchMyBookings() {
+                const url = AppConfig.apiBaseUrl + AppConfig.endpoints.myBookings;
+                const myBookingData = await this.fetchWithAuth(url);
+                if (myBookingData.data) {
+                    myBookingData.data.forEach(booking => {
+                        const status = this.formatStatus(booking.status).toLowerCase();
+                        if (status.includes('rejected') || status.includes('cancelled')) {
+                            return; // Skip these bookings
+                        }
+                        
+                        let currentTime = new Date(booking.start_date);
+                        const endDate = new Date(booking.end_date);
+                        
+                        while(currentTime <= endDate) {
+                            const dateKey = currentTime.toISOString().split('T')[0];
+                            const [startHour, startMinute] = booking.start_time.split(':').map(Number);
+                            const [endHour, endMinute] = booking.end_time.split(':').map(Number);
+
+                            for (let h = startHour; h < endHour; h++) {
+                                const timeKey = `${String(h).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}`;
+                                if (this.timeSlots.includes(timeKey)) {
+                                    if (!this.myProcessedBookings[dateKey]) this.myProcessedBookings[dateKey] = {};
+                                    this.myProcessedBookings[dateKey][timeKey] = {
+                                        status: status.includes('pending') ? 'pending' : 'confirmed',
+                                        purpose: booking.purpose,
+                                        class_code: booking.class_code
+                                    };
+                                }
+                            }
+                            currentTime.setDate(currentTime.getDate() + 1);
+                        }
+                    });
+                }
             },
 
             async fetchPendingBookings(hallId) {
@@ -403,13 +486,17 @@
             getSlotStatus(day, time) {
                 const now = new Date();
                 const [hour, minute] = time.split(':');
-                const slotDateTime = new Date(day.fullDate);
-                slotDateTime.setUTCHours(hour, minute, 0, 0);
+                const slotDateTime = new Date(this.calendar.year, this.calendar.month, day.date, hour, minute);
 
                 if (slotDateTime < now) {
                     return 'past';
                 }
                 
+                const myBookingInfo = this.myProcessedBookings[day.fullDate]?.[time];
+                if(myBookingInfo) {
+                    return `my-booking-${myBookingInfo.status}`;
+                }
+
                 const bookingInfo = this.processedBookings[day.fullDate]?.[time];
                 if (bookingInfo) {
                     return `${bookingInfo.status}-${bookingInfo.type.toLowerCase()}`;
@@ -426,13 +513,64 @@
                     'slot-booked-semester': status === 'booked-semester',
                     'slot-pending-individual': status === 'pending-individual',
                     'slot-pending-semester': status === 'pending-semester',
+                    'my-booking-confirmed': status === 'my-booking-confirmed',
+                    'my-booking-pending': status === 'my-booking-pending',
                     'slot-available-weekday': status === 'available-weekday',
                     'slot-available-weekend': status === 'available-weekend',
                 };
             },
 
-            getSlotTooltip(day, time) {
+            showTooltip(event, day, time) {
+                const content = this.getSlotTooltipContent(day, time);
+                if (!content) {
+                    this.hideTooltip();
+                    return;
+                }
+
+                this.tooltip.content = content;
+                this.tooltip.visible = true;
+
+                this.$nextTick(() => {
+                    const tooltipEl = this.$refs.tooltipEl;
+                    if (!tooltipEl) return;
+
+                    const offsetX = 15;
+                    const offsetY = 15;
+
+                    let newX = event.clientX + offsetX;
+                    let newY = event.clientY + offsetY;
+
+                    // Check if the tooltip would overflow the right edge of the viewport
+                    if (newX + tooltipEl.offsetWidth > window.innerWidth) {
+                        newX = event.clientX - tooltipEl.offsetWidth - offsetX;
+                    }
+
+                    // Check for overflow on the bottom edge
+                    if (newY + tooltipEl.offsetHeight > window.innerHeight) {
+                        newY = event.clientY - tooltipEl.offsetHeight - offsetY;
+                    }
+
+                    this.tooltip.x = newX;
+                    this.tooltip.y = newY;
+                });
+            },
+
+            hideTooltip() {
+                this.tooltip.visible = false;
+            },
+
+            getSlotTooltipContent(day, time) {
                 const status = this.getSlotStatus(day, time);
+                const myBooking = this.myProcessedBookings[day.fullDate]?.[time];
+
+                if (myBooking) {
+                    let tooltip = `Purpose: ${myBooking.purpose}`;
+                    if (myBooking.class_code) {
+                        tooltip += ` | Class Code: ${myBooking.class_code}`;
+                    }
+                    return tooltip;
+                }
+                
                 const localDate = new Date(`${day.fullDate}T00:00:00Z`).toLocaleDateString(undefined, { timeZone: 'UTC' });
                 const displayTime = this.formatTimeForDisplay(time);
                 
@@ -444,8 +582,13 @@
                     case 'pending-individual': return `Pending (Individual): ${localDate} at ${displayTime}`;
                     case 'pending-semester': return `Pending (Semester): ${localDate} at ${displayTime}`;
                     case 'past': return `Past Slot: ${localDate} at ${displayTime}`;
-                    default: return `${localDate} at ${displayTime}`;
+                    default: return '';
                 }
+            },
+
+            formatStatus(status) {
+                if (!status) return 'Unknown';
+                return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
             },
             
             formatTimeForDisplay(time) {
