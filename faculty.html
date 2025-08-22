@@ -3,234 +3,297 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Faculty Dashboard - Hall Booking Schedule</title>
+    <title>My Bookings</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Assume config.js contains AppConfig -->
+    <!-- Assume config.js contains AppConfig and helper functions like getAuthHeaders and logout -->
     <script src="config.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <style>
         body {
             font-family: 'Montserrat', sans-serif;
             background-image: linear-gradient(to right, #14555F, #0B1940);
             background-attachment: fixed;
         }
-        .calendar-grid, .day-view-grid {
-            display: grid;
-            grid-template-rows: auto;
-            min-height: 600px;
+        .scrollable-dropdown::-webkit-scrollbar {
+            width: 8px;
         }
-        .calendar-grid {
-            grid-template-columns: 70px repeat(7, 1fr);
+        .scrollable-dropdown::-webkit-scrollbar-track {
+            background: #2d3748;
         }
-        .day-view-grid {
-             grid-template-columns: 90px 1fr;
+        .scrollable-dropdown::-webkit-scrollbar-thumb {
+            background: #4a5568;
+            border-radius: 10px;
         }
-        .month-grid {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr);
+        .table-header-icon {
+            color: #4b5563; /* gray-600 */
         }
-        .month-day {
-            min-height: 120px;
-            border-right: 1px solid #e5e7eb;
-            border-bottom: 1px solid #e5e7eb;
+        .filter-btn {
+            transition: all 0.2s ease-in-out;
         }
-        .month-day:nth-child(7n) {
-            border-right: 0;
-        }
-        .time-slot {
-            grid-column: 1 / 2;
-        }
-        .day-column {
-            border-left: 1px solid #e5e7eb;
-            position: relative;
-        }
-        .calendar-event, .day-event {
-            border-radius: 4px;
-            padding: 4px 8px;
-            font-size: 0.8rem;
-            margin: 1px 4px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: normal;
-            line-height: 1.2;
-            position: absolute;
-            width: calc(100% - 8px);
-            z-index: 10;
+        .filter-btn.active {
+            background-color: #0B1940;
             color: white;
+            border-color: #0B1940;
         }
-        .month-event {
-             font-size: 0.75rem;
-             padding: 0 4px;
-             border-radius: 2px;
-             margin-top: 2px;
-             white-space: nowrap;
-             overflow: hidden;
-             text-overflow: ellipsis;
+        [x-cloak] { display: none !important; }
+        .btn {
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-weight: 600;
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            display: inline-flex;
+            align-items: center;
         }
-        
-        /* Color styles based on details.html */
-        .event-booked-individual { background-color: #fee2e2; border-left: 3px solid #fca5a5; color: #991b1b; }
-        .event-booked-semester { background-color: #ffedd5; border-left: 3px solid #fdba74; color: #9a3412; }
-        .event-pending-individual { background-color: #fef3c7; border-left: 3px solid #fcd34d; color: #92400e; }
-        .event-pending-semester { background-color: #c7d2fe; border-left: 3px solid #818cf8; color: #3730a3; }
-
-        .month-event-booked-individual { background-color: #fee2e2; color: #991b1b; border-left: 3px solid #fca5a5; }
-        .month-event-booked-semester { background-color: #ffedd5; color: #9a3412; border-left: 3px solid #fdba74; }
-        .month-event-pending-individual { background-color: #fef3c7; color: #92400e; border-left: 3px solid #fcd34d; }
-        .month-event-pending-semester { background-color: #c7d2fe; color: #3730a3; border-left: 3px solid #818cf8; }
-
-        .highlight-today {
-            background-color: rgba(255, 255, 255, 0.1);
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
         }
-        .month-day.today {
-            background-color: #ebf8ff;
+        .btn-danger {
+            background-color: #EF4444;
+            color: white;
+            border: 1px solid #EF4444;
+        }
+        .btn-danger:hover {
+            background-color: #DC2626;
+        }
+        .btn-secondary {
+            background-color: #6B7280;
+            color: white;
+            border: 1px solid #6B7280;
+        }
+        .btn-secondary:hover {
+            background-color: #4B5563;
+        }
+        .btn-secondary:disabled {
+            background-color: #D1D5DB;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
         }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
 
+    <div id="header-placeholder"></div>
     <div id="nav-placeholder"></div>
-    <!-- Assume layout.js is present -->
-    <script src="layout.js"></script>
     
-    <!-- Main Content: Calendar View -->
-    <main class="flex-grow p-6">
-        <div class="container mx-auto bg-white p-4 rounded-lg shadow-xl" x-data="calendar()">
-            <!-- Calendar Header -->
-            <div class="flex items-center justify-between mb-4">
-                <div class="flex items-center space-x-2">
-                    <button @click="navigate('prev')" class="p-2 rounded hover:bg-gray-200 text-gray-600"><i class="fas fa-chevron-left"></i></button>
-                    <button @click="navigate('next')" class="p-2 rounded hover:bg-gray-200 text-gray-600"><i class="fas fa-chevron-right"></i></button>
-                    <button @click="goToToday()" class="px-4 py-2 border rounded-md text-gray-700 hover:bg-gray-100 transition-colors">Today</button>
-                </div>
-                <h3 class="text-2xl font-semibold text-gray-800" x-text="headerDate"></h3>
-                <div class="flex items-center border border-gray-300 rounded-md">
-                    <button @click="view = 'month'" :class="{'bg-gray-800 text-white': view === 'month'}" class="px-4 py-2 rounded-l-md hover:bg-gray-200 transition-colors">Month</button>
-                    <button @click="view = 'week'" :class="{'bg-gray-800 text-white': view === 'week'}" class="px-4 py-2 border-l border-r hover:bg-gray-200 transition-colors">Week</button>
-                    <button @click="view = 'day'" :class="{'bg-gray-800 text-white': view === 'day'}" class="px-4 py-2 rounded-r-md hover:bg-gray-200 transition-colors">Day</button>
-                </div>
+    <!-- Main Content -->
+    <main class="flex-grow p-2 sm:p-6" x-data="myBookings()" x-init="init()">
+        <div class="container mx-auto bg-white p-4 sm:p-6 rounded-lg shadow-xl">
+            <h2 class="text-3xl font-bold text-center text-indigo-900 mb-6">My Bookings</h2>
+            
+            <div class="flex justify-end items-center mb-4 gap-4">
+                <!-- Buttons on the right -->
+                <button @click="clearFilters()" 
+                        x-show="isFilterActive"
+                        x-transition
+                        class="btn btn-danger">
+                    Clear Filters
+                </button>
+                <button @click="selectedBookings = []" 
+                        class="btn btn-secondary"
+                        :disabled="selectedBookings.length === 0">
+                    <i class="fas fa-ban mr-2"></i>Cancel
+                </button>
             </div>
 
-            <!-- Week View -->
-            <template x-if="view === 'week'">
-                <div class="calendar-grid border-t border-gray-200">
-                    <div class="time-slot text-right pr-2 border-r border-gray-200">
-                        <div class="h-10"></div>
-                        <template x-for="time in timeSlots" :key="time">
-                             <div class="h-16 flex items-start justify-end pt-1 text-sm text-gray-500" x-text="time"></div>
+            <div class="overflow-x-auto">
+                <table class="w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-2 sm:px-6 py-3 text-left text-xs font-bold text-gray-800 uppercase tracking-wider">Select</th>
+                            <th scope="col" class="px-2 sm:px-6 py-3 text-left text-xs font-bold text-gray-800 uppercase tracking-wider">
+                                <div class="flex items-center cursor-pointer" @click="showDateFilterModal = true">
+                                    Booked On <i class="fas fa-filter ml-2 table-header-icon"></i>
+                                </div>
+                            </th>
+                            <th scope="col" class="px-2 sm:px-6 py-3 text-left text-xs font-bold text-gray-800 uppercase tracking-wider">
+                                <div class="flex items-center cursor-pointer" @click="showHallFilterModal = true">
+                                    Hall Details <i class="fas fa-filter ml-2 table-header-icon"></i>
+                                </div>
+                            </th>
+                            <th scope="col" class="hidden lg:table-cell px-6 py-3 text-left text-xs font-bold text-gray-800 uppercase tracking-wider">
+                                Purpose
+                            </th>
+                            <th scope="col" class="px-2 sm:px-6 py-3 text-left text-xs font-bold text-gray-800 uppercase tracking-wider">
+                                <div class="flex items-center cursor-pointer" @click="showDateTimeFilterModal = true">
+                                    Date & Time <i class="fas fa-filter ml-2 table-header-icon"></i>
+                                </div>
+                            </th>
+                            <th scope="col" class="px-2 sm:px-6 py-3 text-left text-xs font-bold text-gray-800 uppercase tracking-wider">
+                                <div class="flex items-center cursor-pointer" @click="showStatusFilterModal = true">
+                                    Status <i class="fas fa-filter ml-2 table-header-icon"></i>
+                                </div>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        <template x-if="isLoading">
+                             <tr><td colspan="6" class="text-center py-10 text-gray-500"><i class="fas fa-spinner fa-spin mr-2"></i>Loading your bookings...</td></tr>
                         </template>
-                    </div>
-                    <template x-for="day in weekDays" :key="day.date">
-                        <div class="day-column" :class="{'highlight-today': day.isToday}">
-                            <div class="text-center font-semibold p-2 border-b" :class="{'text-blue-600': day.isToday}" x-text="day.label"></div>
-                            <div class="relative h-full border-t">
-                                <template x-for="event in getEventsForDay(day.date)" :key="event.id">
-                                     <div class="calendar-event" :style="getEventStyle(event)" x-text="event.title" :class="getEventClasses(event, 'event')"></div>
-                                </template>
-                            </div>
-                        </div>
-                    </template>
-                </div>
-            </template>
-
-            <!-- Month View -->
-            <template x-if="view === 'month'">
-                <div class="month-grid border-t border-l border-gray-200">
-                    <template x-for="dayName in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']" :key="dayName">
-                        <div class="text-center font-semibold p-2 border-b border-r border-gray-200" x-text="dayName"></div>
-                    </template>
-                    <template x-for="day in monthDays" :key="day.date">
-                        <div class="month-day p-2 cursor-pointer" :class="{'today': day.isToday}" @click="switchToDayView(day.date)">
-                            <span :class="{'text-gray-400': !day.isCurrentMonth}" x-text="day.dayNumber"></span>
-                            <div class="mt-1">
-                                <template x-for="event in getVisibleEvents(day.date, 2)" :key="event.id">
-                                    <div class="month-event" x-text="event.title" :class="getEventClasses(event, 'month-event')"></div>
-                                </template>
-                                <template x-if="getMoreEventsCount(day.date, 2) > 0">
-                                    <div class="text-xs text-blue-600 mt-1 hover:underline" x-text="'+' + getMoreEventsCount(day.date, 2) + ' more'"></div>
-                                </template>
-                            </div>
-                        </div>
-                    </template>
-                </div>
-            </template>
-            
-            <!-- Day View -->
-            <template x-if="view === 'day'">
-                <div>
-                    <div class="text-center font-semibold p-2 border-b text-lg" x-text="headerDate"></div>
-                    <div class="day-view-grid border-t border-gray-200">
-                        <div class="time-slot text-right pr-2 border-r border-gray-200">
-                             <template x-for="time in timeSlots" :key="time">
-                                 <div class="h-16 flex items-start justify-end pt-1 text-sm text-gray-500" x-text="time"></div>
+                        <template x-if="!isLoading && filteredBookings.length > 0">
+                            <template x-for="booking in filteredBookings" :key="booking.id">
+                                <tr>
+                                    <td class="px-2 sm:px-6 py-4">
+                                        <input type="checkbox" :value="booking.id" x-model="selectedBookings" class="rounded border-gray-300">
+                                    </td>
+                                    <td class="px-2 sm:px-6 py-4">
+                                        <div class="text-sm text-gray-900" x-text="booking.bookedOn"></div>
+                                        <div class="text-sm text-blue-600">
+                                            <a href="#" class="hover:underline" x-text="booking.bookingId"></a>
+                                        </div>
+                                    </td>
+                                    <td class="px-2 sm:px-6 py-4">
+                                        <div class="text-sm font-medium text-gray-900" x-text="booking.hall.type || 'Loading...'"></div>
+                                        <div class="text-sm font-bold text-blue-600" x-text="booking.hall.name"></div>
+                                        <div class="text-sm text-gray-500" x-text="booking.hall.owner || 'Loading...'"></div>
+                                    </td>
+                                    <td class="hidden lg:table-cell px-6 py-4">
+                                        <div class="text-sm text-gray-900" x-text="booking.purpose"></div>
+                                    </td>
+                                    <td class="px-2 sm:px-6 py-4">
+                                        <div class="text-sm text-gray-900" x-text="booking.dateTimeRange"></div>
+                                    </td>
+                                    <td class="px-2 sm:px-6 py-4">
+                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                                              :class="{ 
+                                                  'bg-red-100 text-red-800': booking.status.toLowerCase().includes('cancelled') || booking.status.toLowerCase().includes('rejected'),
+                                                  'bg-green-100 text-green-800': booking.status.toLowerCase().includes('approved') || booking.status.toLowerCase().includes('confirmed'),
+                                                  'bg-yellow-100 text-yellow-800': booking.status.toLowerCase().includes('pending')
+                                              }"
+                                              x-text="booking.status">
+                                        </span>
+                                    </td>
+                                </tr>
                             </template>
-                        </div>
-                        <div class="day-column relative border-t">
-                             <!-- FIX: Call formatLocalDate directly to ensure reactivity -->
-                             <template x-for="event in getEventsForDay(formatLocalDate(currentDate))" :key="event.id">
-                                 <div class="day-event" :style="getEventStyle(event)" x-text="event.title" :class="getEventClasses(event, 'day-event')"></div>
-                            </template>
-                        </div>
+                        </template>
+                        <template x-if="!isLoading && filteredBookings.length === 0">
+                            <tr>
+                                <td colspan="6" class="text-center py-10 text-gray-500">
+                                    You have no bookings.
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- All Modals -->
+        <div x-show="showDateFilterModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30" @click.away="showDateFilterModal = false" x-cloak>
+            <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md relative" @click.stop>
+                <button @click="showDateFilterModal = false" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800">
+                    <i class="fas fa-times fa-lg"></i>
+                </button>
+                <h3 class="text-2xl font-bold text-gray-800 mb-4">Filter by Booked Date</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label for="fromDate" class="block text-sm font-medium text-gray-700">From Date:</label>
+                        <input type="date" id="fromDate" x-model="filters.fromDate" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                    </div>
+                    <div>
+                        <label for="toDate" class="block text-sm font-medium text-gray-700">To Date:</label>
+                        <input type="date" id="toDate" x-model="filters.toDate" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
                     </div>
                 </div>
-            </template>
+                <div class="mt-6 text-right">
+                    <button @click="applyFilters()" class="bg-blue-600 text-white px-4 py-2 rounded-md shadow hover:bg-blue-700">Apply Filter</button>
+                </div>
+            </div>
+        </div>
+        
+        <div x-show="showHallFilterModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30" @click.away="showHallFilterModal = false" x-cloak>
+             <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md relative" @click.stop>
+                <button @click="showHallFilterModal = false" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800">
+                    <i class="fas fa-times fa-lg"></i>
+                </button>
+                <h3 class="text-2xl font-bold text-gray-800 mb-4">Filter by Hall</h3>
+                <div class="space-y-4">
+                     <div>
+                        <label for="hallName" class="block text-sm font-medium text-gray-700">Hall Name:</label>
+                        <select id="hallName" x-model="filters.hallName" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                            <option value="">-- Select Hall --</option>
+                            <template x-for="hall in uniqueHallNames" :key="hall">
+                                <option :value="hall" x-text="hall"></option>
+                            </template>
+                        </select>
+                    </div>
+                </div>
+                <div class="mt-6 text-right">
+                    <button @click="applyFilters()" class="bg-blue-600 text-white px-4 py-2 rounded-md shadow hover:bg-blue-700">Apply Filter</button>
+                </div>
+            </div>
+        </div>
+        
+        <div x-show="showDateTimeFilterModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30" @click.away="showDateTimeFilterModal = false" x-cloak>
+            <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md relative" @click.stop>
+                <button @click="showDateTimeFilterModal = false" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800">
+                    <i class="fas fa-times fa-lg"></i>
+                </button>
+                <h3 class="text-2xl font-bold text-gray-800 mb-4">Filter by Event Date</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label for="startDateTime" class="block text-sm font-medium text-gray-700">Start Date:</label>
+                        <input type="date" id="startDateTime" x-model="filters.startDateTime" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                    </div>
+                    <div>
+                        <label for="endDateTime" class="block text-sm font-medium text-gray-700">End Date:</label>
+                        <input type="date" id="endDateTime" x-model="filters.endDateTime" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                    </div>
+                </div>
+                <div class="mt-6 text-right">
+                    <button @click="applyFilters()" class="bg-blue-600 text-white px-4 py-2 rounded-md shadow hover:bg-blue-700">Apply Filter</button>
+                </div>
+            </div>
+        </div>
 
-            <!-- Legend -->
-            <div class="flex flex-wrap justify-center items-center gap-x-4 gap-y-2 mt-4 text-sm">
-                <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2" style="background-color: #fee2e2; border: 1px solid #fca5a5;"></span> Booked (Indv)</div>
-                <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2" style="background-color: #ffedd5; border: 1px solid #fdba74;"></span> Booked (Sem)</div>
-                <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2" style="background-color: #fef3c7; border: 1px solid #fcd34d;"></span> Pending (Indv)</div>
-                <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2" style="background-color: #c7d2fe; border: 1px solid #818cf8;"></span> Pending (Sem)</div>
+        <div x-show="showStatusFilterModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30" @click.away="showStatusFilterModal = false" x-cloak>
+            <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md relative" @click.stop>
+                <button @click="showStatusFilterModal = false" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800">
+                    <i class="fas fa-times fa-lg"></i>
+                </button>
+                <h3 class="text-2xl font-bold text-gray-800 mb-4">Filter by Status</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label for="status" class="block text-sm font-medium text-gray-700">Status:</label>
+                        <select id="status" x-model="filters.status" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                            <option value="">-- All Statuses --</option>
+                            <option value="CONFIRMED">Confirmed</option>
+                            <option value="PENDING_HOD_APPROVAL">Pending HOD Approval</option>
+                            <option value="PENDING_HALL_HOD_APPROVAL">Pending Hall HOD Approval</option>
+                            <option value="REJECTED_BY_HOD">Rejected by HOD</option>
+                            <option value="REJECTED_BY_HALL_HOD">Rejected by Hall HOD</option>
+                            <option value="CANCELLED">Cancelled</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mt-6 text-right">
+                    <button @click="applyFilters()" class="bg-blue-600 text-white px-4 py-2 rounded-md shadow hover:bg-blue-700">Apply Filter</button>
+                </div>
             </div>
         </div>
     </main>
 
-    <!-- Footer -->
     <div id="footer-placeholder"></div>
 
-    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <script>
-        function calendar() {
+        function myBookings() {
             return {
-                view: 'day',
-                currentDate: new Date(),
-                weekDays: [],
-                monthDays: [],
-                timeSlots: ['9:30AM', '10:30AM', '11:30AM', '12:30PM', '1:30PM', '2:30PM', '3:30PM', '4:30PM'],
-                events: [],
-                schoolOptions: [],
-                departmentOptions: [],
-                isLoading: { schools: true, departments: true, bookings: true },
-
+                isLoading: true,
+                selectedBookings: [],
+                showDateFilterModal: false,
+                showHallFilterModal: false,
+                showDateTimeFilterModal: false,
+                showStatusFilterModal: false,
+                filters: { fromDate: '', toDate: '', hallName: '', startDateTime: '', endDateTime: '', status: '' },
+                allBookings: [],
+                
                 async init() {
-                    if (!getAuthHeaders()) {
-                        logout();
-                        return;
-                    }
-                    await this.fetchSchools();
-                    await this.fetchDepartments();
-                    await this.fetchBookings();
-
-                    this.$watch('view', () => this.updateCalendar());
-                    this.updateCalendar();
+                    await this.fetchAndProcessBookings();
                 },
-
-                // --- NEW HELPER FUNCTIONS FOR ROBUST DATE HANDLING ---
-                // Parses a 'YYYY-MM-DD' string into a Date object in the local timezone.
-                parseLocalDate(dateString) {
-                    const [year, month, day] = dateString.split('-').map(Number);
-                    return new Date(year, month - 1, day);
-                },
-
-                // Formats a Date object into a 'YYYY-MM-DD' string in the local timezone.
-                formatLocalDate(date) {
-                    const year = date.getFullYear();
-                    const month = String(date.getMonth() + 1).padStart(2, '0');
-                    const day = String(date.getDate()).padStart(2, '0');
-                    return `${year}-${month}-${day}`;
-                },
-                // --- END HELPER FUNCTIONS ---
 
                 async fetchWithAuth(url, options = {}) {
                     const headers = getAuthHeaders();
@@ -251,229 +314,164 @@
                     return response.json();
                 },
 
-                async fetchSchools() { 
-                    this.isLoading.schools = true; 
+                async fetchAndProcessBookings() {
+                    this.isLoading = true;
                     try {
-                        const url = AppConfig.apiBaseUrl + AppConfig.endpoints.allschool;
-                        const data = await this.fetchWithAuth(url);
-                        this.schoolOptions = data.map(s => ({ value: s.unique_id, label: s.school_name }));
-                    } catch (e) { console.error("Could not load schools:", e.message); } 
-                    finally { this.isLoading.schools = false; } 
-                },
+                        const bookingUrl = AppConfig.apiBaseUrl + AppConfig.endpoints.myBookings;
+                        const bookingResult = await this.fetchWithAuth(bookingUrl);
+                        if (!bookingResult.success) throw new Error("Failed to fetch bookings.");
+                        
+                        const rawBookings = bookingResult.data;
+                        let processedBookings = rawBookings.map(item => this.mapInitialBookingData(item));
 
-                async fetchDepartments() { 
-                    this.isLoading.departments = true; 
-                    try {
-                        const url = AppConfig.apiBaseUrl + AppConfig.endpoints.alldept;
-                        const data = await this.fetchWithAuth(url);
-                        this.departmentOptions = data.map(d => ({ value: d.unique_id, label: d.department_name, schoolId: d.school_id }));
-                    } catch (e) { console.error("Could not load departments:", e.message); } 
-                    finally { this.isLoading.departments = false; } 
-                },
+                        const uniqueHallIds = [...new Set(rawBookings.map(b => b.hall_id))].filter(id => id);
+                        if (uniqueHallIds.length > 0) {
+                            const hallPromises = uniqueHallIds.map(id => 
+                                this.fetchWithAuth(`${AppConfig.apiBaseUrl}${AppConfig.endpoints.hall}/${id}`)
+                            );
+                            
+                            const hallResults = await Promise.all(hallPromises);
+                            const hallMap = new Map(hallResults.map(h => [h.unique_id, h]));
 
-                async fetchBookings() {
-                    this.isLoading.bookings = true;
-                    try {
-                        const url = AppConfig.apiBaseUrl + AppConfig.endpoints.myBookings;
-                        const result = await this.fetchWithAuth(url);
-
-                        if (result.success) {
-                            this.events = result.data
-                                .filter(item => item.status && !item.status.toUpperCase().includes('REJECTED'))
-                                .flatMap(item => {
-                                    if (item.booking_type === 'SEMESTER' && item.days_of_week && item.days_of_week.length > 0) {
-                                        return this.expandRecurringEvent(item);
-                                    } else {
-                                        return [{
-                                            id: item.id,
-                                            date: item.start_date.split('T')[0],
-                                            startTime: item.start_time,
-                                            endTime: item.end_time,
-                                            title: `${item.hall?.name || 'Unknown Hall'} - ${item.purpose}`,
-                                            status: item.status,
-                                            type: item.booking_type
-                                        }];
-                                    }
-                                });
-                        }
-                    } catch (error) {
-                        console.error('Failed to fetch bookings:', error.message);
-                    } finally {
-                        this.isLoading.bookings = false;
-                        this.updateCalendar();
-                    }
-                },
-
-                expandRecurringEvent(booking) {
-                    const expandedEvents = [];
-                    const dayMap = { "SUNDAY": 0, "MONDAY": 1, "TUESDAY": 2, "WEDNESDAY": 3, "THURSDAY": 4, "FRIDAY": 5, "SATURDAY": 6 };
-                    const targetDays = booking.days_of_week.map(day => dayMap[day.toUpperCase()]);
-
-                    // FIX: Ensure we only parse the date part of the string from the API.
-                    let currentDate = this.parseLocalDate(booking.start_date.split('T')[0]);
-                    const endDate = this.parseLocalDate(booking.end_date.split('T')[0]);
-
-                    while (currentDate <= endDate) {
-                        if (targetDays.includes(currentDate.getDay())) {
-                            const dateStr = this.formatLocalDate(currentDate);
-                            expandedEvents.push({
-                                id: `${booking.id}-${dateStr}`,
-                                date: dateStr,
-                                startTime: booking.start_time,
-                                endTime: booking.end_time,
-                                title: `${booking.hall?.name || 'Unknown Hall'} - ${booking.purpose}`,
-                                status: booking.status,
-                                type: booking.booking_type
+                            processedBookings = processedBookings.map(booking => {
+                                const hallDetails = hallMap.get(booking.hall.id);
+                                if (hallDetails) {
+                                    return this.mapEnrichedBookingData(booking, hallDetails);
+                                }
+                                return booking;
                             });
                         }
-                        currentDate.setDate(currentDate.getDate() + 1);
-                    }
-                    return expandedEvents;
-                },
+                        this.allBookings = processedBookings;
 
-                getEventClasses(event, prefix) {
-                    const status = event.status.toUpperCase();
-                    const type = event.type.toUpperCase();
-                    if (status.includes('PENDING')) {
-                        return type === 'INDIVIDUAL' ? `${prefix}-pending-individual` : `${prefix}-pending-semester`;
-                    } else { // Confirmed
-                        return type === 'INDIVIDUAL' ? `${prefix}-booked-individual` : `${prefix}-booked-semester`;
+                    } catch (error) {
+                        console.error('Failed to fetch and process bookings:', error.message);
+                    } finally {
+                        this.isLoading = false;
                     }
                 },
-
-                updateCalendar() {
-                    if (this.view === 'week') this.generateWeek();
-                    if (this.view === 'month') this.generateMonth();
+                
+                mapInitialBookingData(item) {
+                    return {
+                        id: item.id,
+                        bookedOn: new Date(item.created_at).toISOString().split('T')[0],
+                        bookingId: item.unique_id,
+                        hall: {
+                            id: item.hall_id,
+                            name: item.hall.name,
+                            type: 'Loading...',
+                            owner: 'Loading...'
+                        },
+                        purpose: item.purpose,
+                        dateTimeRange: this.formatDateTimeRange(item.start_date, item.start_time, item.end_date, item.end_time),
+                        rawStatus: item.status,
+                        status: this.formatStatus(item.status),
+                        startDateForFilter: item.start_date
+                    };
                 },
 
-                get headerDate() {
-                    if (this.view === 'month') {
-                        return this.currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                mapEnrichedBookingData(booking, hallDetails) {
+                    let hallOwner = 'N/A';
+                    if (hallDetails.belongs_to === 'DEPARTMENT' && hallDetails.department && hallDetails.department.department_name) {
+                        hallOwner = hallDetails.department.department_name;
+                    } else if (hallDetails.belongs_to === 'SCHOOL' && hallDetails.school && hallDetails.school.school_name) {
+                        hallOwner = hallDetails.school.school_name;
+                    } else if (hallDetails.belongs_to === 'ADMINISTRATION') {
+                        hallOwner = 'Administration';
                     }
-                    if (this.view === 'day') {
-                        return this.currentDate.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
-                    }
-                    if (this.view === 'week' && this.weekDays.length > 0) {
-                        const startOfWeek = this.parseLocalDate(this.weekDays[0].date);
-                        const endOfWeek = this.parseLocalDate(this.weekDays[6].date);
-                        const startMonth = startOfWeek.toLocaleDateString('en-US', { month: 'long' });
-                        const endMonth = endOfWeek.toLocaleDateString('en-US', { month: 'long' });
-                        if (startMonth === endMonth) {
-                            return `${startOfWeek.getDate()} - ${endOfWeek.getDate()} ${startMonth}, ${startOfWeek.getFullYear()}`;
+
+                    return {
+                        ...booking,
+                        hall: {
+                            ...booking.hall,
+                            type: this.formatHallType(hallDetails.type),
+                            owner: hallOwner
                         }
-                        return `${startOfWeek.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })} - ${endOfWeek.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}, ${endOfWeek.getFullYear()}`;
-                    }
-                    return '';
+                    };
                 },
 
-                get currentDateISO() {
-                    return this.formatLocalDate(this.currentDate);
+                formatDateTimeRange(startDate, startTime, endDate, endTime) {
+                    const start = `${new Date(startDate).toLocaleDateString('en-GB')} ${startTime}`;
+                    const end = `${new Date(endDate).toLocaleDateString('en-GB')} ${endTime}`;
+                    if (start === end) return start;
+                    return `${start} - ${end}`;
                 },
 
-                generateWeek() {
-                    const startOfWeek = new Date(this.currentDate);
-                    const dayOfWeek = startOfWeek.getDay();
-                    const diff = startOfWeek.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
-                    startOfWeek.setDate(diff);
-                    this.weekDays = [];
-                    const today = new Date();
-                    today.setHours(0,0,0,0);
-                    for (let i = 0; i < 7; i++) {
-                        const day = new Date(startOfWeek);
-                        day.setDate(startOfWeek.getDate() + i);
-                        this.weekDays.push({
-                            label: `${day.toLocaleDateString('en-US', { weekday: 'short' })} ${day.getDate()}/${day.getMonth() + 1}`,
-                            date: this.formatLocalDate(day),
-                            isToday: day.getTime() === today.getTime()
-                        });
-                    }
-                },
-
-                generateMonth() {
-                    this.monthDays = [];
-                    const year = this.currentDate.getFullYear();
-                    const month = this.currentDate.getMonth();
-                    const firstDayOfMonth = new Date(year, month, 1);
-                    const lastDayOfMonth = new Date(year, month + 1, 0);
-                    const firstDayOfWeek = firstDayOfMonth.getDay() === 0 ? 6 : firstDayOfMonth.getDay() - 1;
-                    const lastDayOfPrevMonth = new Date(year, month, 0).getDate();
-                    for (let i = firstDayOfWeek; i > 0; i--) {
-                        const day = lastDayOfPrevMonth - i + 1;
-                        const date = new Date(year, month - 1, day);
-                        this.monthDays.push({ date: this.formatLocalDate(date), dayNumber: day, isCurrentMonth: false });
-                    }
-                    const today = new Date();
-                    today.setHours(0,0,0,0);
-                    for (let i = 1; i <= lastDayOfMonth.getDate(); i++) {
-                        const date = new Date(year, month, i);
-                        this.monthDays.push({
-                            date: this.formatLocalDate(date),
-                            dayNumber: i,
-                            isCurrentMonth: true,
-                            isToday: date.getTime() === today.getTime()
-                        });
-                    }
-                    const lastDayOfWeek = lastDayOfMonth.getDay() === 0 ? 6 : lastDayOfMonth.getDay() - 1;
-                    let day = 1;
-                    for (let i = lastDayOfWeek; i < 6; i++) {
-                         const date = new Date(year, month + 1, day);
-                         this.monthDays.push({ date: this.formatLocalDate(date), dayNumber: day, isCurrentMonth: false });
-                         day++;
-                    }
+                formatStatus(status) {
+                    const statusMap = {
+                        'CONFIRMED': 'Confirmed',
+                        'PENDING_HOD_APPROVAL': 'Pending HOD Approval',
+                        'PENDING_HALL_HOD_APPROVAL': 'Pending Hall HOD Approval',
+                        'REJECTED_BY_HOD': 'Rejected by HOD',
+                        'REJECTED_BY_HALL_HOD': 'Rejected by Hall HOD',
+                        'CANCELLED': 'Cancelled'
+                    };
+                    return statusMap[status] || status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
                 },
                 
-                navigate(direction) {
-                    const increment = direction === 'next' ? 1 : -1;
-                    let newDate = new Date(this.currentDate);
-                    if (this.view === 'week') {
-                        newDate.setDate(newDate.getDate() + (7 * increment));
-                    }
-                    if (this.view === 'month') {
-                        newDate.setMonth(newDate.getMonth() + increment);
-                    }
-                     if (this.view === 'day') {
-                        newDate.setDate(newDate.getDate() + increment);
-                    }
-                    this.currentDate = newDate;
-                    this.updateCalendar();
+                formatHallType(type) {
+                    if (!type) return 'General Hall';
+                    return type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
                 },
 
-                goToToday() {
-                    this.currentDate = new Date();
-                    this.updateCalendar();
+                get uniqueHallNames() {
+                    const names = this.allBookings.map(b => b.hall.name);
+                    return [...new Set(names)];
+                },
+
+                get isFilterActive() {
+                    return Object.values(this.filters).some(value => value !== '');
+                },
+
+                get filteredBookings() {
+                    if (!this.isFilterActive) {
+                        return this.allBookings;
+                    }
+
+                    // --- REWRITTEN DATE FILTER LOGIC ---
+                    // Helper to parse YYYY-MM-DD without timezone issues
+                    const parseDate = (dateString) => {
+                        if (!dateString) return null;
+                        const [year, month, day] = dateString.split('-').map(Number);
+                        // Create date in UTC to avoid local timezone shifts
+                        return new Date(Date.UTC(year, month - 1, day));
+                    };
+
+                    const fromDate = parseDate(this.filters.fromDate);
+                    const toDate = parseDate(this.filters.toDate);
+                    const startDateTime = parseDate(this.filters.startDateTime);
+                    const endDateTime = parseDate(this.filters.endDateTime);
+                    
+                    return this.allBookings.filter(booking => {
+                        // Non-date filters
+                        if (this.filters.hallName && booking.hall.name !== this.filters.hallName) return false;
+                        if (this.filters.status && booking.rawStatus !== this.filters.status) return false;
+
+                        // Date filters
+                        const bookedDate = parseDate(booking.bookedOn);
+                        const bookingEventDate = parseDate(booking.startDateForFilter);
+
+                        if (fromDate && bookedDate < fromDate) return false;
+                        if (toDate && bookedDate > toDate) return false;
+                        if (startDateTime && bookingEventDate < startDateTime) return false;
+                        if (endDateTime && bookingEventDate > endDateTime) return false;
+
+                        return true;
+                    });
+                },
+
+                applyFilters() {
+                    this.showDateFilterModal = false;
+                    this.showHallFilterModal = false;
+                    this.showDateTimeFilterModal = false;
+                    this.showStatusFilterModal = false;
                 },
                 
-                switchToDayView(date) {
-                    this.currentDate = this.parseLocalDate(date);
-                    this.view = 'day';
-                },
-
-                getEventsForDay(date) {
-                    return this.events.filter(e => e.date === date);
-                },
-
-                getVisibleEvents(date, limit) {
-                    return this.getEventsForDay(date).slice(0, limit);
-                },
-
-                getMoreEventsCount(date, limit) {
-                    return Math.max(0, this.getEventsForDay(date).length - limit);
-                },
-
-                getEventStyle(event) {
-                    const calendarStartMinutes = 9 * 60 + 30;
-                    const eventStartParts = event.startTime.split(':');
-                    const eventStartMinutes = parseInt(eventStartParts[0]) * 60 + parseInt(eventStartParts[1]);
-                    const eventEndParts = event.endTime.split(':');
-                    const eventEndMinutes = parseInt(eventEndParts[0]) * 60 + parseInt(eventEndParts[1]);
-                    const minutesFromTop = eventStartMinutes - calendarStartMinutes;
-                    const durationMinutes = eventEndMinutes - eventStartMinutes;
-                    const top = (minutesFromTop / 60) * 4;
-                    const height = (durationMinutes / 60) * 4;
-                    return { top: `${top}rem`, height: `${height}rem` };
+                clearFilters() {
+                    this.filters = { fromDate: '', toDate: '', hallName: '', startDateTime: '', endDateTime: '', status: '' };
                 }
             }
         }
     </script>
+    <script src="layout.js"></script>
 </body>
 </html>
