@@ -115,7 +115,7 @@
         <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm text-center">
             <div x-show="$store.modal.isSuccess" class="text-5xl mb-4 text-green-500"><i class="fas fa-check-circle"></i></div>
             <div x-show="!$store.modal.isSuccess" class="text-5xl mb-4 text-red-500"><i class="fas fa-times-circle"></i></div>
-            <p class="text-lg font-semibold text-gray-800" x-text="$store.modal.message"></p>
+            <p class="text-lg font-semibold text-gray-800" x-html="$store.modal.message" role="alert"></p>
             <button @click="$store.modal.close()" class="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-md">OK</button>
         </div>
     </div>

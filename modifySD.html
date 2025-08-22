@@ -115,7 +115,7 @@
 
                     <!-- Message -->
                     <h3 class="text-2xl font-bold text-gray-800 mb-2" x-text="notificationSuccess ? 'Success!' : 'Error!'"></h3>
-                    <p class="text-gray-600 mb-6" x-text="notificationMessage"></p>
+                    <p class="text-gray-600 mb-6" x-html="notificationMessage"></p>
                     
                     <!-- Button -->
                     <button @click="closeNotification" 
@@ -307,13 +307,21 @@
 
                         const result = await response.json();
                         if (!response.ok) {
-                            throw new Error(result.message || `Update failed`);
+                            // Throw the entire result object to the catch block
+                            throw result;
                         }
                         
                         this.showCustomNotification('Update successful!', true);
 
                     } catch (error) {
-                        this.showCustomNotification(error.message, false);
+                        let errorMessage = 'An unexpected error occurred.';
+                        // Check for the new structured error format
+                        if (error && Array.isArray(error.errors) && error.errors.length > 0) {
+                            errorMessage = error.errors.map(e => e.message).join('<br>');
+                        } else if (error && error.message) {
+                            errorMessage = error.message;
+                        }
+                        this.showCustomNotification(errorMessage, false);
                         console.error('Update error:', error);
                     }
                 }
