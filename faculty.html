@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Faculty Dashboard - Hall Booking Schedule</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Assume config.js contains AppConfig -->
     <script src="config.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -142,13 +141,13 @@
 <body class="min-h-screen flex flex-col">
 
     <div id="nav-placeholder"></div>
-    <!-- Assume layout.js is present -->
     <script src="layout.js"></script>
     
-    <!-- Main Content: Calendar View -->
     <main class="flex-grow p-6">
-        <div class="container mx-auto bg-white p-4 rounded-lg shadow-xl" x-data="calendar()">
-            <!-- Calendar Header -->
+        <div class="container mx-auto bg-white p-4 rounded-lg shadow-xl" 
+             x-data="calendar()" 
+             @keydown.arrow-left.window="navigate('prev')" 
+             @keydown.arrow-right.window="navigate('next')">
             <div class="flex items-center justify-between mb-4">
                 <div class="flex items-center space-x-2">
                     <button @click="navigate('prev')" class="p-2 rounded hover:bg-gray-200 text-gray-600"><i class="fas fa-chevron-left"></i></button>
@@ -163,7 +162,6 @@
                 </div>
             </div>
 
-            <!-- Week View -->
             <template x-if="view === 'week'">
                 <div class="calendar-grid border-t border-gray-200">
                     <div class="time-slot text-right pr-2 border-r border-gray-200">
@@ -185,7 +183,6 @@
                 </div>
             </template>
 
-            <!-- Month View -->
             <template x-if="view === 'month'">
                 <div class="month-grid border-t border-l border-gray-200">
                     <template x-for="dayName in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']" :key="dayName">
@@ -207,7 +204,6 @@
                 </div>
             </template>
             
-            <!-- Day View (FIXED) -->
             <template x-if="view === 'day'">
                 <div class="border border-gray-200 rounded-lg">
                     <div class="text-center font-semibold p-3 border-b bg-gray-50 text-lg" 
@@ -215,7 +211,6 @@
                          x-text="getDayViewHeader()"></div>
                     
                     <div class="day-view-grid">
-                        <!-- Time Column -->
                         <div class="border-r border-gray-200 bg-gray-50">
                             <template x-for="(time, index) in timeSlots" :key="time">
                                 <div class="h-16 flex items-start justify-end pr-3 pt-1 text-sm text-gray-600 font-medium border-b border-gray-100"
@@ -224,16 +219,13 @@
                             </template>
                         </div>
                         
-                        <!-- Events Column -->
                         <div class="day-view-container relative">
-                            <!-- Time Grid Background -->
                             <div class="day-time-grid">
                                 <template x-for="(time, index) in timeSlots" :key="time">
                                     <div class="day-time-slot"></div>
                                 </template>
                             </div>
                             
-                            <!-- Events -->
                             <template x-for="event in dayEvents" :key="event.id">
                                 <div class="day-event" 
                                      :style="getEventStyle(event)" 
@@ -244,7 +236,6 @@
                                 </div>
                             </template>
                             
-                            <!-- No Events Message - Only show if not loading and no events -->
                             <template x-if="dayEvents.length === 0 && !isLoading.bookings && events.length > 0">
                                 <div class="absolute inset-0 flex items-center justify-center text-gray-500">
                                     <div class="text-center">
@@ -255,7 +246,6 @@
                                 </div>
                             </template>
                             
-                            <!-- No Events At All Message -->
                             <template x-if="events.length === 0 && !isLoading.bookings">
                                 <div class="absolute inset-0 flex items-center justify-center text-gray-500">
                                     <div class="text-center">
@@ -266,7 +256,6 @@
                                 </div>
                             </template>
                             
-                            <!-- Loading State -->
                             <template x-if="isLoading.bookings">
                                 <div class="absolute inset-0 flex items-center justify-center text-gray-500">
                                     <div class="text-center">
@@ -280,7 +269,6 @@
                 </div>
             </template>
 
-            <!-- Legend -->
             <div class="flex flex-wrap justify-center items-center gap-x-4 gap-y-2 mt-4 text-sm">
                 <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2" style="background-color: #fee2e2; border: 1px solid #fca5a5;"></span> Booked (Indv)</div>
                 <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2" style="background-color: #ffedd5; border: 1px solid #fdba74;"></span> Booked (Sem)</div>
@@ -290,7 +278,6 @@
         </div>
     </main>
 
-    <!-- Footer -->
     <div id="footer-placeholder"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
