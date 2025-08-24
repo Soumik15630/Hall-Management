@@ -71,11 +71,36 @@
              text-overflow: ellipsis;
         }
         
-        /* Color styles based on details.html */
+        /* Color styles - Updated for better visibility */
         .event-booked-individual { background-color: #fee2e2; border-left: 3px solid #fca5a5; color: #991b1b; }
         .event-booked-semester { background-color: #ffedd5; border-left: 3px solid #fdba74; color: #9a3412; }
         .event-pending-individual { background-color: #fef3c7; border-left: 3px solid #fcd34d; color: #92400e; }
         .event-pending-semester { background-color: #c7d2fe; border-left: 3px solid #818cf8; color: #3730a3; }
+
+        .day-event-booked-individual { 
+            background-color: #fecaca; 
+            border-left: 4px solid #ef4444; 
+            color: #7f1d1d; 
+            border-color: #ef4444;
+        }
+        .day-event-booked-semester { 
+            background-color: #fed7aa; 
+            border-left: 4px solid #f97316; 
+            color: #9a3412; 
+            border-color: #f97316;
+        }
+        .day-event-pending-individual { 
+            background-color: #fef3c7; 
+            border-left: 4px solid #f59e0b; 
+            color: #92400e; 
+            border-color: #f59e0b;
+        }
+        .day-event-pending-semester { 
+            background-color: #ddd6fe; 
+            border-left: 4px solid #8b5cf6; 
+            color: #5b21b6; 
+            border-color: #8b5cf6;
+        }
 
         .month-event-booked-individual { background-color: #fee2e2; color: #991b1b; border-left: 3px solid #fca5a5; }
         .month-event-booked-semester { background-color: #ffedd5; color: #9a3412; border-left: 3px solid #fdba74; }
@@ -214,18 +239,29 @@
                                      :style="getEventStyle(event)" 
                                      :class="getEventClasses(event, 'day-event')"
                                      :title="getEventTooltip(event)">
-                                    <div class="font-medium text-xs mb-1" x-text="getEventTimeRange(event)"></div>
-                                    <div class="text-xs" x-text="event.title"></div>
+                                    <div class="font-semibold text-xs mb-1" x-text="getEventTimeRange(event)"></div>
+                                    <div class="text-xs font-medium" x-text="event.title"></div>
                                 </div>
                             </template>
                             
-                            <!-- No Events Message -->
-                            <template x-if="dayEvents.length === 0 && !isLoading.bookings">
+                            <!-- No Events Message - Only show if not loading and no events -->
+                            <template x-if="dayEvents.length === 0 && !isLoading.bookings && events.length > 0">
                                 <div class="absolute inset-0 flex items-center justify-center text-gray-500">
                                     <div class="text-center">
                                         <i class="fas fa-calendar-day text-4xl mb-3 opacity-50"></i>
                                         <p class="text-lg">No bookings for this day</p>
                                         <p class="text-sm">Your hall bookings will appear here</p>
+                                    </div>
+                                </div>
+                            </template>
+                            
+                            <!-- No Events At All Message -->
+                            <template x-if="events.length === 0 && !isLoading.bookings">
+                                <div class="absolute inset-0 flex items-center justify-center text-gray-500">
+                                    <div class="text-center">
+                                        <i class="fas fa-calendar-plus text-4xl mb-3 opacity-50"></i>
+                                        <p class="text-lg">No bookings found</p>
+                                        <p class="text-sm">You don't have any hall bookings yet</p>
                                     </div>
                                 </div>
                             </template>
@@ -266,7 +302,7 @@
                 weekDays: [],
                 monthDays: [],
                 dayEvents: [],
-                timeSlots: ['9:30AM', '10:30AM', '11:30AM', '12:30PM', '1:30PM', '2:30PM', '3:30PM', '4:30PM'],
+                timeSlots: ['9:30AM', '10:30AM', '11:30AM', '12:30PM', '1:30PM', '2:30PM', '3:30PM', '4:30PM', '5:30PM'],
                 events: [],
                 schoolOptions: [],
                 departmentOptions: [],
@@ -384,15 +420,28 @@
                                     if (item.booking_type === 'SEMESTER' && item.days_of_week && item.days_of_week.length > 0) {
                                         return this.expandRecurringEvent(item);
                                     } else {
-                                        return [{
-                                            id: item.id,
-                                            date: item.start_date.split('T')[0],
-                                            startTime: item.start_time,
-                                            endTime: item.end_time,
-                                            title: `${item.hall?.name || 'Unknown Hall'} - ${item.purpose}`,
-                                            status: item.status,
-                                            type: item.booking_type
-                                        }];
+                                        // Handle individual bookings
+                                        const startDate = new Date(item.start_date);
+                                        const endDate = new Date(item.end_date);
+                                        const events = [];
+                                        
+                                        // Create events for each day in the date range
+                                        let currentDate = new Date(startDate);
+                                        while (currentDate <= endDate) {
+                                            const dateStr = this.formatLocalDate(currentDate);
+                                            events.push({
+                                                id: `${item.id}-${dateStr}`,
+                                                date: dateStr,
+                                                startTime: item.start_time,
+                                                endTime: item.end_time,
+                                                title: `${item.hall?.name || 'Unknown Hall'} - ${item.purpose}`,
+                                                status: item.status,
+                                                type: item.booking_type,
+                                                rawData: item // Keep original data for debugging
+                                            });
+                                            currentDate.setDate(currentDate.getDate() + 1);
+                                        }
+                                        return events;
                                     }
                                 });
                             
@@ -433,11 +482,17 @@
                 },
 
                 getEventClasses(event, prefix) {
-                    const status = event.status.toUpperCase();
-                    const type = event.type.toUpperCase();
+                    const status = event.status ? event.status.toUpperCase() : '';
+                    const type = event.type ? event.type.toUpperCase() : '';
+                    
+                    console.log(`Event classes for ${event.title}: status=${status}, type=${type}`); // Debug
+                    
                     if (status.includes('PENDING')) {
                         return type === 'INDIVIDUAL' ? `${prefix}-pending-individual` : `${prefix}-pending-semester`;
-                    } else { // Confirmed
+                    } else if (status.includes('CONFIRMED')) {
+                        return type === 'INDIVIDUAL' ? `${prefix}-booked-individual` : `${prefix}-booked-semester`;
+                    } else {
+                        // Default to booked if status is unclear
                         return type === 'INDIVIDUAL' ? `${prefix}-booked-individual` : `${prefix}-booked-semester`;
                     }
                 },
@@ -569,31 +624,44 @@
                 getEventStyle(event) {
                     const calendarStartMinutes = 9 * 60 + 30; // 9:30 AM in minutes
                     
-                    // Parse start time
+                    // Parse start time - handle "HH:MM" format
                     const startTimeParts = event.startTime.split(':');
                     const startHours = parseInt(startTimeParts[0]);
                     const startMinutes = parseInt(startTimeParts[1]);
                     const eventStartMinutes = startHours * 60 + startMinutes;
                     
-                    // Parse end time
+                    // Parse end time - handle "HH:MM" format  
                     const endTimeParts = event.endTime.split(':');
                     const endHours = parseInt(endTimeParts[0]);
                     const endMins = parseInt(endTimeParts[1]);
                     const eventEndMinutes = endHours * 60 + endMins;
                     
                     // Calculate position and height
-                    const minutesFromTop = eventStartMinutes - calendarStartMinutes;
+                    const minutesFromTop = Math.max(0, eventStartMinutes - calendarStartMinutes);
                     const durationMinutes = eventEndMinutes - eventStartMinutes;
                     
-                    // Convert to rem units (1 hour = 4rem, so 1 minute = 4/60 rem)
-                    const top = (minutesFromTop / 60) * 4; // 4rem per hour
-                    const height = Math.max((durationMinutes / 60) * 4, 0.5); // Minimum height of 0.5rem
+                    // Ensure the event doesn't go beyond our calendar view (9:30 AM to 5:30 PM = 8 hours)
+                    const calendarEndMinutes = 17 * 60 + 30; // 5:30 PM
+                    const adjustedEndMinutes = Math.min(eventEndMinutes, calendarEndMinutes);
+                    const adjustedDurationMinutes = adjustedEndMinutes - Math.max(eventStartMinutes, calendarStartMinutes);
+                    
+                    // Convert to rem units (1 hour = 4rem)
+                    const top = (minutesFromTop / 60) * 4;
+                    const height = Math.max((adjustedDurationMinutes / 60) * 4, 0.25); // Minimum height
+                    
+                    console.log(`Event ${event.title}: 
+                        Time: ${event.startTime}-${event.endTime}
+                        Duration: ${durationMinutes} minutes
+                        Adjusted Duration: ${adjustedDurationMinutes} minutes
+                        Position: top=${top}rem, height=${height}rem`);
                     
                     return { 
                         top: `${top}rem`, 
                         height: `${height}rem`,
-                        left: '4px',
-                        right: '4px'
+                        left: '2px',
+                        right: '2px',
+                        width: 'calc(100% - 4px)',
+                        position: 'absolute'
                     };
                 }
             }
