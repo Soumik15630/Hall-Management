@@ -801,48 +801,76 @@
                     if (!this.purpose.trim()) { Alpine.store('modal').open(false, 'Please provide a purpose for the booking.'); return; }
                     if (this.selectedTimes.length === 0) { Alpine.store('modal').open(false, 'Please select at least one time slot.'); return; }
 
-                    // Calculate end time based on the last selected slot
-                    const lastSlotStartTime = this.selectedTimes[this.selectedTimes.length - 1];
-                    const [hour, minute] = lastSlotStartTime.split(':').map(Number);
-                    const tempDate = new Date();
-                    tempDate.setUTCHours(hour, minute, 0, 0);
-                    tempDate.setUTCHours(tempDate.getUTCHours() + 1);
-                    const endHour = String(tempDate.getUTCHours()).padStart(2, '0');
-                    const endMinute = String(tempDate.getUTCMinutes()).padStart(2, '0');
-                    const actualEndTime = `${endHour}:${endMinute}`;
-                    
-                    // --- Payload Construction based on Booking Type ---
-                    let payload = {
-                        hall_id: this.hallId, // hall_id is a string (UUID)
-                        purpose: this.purpose.trim(),
-                        class_code: this.classCode.trim() || undefined, // Send undefined if empty
-                        booking_type: this.bookingType,
-                        start_time: this.selectedTimes[0],
-                        end_time: actualEndTime
-                    };
-
-                    if (this.bookingType === 'INDIVIDUAL') {
-                        if (!this.startDate) { Alpine.store('modal').open(false, 'Please select a date.'); return; }
-                        payload.start_date = new Date(this.startDate).toISOString();
-                        payload.end_date = new Date(this.startDate).toISOString(); // For individual, end_date is same as start_date
-                    } 
-                    else if (this.bookingType === 'SEMESTER') {
-                        if (!this.startDate || !this.endDate) { Alpine.store('modal').open(false, 'Please select a start and end date for semester booking.'); return; }
-                        if (this.selectedDays.length === 0) { Alpine.store('modal').open(false, 'Please select at least one day for a semester booking.'); return; }
-                        payload.start_date = new Date(this.startDate).toISOString();
-                        payload.end_date = new Date(this.endDate).toISOString();
-                        payload.days_of_week = this.selectedDays;
+                    // --- NEW LOGIC: Group selected times into contiguous blocks ---
+                    const sortedTimes = [...this.selectedTimes].sort();
+                    const bookingGroups = [];
+                    if (sortedTimes.length > 0) {
+                        let currentGroup = [sortedTimes[0]];
+                        for (let i = 1; i < sortedTimes.length; i++) {
+                            const prevTime = new Date(`1970-01-01T${currentGroup[currentGroup.length - 1]}:00Z`);
+                            const currentTime = new Date(`1970-01-01T${sortedTimes[i]}:00Z`);
+                            
+                            // Check if the difference is exactly 1 hour (3,600,000 milliseconds)
+                            if (currentTime.getTime() - prevTime.getTime() === 3600000) {
+                                currentGroup.push(sortedTimes[i]);
+                            } else {
+                                bookingGroups.push(currentGroup);
+                                currentGroup = [sortedTimes[i]];
+                            }
+                        }
+                        bookingGroups.push(currentGroup); // Add the last group
                     }
+                    
+                    // --- Create a booking promise for each group ---
+                    const bookingPromises = bookingGroups.map(group => {
+                        // Calculate end time for this specific group
+                        const lastSlotStartTime = group[group.length - 1];
+                        const [hour, minute] = lastSlotStartTime.split(':').map(Number);
+                        const tempDate = new Date();
+                        tempDate.setUTCHours(hour, minute, 0, 0);
+                        tempDate.setUTCHours(tempDate.getUTCHours() + 1);
+                        const endHour = String(tempDate.getUTCHours()).padStart(2, '0');
+                        const endMinute = String(tempDate.getUTCMinutes()).padStart(2, '0');
+                        const actualEndTime = `${endHour}:${endMinute}`;
 
-                    // --- API Call ---
-                    try {
+                        // --- Payload Construction for this group ---
+                        let payload = {
+                            hall_id: this.hallId,
+                            purpose: this.purpose.trim(),
+                            class_code: this.classCode.trim() || undefined,
+                            booking_type: this.bookingType,
+                            start_time: group[0], // Start time of this contiguous block
+                            end_time: actualEndTime // End time of this contiguous block
+                        };
+
+                        if (this.bookingType === 'INDIVIDUAL') {
+                            if (!this.startDate) { throw new Error('Please select a date.'); }
+                            payload.start_date = new Date(this.startDate).toISOString();
+                            payload.end_date = new Date(this.startDate).toISOString();
+                        } else if (this.bookingType === 'SEMESTER') {
+                            if (!this.startDate || !this.endDate) { throw new Error('Please select a start and end date for semester booking.'); }
+                            if (this.selectedDays.length === 0) { throw new Error('Please select at least one day for a semester booking.'); }
+                            payload.start_date = new Date(this.startDate).toISOString();
+                            payload.end_date = new Date(this.endDate).toISOString();
+                            payload.days_of_week = this.selectedDays;
+                        }
+
                         const url = AppConfig.apiBaseUrl + AppConfig.endpoints.bookingRequest;
-                        const result = await this.fetchWithAuth(url, { 
+                        return this.fetchWithAuth(url, { 
                             method: 'POST', 
                             body: JSON.stringify(payload) 
                         });
+                    });
+
+                    // --- API Call using Promise.all ---
+                    try {
+                        const results = await Promise.all(bookingPromises);
                         
-                        Alpine.store('modal').open(true, result.message || 'Booking request submitted successfully!');
+                        const successMessage = results.length > 1 
+                            ? `Successfully submitted ${results.length} booking requests.`
+                            : (results[0].message || 'Booking request submitted successfully!');
+
+                        Alpine.store('modal').open(true, successMessage);
                         this.resetForm();
                         
                         // Refresh schedule data after successful booking
