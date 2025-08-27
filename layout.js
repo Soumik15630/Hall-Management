@@ -196,6 +196,7 @@ const footerTemplate = `
 
 function getUserRole() {
     const token = sessionStorage.getItem('roleToken');
+    const name = sessionStorage.getItem('name');
     if (!token) { return null; }
     if (token.includes('.')) {
         try {
@@ -257,6 +258,7 @@ function loadLayout() {
                 'DASHBOARD_LINK': role === 'HOD' ? AppConfig.links.hodDash : AppConfig.links.facultyDash,
                 'BOOK_AND_BROWSE_LINK': AppConfig.links.bookAndBrowse, 'MY_BOOKINGS_LINK': AppConfig.links.myBookings,
             };
+            // REMOVE THE BROKEN LINE FROM HERE
             break;
         default:
             logout();
@@ -271,8 +273,21 @@ function loadLayout() {
     const navContainer = document.getElementById('nav-placeholder');
     if (navContainer) {
         navContainer.innerHTML = populatedNavHtml;
+        
+        // ADD THIS NEW LOGIC HERE
+        // Now that the HTML exists, find the role display element and update it.
         const roleDisplay = navContainer.querySelector('#user-role-desktop');
-        if(roleDisplay) roleDisplay.textContent = role;
+        if (roleDisplay) {
+            if (role === 'FACULTY' || role === 'HOD') {
+                const name = sessionStorage.getItem('name');
+                // Display the user's name if it exists, otherwise fall back to their role.
+                roleDisplay.textContent = name ? name.toUpperCase() : role;
+            } else {
+                // For ADMIN, just show the role.
+                roleDisplay.textContent = role;
+            }
+        }
+
         if (window.Alpine) { window.Alpine.initTree(navContainer); }
         highlightActiveLink();
     } else {

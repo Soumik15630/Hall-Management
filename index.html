@@ -380,10 +380,12 @@
       function handleSuccessfulLogin(result) {
         const token = result.token;
         const role = result.role;
+        const name = result.name;
 
         if (token) {
           sessionStorage.setItem("authToken", token);
           sessionStorage.setItem("roleToken", role);
+          sessionStorage.setItem("name", name);
           displayMessage("Login successful! Redirecting...", "success");
 
           setTimeout(() => {
