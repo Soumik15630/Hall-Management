@@ -107,7 +107,7 @@ window.ViewBookingsView = (function() {
                 toDate.setHours(23, 59, 59, 999);
                 if (new Date(b.created_at) > toDate) return false;
             }
-            if (hall.name && b.hall?.name !== hall.name) return false;
+            if (hall.name && !b.hall?.name.toLowerCase().includes(hall.name.toLowerCase())) return false;
             if (purpose && !b.purpose.toLowerCase().includes(purpose.toLowerCase())) return false;
             if (dateTime.from && new Date(b.start_date) < new Date(dateTime.from)) return false;
             if (dateTime.to) {
@@ -115,9 +115,9 @@ window.ViewBookingsView = (function() {
                 toDate.setHours(23, 59, 59, 999);
                 if (new Date(b.end_date) > toDate) return false;
             }
-            if (bookedBy.name && b.user?.employee?.employee_name !== bookedBy.name) return false;
-            if (belongsTo.school && b.school?.school_name !== belongsTo.school) return false;
-            if (belongsTo.department && b.department?.department_name !== belongsTo.department) return false;
+            if (bookedBy.name && !b.user?.employee?.employee_name.toLowerCase().includes(bookedBy.name.toLowerCase())) return false;
+            if (belongsTo.school && !b.school?.school_name.toLowerCase().includes(belongsTo.school.toLowerCase())) return false;
+            if (belongsTo.department && !b.department?.department_name.toLowerCase().includes(belongsTo.department.toLowerCase())) return false;
             if (status && b.status !== status) return false;
             
             return true;
@@ -270,7 +270,7 @@ window.ViewBookingsView = (function() {
                     <div>
                         <label for="filter-hall-name-input" class="block text-sm font-medium mb-1">Hall Name</label>
                         <div class="relative">
-                            <input type="text" id="filter-hall-name-input" class="glowing-input w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white" placeholder="Search for a hall..." autocomplete="off">
+                            <input type="text" id="filter-hall-name-input" class="glowing-input w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white" placeholder="Search for a hall..." autocomplete="off" value="${state.filters.hall.name}">
                             <div id="filter-hall-name-options" class="absolute z-20 w-full bg-slate-900 border border-slate-600 rounded-lg mt-1 hidden max-h-48 overflow-y-auto"></div>
                         </div>
                         <input type="hidden" id="filter-hall-name" value="${state.filters.hall.name}">
@@ -294,7 +294,7 @@ window.ViewBookingsView = (function() {
                     <div>
                         <label for="filter-user-name-input" class="block text-sm font-medium mb-1">User Name</label>
                         <div class="relative">
-                            <input type="text" id="filter-user-name-input" class="glowing-input w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white" placeholder="Search for a user..." autocomplete="off">
+                            <input type="text" id="filter-user-name-input" class="glowing-input w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white" placeholder="Search for a user..." autocomplete="off" value="${state.filters.bookedBy.name}">
                             <div id="filter-user-name-options" class="absolute z-20 w-full bg-slate-900 border border-slate-600 rounded-lg mt-1 hidden max-h-48 overflow-y-auto"></div>
                         </div>
                         <input type="hidden" id="filter-user-name" value="${state.filters.bookedBy.name}">
@@ -305,12 +305,12 @@ window.ViewBookingsView = (function() {
                  contentHtml = `
                     <div>
                         <label for="filter-school-input" class="block text-sm font-medium mb-1">School</label>
-                        <div class="relative"><input type="text" id="filter-school-input" class="glowing-input w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white" placeholder="Search..." autocomplete="off"><div id="filter-school-options" class="absolute z-20 w-full bg-slate-900 border border-slate-600 rounded-lg mt-1 hidden max-h-48 overflow-y-auto"></div></div>
+                        <div class="relative"><input type="text" id="filter-school-input" class="glowing-input w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white" placeholder="Search..." autocomplete="off" value="${state.filters.belongsTo.school}"><div id="filter-school-options" class="absolute z-20 w-full bg-slate-900 border border-slate-600 rounded-lg mt-1 hidden max-h-48 overflow-y-auto"></div></div>
                         <input type="hidden" id="filter-school" value="${state.filters.belongsTo.school}">
                     </div>
                     <div>
                         <label for="filter-department-input" class="block text-sm font-medium mb-1">Department</label>
-                        <div class="relative"><input type="text" id="filter-department-input" class="glowing-input w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white" placeholder="Search..." autocomplete="off"><div id="filter-department-options" class="absolute z-10 w-full bg-slate-900 border border-slate-600 rounded-lg mt-1 hidden max-h-48 overflow-y-auto"></div></div>
+                        <div class="relative"><input type="text" id="filter-department-input" class="glowing-input w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white" placeholder="Search..." autocomplete="off" value="${state.filters.belongsTo.department}"><div id="filter-department-options" class="absolute z-10 w-full bg-slate-900 border border-slate-600 rounded-lg mt-1 hidden max-h-48 overflow-y-auto"></div></div>
                         <input type="hidden" id="filter-department" value="${state.filters.belongsTo.department}">
                     </div>`;
                  break;
@@ -355,7 +355,8 @@ window.ViewBookingsView = (function() {
                 state.filters.bookedOn.to = form.querySelector('#filter-booked-to').value;
                 break;
             case 'hall':
-                state.filters.hall.name = form.querySelector('#filter-hall-name').value;
+                // FIX: Use the visible input's value directly as the filter.
+                state.filters.hall.name = form.querySelector('#filter-hall-name-input').value;
                 break;
             case 'purpose':
                 state.filters.purpose = form.querySelector('#filter-purpose').value;
@@ -365,11 +366,13 @@ window.ViewBookingsView = (function() {
                 state.filters.dateTime.to = form.querySelector('#filter-datetime-to').value;
                 break;
             case 'bookedBy':
-                state.filters.bookedBy.name = form.querySelector('#filter-user-name').value;
+                 // FIX: Use the visible input's value directly as the filter.
+                state.filters.bookedBy.name = form.querySelector('#filter-user-name-input').value;
                 break;
             case 'belongsTo':
-                state.filters.belongsTo.school = form.querySelector('#filter-school').value;
-                state.filters.belongsTo.department = form.querySelector('#filter-department').value;
+                // FIX: Use the visible inputs' values directly as the filter.
+                state.filters.belongsTo.school = form.querySelector('#filter-school-input').value;
+                state.filters.belongsTo.department = form.querySelector('#filter-department-input').value;
                 break;
             case 'status':
                 state.filters.status = form.querySelector('#filter-status').value;
@@ -422,8 +425,11 @@ window.ViewBookingsView = (function() {
 
         try {
             state.allBookings = await fetchViewBookingsData() || [];
-            // Pre-fetch school/dept data for filtering
-            await getSchoolsAndDepartments();
+            // FIX: Pre-fetch all necessary data for filtering to improve responsiveness.
+            await Promise.all([
+                getSchoolsAndDepartments(),
+                getEmployees()
+            ]);
             applyFiltersAndRender();
             setupEventHandlers();
         } catch (error) {

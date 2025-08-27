@@ -7,7 +7,6 @@ window.ApproveBookingsView = (function() {
         purpose: '',
         dateTime: { from: '', to: '' },
         bookedBy: { name: '' }
-        // Status filter is removed as this view only shows pending items.
     });
 
     let state = {
@@ -24,7 +23,7 @@ window.ApproveBookingsView = (function() {
         const text = status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
         let className = 'text-yellow-400';
         if (status.includes('REJECTED')) className = 'text-red-400';
-        else if (status.includes('APPROVED')) className = 'text-green-400';
+        else if (status.includes('APPROVED') || status.includes('CONFIRMED')) className = 'text-green-400';
         return { text, className };
     }
 
@@ -65,13 +64,19 @@ window.ApproveBookingsView = (function() {
         return employees;
     }
 
+    /**
+     * Fetches booking requests that require direct approval by the HOD.
+     * This includes internal requests and requests forwarded from other departments.
+     */
     async function fetchApprovalData() {
-        return await fetchFromAPI(AppConfig.endpoints.pendingApprovals);
+        // UPDATED: Use the new consolidated endpoint with the 'internal' filter
+        // to get both internal and external (forwarded-in) requests.
+        return await fetchFromAPI('api/booking/approvals?filter=internal');
     }
 
-    async function updateBookingStatus(bookingId, status) {
-        const action = status === 'APPROVED' ? 'approve' : 'reject';
-        const endpoint = `${AppConfig.endpoints.booking}/${bookingId}/${action}`;
+    async function updateBookingStatus(bookingId, action) {
+        // The actions 'approve' and 'reject' remain the same.
+        const endpoint = `api/booking/${bookingId}/${action}`;
         return await fetchFromAPI(endpoint, { method: 'PUT' });
     }
     
@@ -119,6 +124,11 @@ window.ApproveBookingsView = (function() {
             const startDateTime = new Date(`${booking.start_date.substring(0, 10)}T${booking.start_time}`);
             const endDateTime = new Date(`${booking.end_date.substring(0, 10)}T${booking.end_time}`);
             const statusInfo = formatStatus(booking.status);
+            
+            // NEW: Add a visual indicator for requests forwarded from other departments.
+            const externalIndicator = booking.is_external_approval 
+                ? `<span class="ml-2 text-xs font-semibold bg-purple-600 text-white px-2 py-1 rounded-full">External</span>` 
+                : '';
 
             return `
             <tr class="hover:bg-slate-800/50 transition-colors" data-booking-id="${booking.unique_id}">
@@ -128,13 +138,13 @@ window.ApproveBookingsView = (function() {
                     <div class="text-slate-400 text-xs break-all">${booking.hall_id}</div>
                 </td>
                 <td class="px-3 py-4 text-sm">
-                    <div class="font-medium text-white">${booking.purpose}</div>
+                    <div class="font-medium text-white">${booking.purpose}${externalIndicator}</div>
                     <div class="text-slate-400">${booking.class_code || ''}</div>
                 </td>
                 <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300">${startDateTime.toLocaleString()} - ${endDateTime.toLocaleTimeString()}</td>
                 <td class="px-3 py-4 text-sm">
                     <div class="font-medium text-white">${userName}</div>
-                    <div class="text-slate-400 text-xs break-all">${booking.user_id}</div>
+                    <div class="text-slate-400 text-xs break-all">${booking.user?.employee?.department_name || 'N/A'}</div>
                 </td>
                 <td class="px-3 py-4 text-sm font-semibold ${statusInfo.className}">${statusInfo.text}</td>
                 <td class="px-3 py-4 text-sm">
@@ -167,7 +177,7 @@ window.ApproveBookingsView = (function() {
         });
     }
 
-    // --- MODAL HANDLING (ADAPTED FROM viewBookings.js) ---
+    // --- MODAL & EVENT HANDLING (No changes needed here) ---
     function openModal(modalId) {
         const modal = document.getElementById(modalId);
         const backdrop = document.getElementById('modal-backdrop');
@@ -306,23 +316,20 @@ window.ApproveBookingsView = (function() {
         closeModal();
     }
 
-    // --- EVENT HANDLING ---
     async function handleBookingAction(bookingId, action) {
-        const status = action === 'approve' ? 'APPROVED' : 'REJECTED';
         const row = document.querySelector(`tr[data-booking-id="${bookingId}"]`);
         if (row) {
             row.style.opacity = '0.5';
             row.querySelectorAll('button').forEach(btn => btn.disabled = true);
         }
         try {
-            await updateBookingStatus(bookingId, status);
-            // Remove the booking from the state and re-render to avoid a full API call
+            await updateBookingStatus(bookingId, action);
             state.bookings = state.bookings.filter(b => b.unique_id !== bookingId);
             applyFiltersAndRender();
         } catch (error) {
             console.error(`Failed to ${action} booking:`, error);
             alert(`Error: Could not ${action} the booking.`);
-            if (row) { // Restore row on failure
+            if (row) {
                 row.style.opacity = '1';
                 row.querySelectorAll('button').forEach(btn => btn.disabled = false);
             }
@@ -336,7 +343,6 @@ window.ApproveBookingsView = (function() {
         const view = document.getElementById('approve-bookings-view');
         if (!view) return;
 
-        // This listener for opening modals remains the same.
         view.addEventListener('click', e => {
             const filterIcon = e.target.closest('.filter-icon');
             if (filterIcon) openFilterModalFor(filterIcon.dataset.filterColumn);
@@ -347,31 +353,14 @@ window.ApproveBookingsView = (function() {
             }
         }, { signal });
 
-        // **MODIFIED PART STARTS HERE**
-        // This listener is now attached to the document for robustness.
-        document.addEventListener('click', e => {
-            // First, check if the click originated from within our modal container.
-            const modalContainer = e.target.closest('#filter-modal-container');
-            if (!modalContainer) return;
-
+        document.getElementById('filter-modal-container')?.addEventListener('click', e => {
             const button = e.target.closest('button');
             if (!button) return;
-
-            const action = button.dataset.action;
-            const column = button.dataset.column;
-
-            // Use a clearer if/else if structure to handle actions.
-            if (action === 'apply-filter') {
-                handleApplyFilter(column);
-            } else if (action === 'clear-filter') {
-                handleClearFilter(column);
-            } else if (button.classList.contains('modal-close-btn')) {
-                closeModal();
-            }
+            if (button.dataset.action === 'apply-filter') handleApplyFilter(button.dataset.column);
+            if (button.dataset.action === 'clear-filter') handleClearFilter(button.dataset.column);
+            if (button.classList.contains('modal-close-btn')) closeModal();
         }, { signal });
-        // **MODIFIED PART ENDS HERE**
 
-        // This listener for the main table body remains the same.
         document.getElementById('approve-bookings-body')?.addEventListener('click', e => {
             const button = e.target.closest('button[data-action]');
             if (!button || button.disabled) return;
@@ -392,7 +381,7 @@ window.ApproveBookingsView = (function() {
         try {
             const data = await fetchApprovalData();
             state.bookings = Array.isArray(data) ? data : [];
-            await getEmployees(); // Pre-fetch employees for filtering
+            await getEmployees();
             applyFiltersAndRender();
             setupEventHandlers();
         } catch (error) {

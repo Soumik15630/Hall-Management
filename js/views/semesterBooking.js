@@ -28,6 +28,13 @@ window.SemesterBookingView = (function() {
         1: '09:30-10:30', 2: '10:30-11:30', 3: '11:30-12:30', 4: '12:30-01:30',
         5: '01:30-02:30', 6: '02:30-03:30', 7: '03:30-04:30', 8: '04:30-05:30'
     };
+    // Added a 24-hour format map to ensure time is sent to the backend unambiguously.
+    const PERIOD_TIMES_24H = {
+        1: { start: '09:30', end: '10:30' }, 2: { start: '10:30', end: '11:30' },
+        3: { start: '11:30', end: '12:30' }, 4: { start: '12:30', end: '13:30' },
+        5: { start: '13:30', end: '14:30' }, 6: { start: '14:30', end: '15:30' },
+        7: { start: '15:30', end: '16:30' }, 8: { start: '16:30', end: '17:30' }
+    };
     const SESSION_STORAGE_KEY = 'semesterBookingState';
 
     // --- STATE MANAGEMENT ---
@@ -42,21 +49,37 @@ window.SemesterBookingView = (function() {
     // --- API & DATA HANDLING ---
     async function fetchFromAPI(endpoint, options = {}, isJson = true) {
         const headers = getAuthHeaders();
-        if (!headers) { logout(); throw new Error("User not authenticated"); }
+        if (!headers) { 
+            logout(); 
+            throw new Error("User not authenticated"); 
+        }
         const fullUrl = AppConfig.apiBaseUrl + endpoint;
         const config = { ...options, headers };
-        const response = await fetch(fullUrl, config);
-        if (!response.ok) { 
-            const errorText = await response.text();
-            throw new Error(`API Error on ${endpoint}: ${response.status} - ${errorText}`);
+        
+        try {
+            const response = await fetch(fullUrl, config);
+            
+            if (!response.ok) { 
+                const errorText = await response.text();
+                throw new Error(`API Error on ${endpoint}: ${response.status} - ${errorText}`);
+            }
+
+            if (isJson) {
+                const text = await response.text();
+                if (!text) return null;
+                try {
+                    const result = JSON.parse(text);
+                    return result.data || result;
+                } catch (e) {
+                    console.error(`Failed to parse JSON from ${endpoint}:`, text);
+                    throw new Error(`Invalid JSON response from server on endpoint ${endpoint}.`);
+                }
+            }
+            return response;
+        } catch (error) {
+            console.error(`Network or other error fetching from ${endpoint}:`, error);
+            throw error; // Re-throw the error to be caught by the calling function
         }
-        if (isJson) {
-            const text = await response.text();
-            if (!text) return null;
-            const result = JSON.parse(text);
-            return result.data || result;
-        }
-        return response;
     }
     
     function formatTitleCase(str) {
@@ -121,38 +144,33 @@ window.SemesterBookingView = (function() {
         return groupedHalls;
     }
 
-    /**
-     * MODIFIED FUNCTION
-     * This function now includes a crucial fix to handle invalid time data from the server.
-     * If a booking's `end_time` is earlier than its `start_time`, it assumes a PM/AM mix-up
-     * and adds 12 hours to the end time to correct it.
-     */
     function processBookingsIntoTimetable(bookings) {
         const timetable = {};
         const dayMap = { 0: 'SUNDAY', 1: 'MONDAY', 2: 'TUESDAY', 3: 'WEDNESDAY', 4: 'THURSDAY', 5: 'FRIDAY', 6: 'SATURDAY' };
         
         const periodTimeObjects = {
-            1: { start: 9.5, end: 10.5 },
-            2: { start: 10.5, end: 11.5 },
-            3: { start: 11.5, end: 12.5 },
-            4: { start: 12.5, end: 13.5 },
-            5: { start: 13.5, end: 14.5 },
-            6: { start: 14.5, end: 15.5 },
-            7: { start: 15.5, end: 16.5 },
-            8: { start: 16.5, end: 17.5 },
+            1: { start: 9.5, end: 10.5 }, 2: { start: 10.5, end: 11.5 },
+            3: { start: 11.5, end: 12.5 }, 4: { start: 12.5, end: 13.5 },
+            5: { start: 13.5, end: 14.5 }, 6: { start: 14.5, end: 15.5 },
+            7: { start: 15.5, end: 16.5 }, 8: { start: 16.5, end: 17.5 },
         };
 
         bookings.forEach(booking => {
+            if (!booking.start_time || !booking.end_time) {
+                console.warn("Skipping booking with invalid time:", booking);
+                return;
+            }
             const startDate = new Date(booking.start_time);
-            let endDate = new Date(booking.end_time); // Use 'let' to allow modification
+            let endDate = new Date(booking.end_time);
 
-            // --- FIX: Correct for invalid end times from the server ---
-            // If the end time is earlier than the start time, it likely means PM was intended.
-            // Add 12 hours to correct it (e.g., 2:30 becomes 14:30).
+            if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+                console.warn("Skipping booking with invalid date:", booking);
+                return;
+            }
+
             if (endDate < startDate) {
                 endDate.setUTCHours(endDate.getUTCHours() + 12);
             }
-            // --- END FIX ---
 
             const classCode = booking.bookingRequest?.class_code || 'Booked';
             const dayOfWeek = dayMap[startDate.getUTCDay()];
@@ -166,7 +184,6 @@ window.SemesterBookingView = (function() {
             const bookingEndHour = endDate.getUTCHours() + endDate.getUTCMinutes() / 60;
 
             for (const [period, times] of Object.entries(periodTimeObjects)) {
-                // Check for overlapping time ranges: (StartA < EndB) and (EndA > StartB)
                 if (times.start < bookingEndHour && times.end > bookingStartHour) {
                      timetable[dayOfWeek][period] = classCode;
                 }
@@ -178,7 +195,7 @@ window.SemesterBookingView = (function() {
 
     async function fetchAndApplyTimetable(hallId) {
         const hall = findHallById(hallId);
-        if (!hall || hall.timetable) return;
+        if (!hall) return;
     
         try {
             const bookings = await fetchFromAPI(`api/booking/hall/${hallId}`);
@@ -193,23 +210,27 @@ window.SemesterBookingView = (function() {
         if (state.employeeData && state.employeeData.length > 0) {
             return state.employeeData;
         }
+        try {
+            const [rawEmployees, schools, departments] = await Promise.all([
+                fetchRawEmployees(),
+                fetchRawSchools(),
+                fetchRawDepartments()
+            ]);
+            
+            const schoolMap = new Map(schools.map(s => [s.unique_id, s.school_name]));
+            const departmentMap = new Map(departments.map(d => [d.unique_id, d.department_name]));
 
-        const [rawEmployees, schools, departments] = await Promise.all([
-            fetchRawEmployees(),
-            fetchRawSchools(),
-            fetchRawDepartments()
-        ]);
-        
-        const schoolMap = new Map(schools.map(s => [s.unique_id, s.school_name]));
-        const departmentMap = new Map(departments.map(d => [d.unique_id, d.department_name]));
-
-        state.employeeData = rawEmployees.map(emp => ({
-            id: emp.unique_id, name: emp.employee_name, email: emp.employee_email,
-            phone: emp.employee_mobile, designation: emp.designation,
-            department: departmentMap.get(emp.department_id) || 'N/A',
-            school: schoolMap.get(emp.school_id) || 'N/A'
-        }));
-        return state.employeeData;
+            state.employeeData = rawEmployees.map(emp => ({
+                id: emp.unique_id, name: emp.employee_name, email: emp.employee_email,
+                phone: emp.employee_mobile, designation: emp.designation,
+                department: departmentMap.get(emp.department_id) || 'N/A',
+                school: schoolMap.get(emp.school_id) || 'N/A'
+            }));
+            return state.employeeData;
+        } catch (error) {
+            console.error("Failed to fetch employee data:", error);
+            return []; // Return empty array on failure
+        }
     }
 
     async function addSemesterBooking(bookingDetails) {
@@ -221,27 +242,38 @@ window.SemesterBookingView = (function() {
 
     function saveStateToSession() {
         if (!state.selectedHallId) return;
-        const currentHallState = state.hallStates[state.selectedHallId] || { selectedSlots: [], formDetails: {} };
-        currentHallState.formDetails = {
-            startDate: document.getElementById('start-date')?.value,
-            endDate: document.getElementById('end-date')?.value,
-            purpose: document.getElementById('booking-purpose')?.value,
-            title: document.getElementById('course-title')?.value,
-            faculty: document.getElementById('faculty-select')?.value,
-        };
-        state.hallStates[state.selectedHallId] = currentHallState;
-        sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
-            selectedHallId: state.selectedHallId,
-            hallStates: state.hallStates
-        }));
+        try {
+            const currentHallState = state.hallStates[state.selectedHallId] || { selectedSlots: [], formDetails: {} };
+            currentHallState.formDetails = {
+                startDate: document.getElementById('start-date')?.value,
+                endDate: document.getElementById('end-date')?.value,
+                purpose: document.getElementById('booking-purpose')?.value,
+                title: document.getElementById('course-title')?.value,
+                faculty: document.getElementById('faculty-select')?.value,
+            };
+            state.hallStates[state.selectedHallId] = currentHallState;
+            sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+                selectedHallId: state.selectedHallId,
+                hallStates: state.hallStates
+            }));
+        } catch (e) {
+            console.error("Failed to save state to session storage:", e);
+        }
     }
 
     function loadStateFromSession() {
-        const savedState = sessionStorage.getItem(SESSION_STORAGE_KEY);
-        if (savedState) {
-            const parsedState = JSON.parse(savedState);
-            state.selectedHallId = parsedState.selectedHallId;
-            state.hallStates = parsedState.hallStates || {};
+        try {
+            const savedState = sessionStorage.getItem(SESSION_STORAGE_KEY);
+            if (savedState) {
+                const parsedState = JSON.parse(savedState);
+                state.selectedHallId = parsedState.selectedHallId;
+                state.hallStates = parsedState.hallStates || {};
+            }
+        } catch (e) {
+            console.error("Failed to load state from session storage:", e);
+            sessionStorage.removeItem(SESSION_STORAGE_KEY);
+            state.selectedHallId = null;
+            state.hallStates = {};
         }
     }
     
@@ -327,7 +359,7 @@ window.SemesterBookingView = (function() {
             periods.forEach(period => {
                 const courseCode = hall.timetable?.[backendDayKey]?.[period];
                 const isBooked = !!courseCode;
-                const isSelected = selectedSlots.some(s => s.day === day && s.period === period);
+                const isSelected = selectedSlots && selectedSlots.some(s => s.day === day && s.period === period);
                 
                 let cellClass, cellContent = '', cellTitle = '';
     
@@ -352,7 +384,7 @@ window.SemesterBookingView = (function() {
     }
 
     function renderSelectedSlotsSummary(selectedSlots) {
-        if (selectedSlots.length === 0) return '<p class="text-slate-500 text-sm p-2">No slots selected.</p>';
+        if (!selectedSlots || selectedSlots.length === 0) return '<p class="text-slate-500 text-sm p-2">No slots selected.</p>';
         return selectedSlots.map(s => `
             <div class="selected-slot-pill bg-sky-600 text-white text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-2">
                 <span>${s.day}, P${s.period} (${PERIOD_TIMES[s.period]})</span>
@@ -436,10 +468,19 @@ window.SemesterBookingView = (function() {
         const hallId = state.selectedHallId;
         if (!hallId) return;
         if (!state.hallStates[hallId]) state.hallStates[hallId] = { selectedSlots: [], formDetails: {} };
+        
+        // Ensure selectedSlots is an array
+        if (!Array.isArray(state.hallStates[hallId].selectedSlots)) {
+            state.hallStates[hallId].selectedSlots = [];
+        }
+
         const slots = state.hallStates[hallId].selectedSlots;
-        const index = slots.findIndex(s => s.day === day && s.period == period); // Use '==' for loose comparison as data-period can be a string
-        if (index > -1) slots.splice(index, 1);
-        else slots.push({ day, period: parseInt(period, 10) });
+        const index = slots.findIndex(s => s.day === day && s.period == period);
+        if (index > -1) {
+            slots.splice(index, 1);
+        } else {
+            slots.push({ day, period: parseInt(period, 10) });
+        }
         saveStateToSession();
         renderBookingPanel();
     }
@@ -449,7 +490,7 @@ window.SemesterBookingView = (function() {
         if (!hallId) { alert('Please select a hall.'); return; }
 
         const currentHallState = state.hallStates[hallId];
-        if (!currentHallState || currentHallState.selectedSlots.length === 0) {
+        if (!currentHallState || !currentHallState.selectedSlots || currentHallState.selectedSlots.length === 0) {
             alert('Please select at least one time slot.'); return;
         }
 
@@ -475,8 +516,10 @@ window.SemesterBookingView = (function() {
         const allPeriods = currentHallState.selectedSlots.map(s => s.period);
         const minPeriod = Math.min(...allPeriods);
         const maxPeriod = Math.max(...allPeriods);
-        const start_time = PERIOD_TIMES[minPeriod].split('-')[0];
-        const end_time = PERIOD_TIMES[maxPeriod].split('-')[1];
+        
+        // FIX: Use 24-hour format to prevent time ambiguity on the backend
+        const start_time = PERIOD_TIMES_24H[minPeriod].start;
+        const end_time = PERIOD_TIMES_24H[maxPeriod].end;
 
         const payload = {
             hall_id: hallId,
@@ -505,7 +548,27 @@ window.SemesterBookingView = (function() {
             clearCurrentHallState();
         } catch (error) {
             console.error('Booking submission error:', error);
-            alert(`Failed to submit booking request: ${error.message}`);
+            let alertMessage = `Failed to submit booking request.`;
+
+            if (error.message && error.message.includes('409')) {
+                try {
+                    const jsonStartIndex = error.message.indexOf('{');
+                    if (jsonStartIndex !== -1) {
+                        const jsonString = error.message.substring(jsonStartIndex);
+                        const errorDetails = JSON.parse(jsonString);
+                        alertMessage = `Booking Conflict: ${errorDetails.message || 'The hall is already booked for the selected time.'}`;
+                    } else {
+                         alertMessage = 'Booking Conflict: The hall is already booked for the selected time.';
+                    }
+                } catch (parseError) {
+                    console.error("Could not parse conflict error JSON:", parseError);
+                    alertMessage = 'Booking Conflict: The hall is already booked for the selected time.';
+                }
+            } else if (error.message) {
+                alertMessage += `\nDetails: ${error.message}`;
+            }
+            
+            alert(alertMessage);
         } finally {
             if(submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit'; }
         }
@@ -514,13 +577,17 @@ window.SemesterBookingView = (function() {
     function setupEventHandlers() {
         if (abortController) abortController.abort();
         abortController = new AbortController();
-        document.getElementById('semester-halls-panel')?.addEventListener('click', handleHallClick, { signal: abortController.signal });
+        const panel = document.getElementById('semester-halls-panel');
+        if (panel) {
+            panel.addEventListener('click', handleHallClick, { signal: abortController.signal });
+        }
     }
     
     function setupBookingPanelHandlers() {
         lucide.createIcons();
         const panel = document.getElementById('booking-panel-container');
         if(!panel) return;
+
         panel.querySelector('#interactive-timetable')?.addEventListener('click', e => {
             const slot = e.target.closest('.timetable-slot.available, .timetable-slot.selected');
             if (slot) toggleSlotSelection(slot.dataset.day, slot.dataset.period);
@@ -535,7 +602,7 @@ window.SemesterBookingView = (function() {
         const facultyInput = document.getElementById('faculty-select-input');
         const facultyOptions = document.getElementById('faculty-select-options');
         const facultyHidden = document.getElementById('faculty-select');
-        if (facultyInput) {
+        if (facultyInput && facultyOptions && facultyHidden) {
             facultyInput.addEventListener('focus', async () => {
                 await fetchEmployeeData();
                 populateFacultyDropdown(facultyInput.value);
@@ -554,16 +621,23 @@ window.SemesterBookingView = (function() {
         }
         
         const details = state.hallStates[state.selectedHallId]?.formDetails || {};
-        document.getElementById('start-date').value = details.startDate || new Date().toISOString().slice(0,10);
-        document.getElementById('end-date').value = details.endDate || '';
-        document.getElementById('booking-purpose').value = details.purpose || 'Class';
-        document.getElementById('course-title').value = details.title || '';
+        const startDateEl = document.getElementById('start-date');
+        if(startDateEl) startDateEl.value = details.startDate || new Date().toISOString().slice(0,10);
+        const endDateEl = document.getElementById('end-date');
+        if(endDateEl) endDateEl.value = details.endDate || '';
+        const purposeEl = document.getElementById('booking-purpose');
+        if(purposeEl) purposeEl.value = details.purpose || 'Class';
+        const titleEl = document.getElementById('course-title');
+        if(titleEl) titleEl.value = details.title || '';
+
         if (details.faculty) {
              handleFacultyChange(details.faculty);
              const facultyMember = state.employeeData.find(e => e.email === details.faculty);
              if (facultyMember) {
-                 document.getElementById('faculty-select-input').value = facultyMember.name;
-                 document.getElementById('faculty-select').value = facultyMember.email;
+                 const facultyInputEl = document.getElementById('faculty-select-input');
+                 if(facultyInputEl) facultyInputEl.value = facultyMember.name;
+                 const facultySelectEl = document.getElementById('faculty-select');
+                 if(facultySelectEl) facultySelectEl.value = facultyMember.email;
              }
         }
         panel.querySelectorAll('input, select').forEach(el => el.addEventListener('change', saveStateToSession));
@@ -574,11 +648,11 @@ window.SemesterBookingView = (function() {
         const emailInput = document.getElementById('faculty-email');
         if (selectedEmail) {
             const faculty = state.employeeData.find(emp => emp.email === selectedEmail);
-            if(faculty) {
+            if(faculty && deptInput && emailInput) {
                 deptInput.value = faculty.department;
                 emailInput.value = faculty.email;
             }
-        } else {
+        } else if(deptInput && emailInput) {
             deptInput.value = '';
             emailInput.value = '';
         }
@@ -586,7 +660,7 @@ window.SemesterBookingView = (function() {
     }
 
     function findHallById(id) {
-        if (!id) return null;
+        if (!id || !state.semesterHallsData) return null;
         return Object.values(state.semesterHallsData).flat().find(h => h.id === id);
     }
 
@@ -614,7 +688,9 @@ window.SemesterBookingView = (function() {
         } catch (error) {
             console.error('Error loading semester booking view:', error);
             const container = document.getElementById('semester-halls-container');
-            if(container) container.innerHTML = `<div class="text-center py-10 text-red-400">Failed to load hall data.</div>`;
+            if(container) container.innerHTML = `<div class="text-center py-10 text-red-400">Failed to load hall data. Please try refreshing the page.</div>`;
+            const bookingPanel = document.getElementById('booking-panel-container');
+            if(bookingPanel) bookingPanel.innerHTML = '';
         }
     }
 

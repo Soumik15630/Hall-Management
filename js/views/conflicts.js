@@ -14,7 +14,6 @@ window.ConflictsView = (function() {
         allConflicts: [],
         filteredConflicts: [],
         filters: defaultFilters(),
-        schoolsDataCache: null, // For consistency
         employeeDataCache: null,
     };
     let abortController;
@@ -32,11 +31,6 @@ window.ConflictsView = (function() {
     function formatDate(dateString) {
         if (!dateString) return 'N/A';
         return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    }
-
-    function formatTitleCase(str) {
-        if (!str) return 'N/A';
-        return str.replace(/_/g, ' ').replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
     }
 
     // --- API & DATA HANDLING ---
@@ -70,22 +64,13 @@ window.ConflictsView = (function() {
         return employees;
     }
 
+    /**
+     * Fetches booking requests that are in conflict with each other.
+     */
     async function fetchBookingConflictsData() {
-        const pendingBookings = await apiCall(AppConfig.endpoints.pendingApprovals);
-        if (!pendingBookings || pendingBookings.length === 0) return [];
-
-        const slots = new Map();
-        const conflictingBookings = new Set();
-        for (const booking of pendingBookings) {
-            const slotKey = `${booking.hall_id}-${new Date(booking.start_date).toISOString().split('T')[0]}T${booking.start_time}`;
-            if (slots.has(slotKey)) {
-                conflictingBookings.add(slots.get(slotKey));
-                conflictingBookings.add(booking);
-            } else {
-                slots.set(slotKey, booking);
-            }
-        }
-        return Array.from(conflictingBookings);
+        // UPDATED: Use a new, dedicated endpoint for fetching conflicts.
+        // This removes the need for client-side logic to detect conflicts.
+        return await apiCall('api/bookings/conflicts');
     }
 
     async function handleBookingAction(bookingId, action) {
@@ -97,7 +82,8 @@ window.ConflictsView = (function() {
         try {
             const endpoint = `api/booking/${bookingId}/${action}`;
             await apiCall(endpoint, 'PUT');
-            await initialize(); // Re-fetch and re-render the entire list
+            // After an action, re-fetch the conflicts list to see if the action resolved it.
+            await initialize();
         } catch (error) {
             console.error(`Failed to ${action} booking ${bookingId}:`, error);
             alert(`Error: Could not ${action} the booking. ${error.message}`);
@@ -142,7 +128,7 @@ window.ConflictsView = (function() {
         if (!tableBody) return;
 
         if (!data || data.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-slate-400">No booking conflicts match the current filters.</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-slate-400">No booking conflicts found.</td></tr>`;
             return;
         }
         
@@ -153,7 +139,7 @@ window.ConflictsView = (function() {
                 <td class="px-3 py-4 text-sm"><div class="font-medium text-white">${booking.purpose}</div><div class="text-slate-400">${booking.class_code || ''}</div></td>
                 <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300">${new Date(booking.start_date).toLocaleDateString()} ${booking.start_time} - ${booking.end_time}</td>
                 <td class="px-3 py-4 text-sm"><div class="font-medium text-blue-400">${booking.user?.employee?.employee_name || 'N/A'}</div></td>
-                <td class="px-3 py-4 text-sm font-semibold text-yellow-400">${booking.status}</td>
+                <td class="px-3 py-4 text-sm font-semibold text-yellow-400">${formatStatus(booking.status).text}</td>
                 <td class="px-3 py-4 text-sm text-center">
                     <div class="flex flex-col sm:flex-row gap-2">
                         <button data-action="approve" class="px-2 py-1 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-md transition">Approve</button>
@@ -185,7 +171,7 @@ window.ConflictsView = (function() {
         });
     }
 
-    // --- MODAL HANDLING (MERGED FROM hallDetails.js) ---
+    // --- MODAL & EVENT HANDLING (No changes needed here) ---
     function openModal(modalId) {
         const modal = document.getElementById(modalId);
         const backdrop = document.getElementById('modal-backdrop');
@@ -332,7 +318,6 @@ window.ConflictsView = (function() {
         closeModal();
     }
 
-    // --- EVENT HANDLING ---
     function setupEventHandlers() {
         if (abortController) abortController.abort();
         abortController = new AbortController();
@@ -370,7 +355,6 @@ window.ConflictsView = (function() {
         }, { signal });
     }
 
-    // --- INITIALIZATION ---
     async function initialize() {
         const tableBody = document.getElementById('booking-conflicts-body');
         if (tableBody) tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10"><div class="spinner"></div></td></tr>`;

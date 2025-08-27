@@ -33,11 +33,6 @@ window.ForwardView = (function() {
         return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     }
 
-    function formatTitleCase(str) {
-        if (!str) return 'N/A';
-        return str.replace(/_/g, ' ').replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
-    }
-
     // --- API & DATA HANDLING ---
     async function fetchFromAPI(endpoint, options = {}) {
         const headers = getAuthHeaders();
@@ -68,18 +63,23 @@ window.ForwardView = (function() {
         return employees;
     }
 
+    /**
+     * Fetches booking requests that can be forwarded to another department's HOD.
+     */
     async function fetchForwardBookingsData() {
-        return await fetchFromAPI('api/booking/pending-approval');
+        // UPDATED: Use the new consolidated endpoint with the 'forward' filter.
+        return await fetchFromAPI('api/booking/approvals?filter=forward');
     }
 
     async function handleBookingAction(bookingId, action) {
+        // The actions 'forward' and 'reject' remain the same.
+        const endpoint = `api/booking/${bookingId}/${action}`;
         const row = document.querySelector(`tr[data-booking-id="${bookingId}"]`);
         if (row) {
             row.style.opacity = '0.5';
             row.querySelectorAll('button').forEach(btn => btn.disabled = true);
         }
         try {
-            const endpoint = `api/booking/${bookingId}/${action}`;
             const response = await fetchFromAPI(endpoint, { method: 'PUT' });
             alert(response.message || `Booking action '${action}' completed successfully.`);
             await initialize(); // Refresh the list
@@ -96,28 +96,10 @@ window.ForwardView = (function() {
     // --- FILTERING ---
     function applyFiltersAndRender() {
         const { bookedOn, hall, purpose, dateTime, bookedBy, status } = state.filters;
-        const currentUser = Auth.getCurrentUser();
-        if (!currentUser || !currentUser.employee) {
-             console.error("Could not retrieve current user details for filtering.");
-             state.allForwardableBookings = [];
-             renderForwardBookingsTable();
-             return;
-        }
-        const userDeptId = currentUser.employee.department_id;
-        const userSchoolId = currentUser.employee.school_id;
 
-        // First, get the base list of forwardable bookings
-        let forwardableBookings = state.allForwardableBookings.filter(booking => {
-            if (!booking.hall) return false;
-            const hallDeptId = booking.hall.department_id;
-            const hallSchoolId = booking.hall.school_id;
-            if (hallDeptId) return hallDeptId !== userDeptId;
-            if (hallSchoolId) return hallSchoolId !== userSchoolId;
-            return false;
-        });
-
-        // Then, apply the user's filters
-        state.filteredBookings = forwardableBookings.filter(b => {
+        // REMOVED: The complex client-side logic to determine if a booking is "forwardable"
+        // is no longer needed, as the API now provides the correct data directly.
+        state.filteredBookings = state.allForwardableBookings.filter(b => {
             if (bookedOn.from && new Date(b.created_at) < new Date(bookedOn.from)) return false;
             if (bookedOn.to) {
                 const toDate = new Date(bookedOn.to);
@@ -157,7 +139,7 @@ window.ForwardView = (function() {
                 <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300 align-top">${formatDate(booking.created_at)}</td>
                 <td class="px-3 py-4 text-sm align-top">
                     <div class="font-medium text-white">${booking.hall?.name || 'N/A'}</div>
-                    <div class="text-slate-400 text-xs mt-1 break-all">${booking.hall_id}</div>
+                    <div class="text-slate-400 text-xs mt-1 break-all">${booking.hall?.department?.department_name || 'N/A'}</div>
                 </td>
                 <td class="px-3 py-4 text-sm align-top">
                     <div class="font-medium text-white">${booking.purpose}</div>
@@ -167,7 +149,7 @@ window.ForwardView = (function() {
                 <td class="px-3 py-4 text-sm align-top">
                     <div class="font-medium text-white">${booking.user?.employee?.employee_name || 'N/A'}</div>
                 </td>
-                <td class="px-3 py-4 text-sm font-semibold text-yellow-400 align-top">${booking.status}</td>
+                <td class="px-3 py-4 text-sm font-semibold text-yellow-400 align-top">${formatStatus(booking.status).text}</td>
                 <td class="px-3 py-4 text-sm text-center align-top">
                     <div class="flex flex-col sm:flex-row gap-2">
                         <button data-action="forward" class="px-2 py-1 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition">Forward</button>
@@ -199,7 +181,7 @@ window.ForwardView = (function() {
         });
     }
 
-    // --- MODAL HANDLING (MERGED FROM hallDetails.js) ---
+    // --- MODAL & EVENT HANDLING (No changes needed here) ---
     function openModal(modalId) {
         const modal = document.getElementById(modalId);
         const backdrop = document.getElementById('modal-backdrop');
@@ -346,7 +328,6 @@ window.ForwardView = (function() {
         closeModal();
     }
 
-    // --- EVENT HANDLING ---
     function setupEventHandlers() {
         if (abortController) abortController.abort();
         abortController = new AbortController();
@@ -384,7 +365,6 @@ window.ForwardView = (function() {
         }, { signal });
     }
 
-    // --- INITIALIZATION ---
     async function initialize() {
         const tableBody = document.getElementById('forward-bookings-body');
         if (tableBody) tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10"><div class="spinner"></div></td></tr>`;
