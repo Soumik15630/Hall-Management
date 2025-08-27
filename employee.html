@@ -314,13 +314,17 @@
                     Alpine.store('modal').open(true, 'Employee added successfully!');
 
                 } catch (error) {
-                    let errorMessage = 'An unexpected error occurred.';
-                    // Check for the new format
-                    if (error && Array.isArray(error.error) && error.error.length > 0) {
-                        errorMessage = error.error.map(e => `<b>${e.path.join('.')}:</b> ${e.message}`).join('<br>');
-                    } else if (error && error.message) {
-                        errorMessage = `Failed to add employee. ${error.message}`;
+                    let errorMessage = 'An unexpected error occurred.'; // Default message
+
+                    // Handle the specific error format shown in your image
+                    if (error && Array.isArray(error.errors) && error.errors.length > 0) {
+                        errorMessage = error.errors.map(e => e.message).join('<br>');
+                    } 
+                    // Handle other potential error formats with a message property
+                    else if (error && error.message) {
+                        errorMessage = error.message;
                     }
+                    
                     Alpine.store('modal').open(false, errorMessage);
                 }
             }
