@@ -324,12 +324,21 @@
 
                     } catch (error) {
                         let errorMessage = 'An unexpected error occurred.';
-                        // Check for the new format
-                        if (error && Array.isArray(error.error) && error.error.length > 0) {
-                            errorMessage = error.error.map(e => `<b>${e.path.join('.')}:</b> ${e.message}`).join('<br>');
-                        } else if (error && error.message) {
+                        
+                        // Handle Prisma unique constraint errors (P2002)
+                        if (error && error.error && error.error.code === 'P2002' && error.error.meta && Array.isArray(error.error.meta.target)) {
+                            const fields = error.error.meta.target.join(', ');
+                            errorMessage = `The value for '${fields}' is already in use. Please choose another.`;
+                        }
+                        // Handle array of validation errors
+                        else if (error && Array.isArray(error.errors) && error.errors.length > 0) {
+                            errorMessage = error.errors.map(e => e.message).join('<br>');
+                        }
+                        // Handle general errors with a 'message' property
+                        else if (error && error.message) {
                             errorMessage = error.message;
                         }
+
                         this.showCustomNotification(errorMessage, false);
                         console.error('Update error:', error);
                     }
