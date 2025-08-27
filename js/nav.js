@@ -95,7 +95,8 @@ window.NavigationModule = (function() {
         if (!userNameDisplay) return;
         try {
             // This function is now self-contained and calls the live API
-            const fetchActualUserData = async () => ({ name: 'HOD' });
+            const name  = sessionStorage.getItem('name');
+            const fetchActualUserData = async () => ({ name: name.toUpperCase() });
             const userData = await fetchActualUserData(); 
             userNameDisplay.textContent = userData.name || 'User';
         } catch (error) {
