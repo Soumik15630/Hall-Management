@@ -490,14 +490,12 @@ window.SemesterBookingView = (function() {
             class_code: formDetails.title,
         };
         
-        // if (formDetails.faculty) {
-        //     const facultyMember = state.employeeData.find(e => e.email === formDetails.faculty);
-        //     if (facultyMember) {
-        //         payload.faculty_organizer = facultyMember.name;
-        //         payload.faculty_email = facultyMember.email;
-        //         payload.faculty_department = facultyMember.department;
-        //     }
-        // }
+        if (formDetails.faculty) {
+            const facultyMember = state.employeeData.find(e => e.email === formDetails.faculty);
+            if (facultyMember) {
+                payload.booking_requested_employee_id = facultyMember.id;
+            }
+        }
 
         const submitBtn = document.getElementById('submit-booking-btn');
         try {
