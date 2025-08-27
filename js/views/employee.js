@@ -91,6 +91,16 @@ window.EmployeeView = (function() {
     async function fetchRawDepartments() {
         return await window.apiCache.fetch('departments', () => fetchFromAPI(AppConfig.endpoints.alldept));
     }
+    
+    async function getSchoolsAndDepartments() {
+        if (state.allSchools.length > 0 && state.allDepartments.length > 0) {
+            return { schools: state.allSchools, departments: state.allDepartments };
+        }
+        const [schools, depts] = await Promise.all([fetchRawSchools(), fetchRawDepartments()]);
+        state.allSchools = schools;
+        state.allDepartments = depts;
+        return { schools, departments: depts };
+    }
 
     async function fetchEmployeeData() {
         const [rawEmployees, schools, departments] = await Promise.all([
@@ -134,7 +144,7 @@ window.EmployeeView = (function() {
         const { employee, designation, office, status } = state.filters;
 
         state.filteredEmployees = state.allEmployees.filter(emp => {
-            if (employee.name && !emp.name.toLowerCase().includes(employee.name.toLowerCase())) return false;
+            if (employee.name && emp.name !== employee.name) return false;
             if (employee.email && !emp.email.toLowerCase().includes(employee.email.toLowerCase())) return false;
             if (employee.phone && !emp.phone.toLowerCase().includes(employee.phone.toLowerCase())) return false;
             if (designation && emp.designation !== designation) return false;
@@ -292,39 +302,56 @@ window.EmployeeView = (function() {
         container.insertAdjacentHTML('beforeend', modalHtml);
     }
     
-    function setupSearchableDropdown(inputId, optionsId, hiddenId, data) {
+    function setupSearchableDropdown(inputId, optionsId, hiddenId, data, onSelect = () => {}) {
         const input = document.getElementById(inputId);
         const optionsContainer = document.getElementById(optionsId);
         const hiddenInput = document.getElementById(hiddenId);
 
-        if (!input || !optionsContainer || !hiddenInput) return;
+        if (!input || !optionsContainer || !hiddenInput) return () => {};
 
-        const populateOptions = (term = '') => {
-            const filteredData = data.filter(item => item.toLowerCase().includes(term.toLowerCase()));
+        const populateOptions = (term = '', currentData = data) => {
+            const filteredData = currentData.filter(item => item.toLowerCase().includes(term.toLowerCase()));
             optionsContainer.innerHTML = filteredData.map(item => `<div class="p-2 cursor-pointer hover:bg-slate-700" data-value="${item}">${item}</div>`).join('');
         };
 
-        input.addEventListener('focus', () => {
+        const onInput = () => {
+            populateOptions(input.value);
+            if (!data.includes(input.value)) {
+                hiddenInput.value = '';
+            }
+            onSelect(null);
+        };
+        
+        const onFocus = () => {
             populateOptions(input.value);
             optionsContainer.classList.remove('hidden');
-        });
+        };
 
-        input.addEventListener('input', () => populateOptions(input.value));
-
-        optionsContainer.addEventListener('mousedown', e => {
+        const onMouseDown = e => {
             const { value } = e.target.dataset;
             if (value) {
                 hiddenInput.value = value;
                 input.value = value;
                 optionsContainer.classList.add('hidden');
+                onSelect(value);
             }
-        });
+        };
+        
+        const onBlur = () => setTimeout(() => optionsContainer.classList.add('hidden'), 150);
 
-        input.addEventListener('blur', () => setTimeout(() => optionsContainer.classList.add('hidden'), 150));
+        input.addEventListener('focus', onFocus);
+        input.addEventListener('input', onInput);
+        optionsContainer.addEventListener('mousedown', onMouseDown);
+        input.addEventListener('blur', onBlur);
         
         if (hiddenInput.value) {
             input.value = hiddenInput.value;
         }
+        
+        return (newData) => {
+            data = newData;
+            populateOptions(input.value, newData);
+        };
     }
 
     async function openFilterModalFor(column) {
@@ -334,8 +361,12 @@ window.EmployeeView = (function() {
                 title = 'Filter by Employee Details';
                 contentHtml = `
                     <div>
-                        <label for="filter-emp-name" class="block text-sm font-medium mb-1">Name</label>
-                        <input type="text" id="filter-emp-name" value="${state.filters.employee.name}" placeholder="Contains..." class="glowing-input w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white">
+                        <label for="filter-emp-name-input" class="block text-sm font-medium mb-1">Name</label>
+                        <div class="relative">
+                            <input type="text" id="filter-emp-name-input" class="glowing-input w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white" placeholder="Search for an employee..." autocomplete="off">
+                            <div id="filter-emp-name-options" class="absolute z-20 w-full bg-slate-900 border border-slate-600 rounded-lg mt-1 hidden max-h-48 overflow-y-auto"></div>
+                        </div>
+                        <input type="hidden" id="filter-emp-name" value="${state.filters.employee.name}">
                     </div>
                     <div>
                         <label for="filter-emp-email" class="block text-sm font-medium mb-1">Email</label>
@@ -348,7 +379,7 @@ window.EmployeeView = (function() {
                 break;
             case 'designation':
                 title = 'Filter by Designation';
-                const designations = [...new Set(state.allEmployees.map(e => e.designation))];
+                const designations = [...new Set(state.allEmployees.map(e => e.designation))].sort();
                 const designationOptions = designations.map(d => `<option value="${d}" ${state.filters.designation === d ? 'selected' : ''}>${d}</option>`).join('');
                 contentHtml = `
                     <select id="filter-designation" class="glowing-select w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white">
@@ -388,12 +419,64 @@ window.EmployeeView = (function() {
         }
         createFilterModal(column, title, contentHtml);
         
+        if (column === 'employee') {
+            const employeeNames = [...new Set(state.allEmployees.map(e => e.name))].sort();
+            setupSearchableDropdown('filter-emp-name-input', 'filter-emp-name-options', 'filter-emp-name', employeeNames);
+        }
+        
+        // FIX: Reworked this entire block for two-way dependent dropdowns
         if (column === 'office') {
             const { schools, departments } = await getSchoolsAndDepartments();
-            const schoolNames = schools.map(s => s.school_name);
-            setupSearchableDropdown('filter-school-input', 'filter-school-options', 'filter-school', schoolNames);
-            const departmentNames = departments.map(d => d.department_name);
-            setupSearchableDropdown('filter-department-input', 'filter-department-options', 'filter-department', departmentNames);
+            const schoolNames = schools.map(s => s.school_name).sort();
+            const allDepartmentNames = departments.map(d => d.department_name).sort();
+            
+            const schoolInput = document.getElementById('filter-school-input');
+            const schoolHidden = document.getElementById('filter-school');
+            const deptInput = document.getElementById('filter-department-input');
+            const deptHidden = document.getElementById('filter-department');
+
+            const updateDeptDropdown = setupSearchableDropdown('filter-department-input', 'filter-department-options', 'filter-department', allDepartmentNames, (selectedDeptName) => {
+                if (selectedDeptName) {
+                    const selectedDept = departments.find(d => d.department_name === selectedDeptName);
+                    if (selectedDept) {
+                        const parentSchool = schools.find(s => s.unique_id === selectedDept.school_id);
+                        if (parentSchool && schoolInput.value !== parentSchool.school_name) {
+                            schoolInput.value = parentSchool.school_name;
+                            schoolHidden.value = parentSchool.school_name;
+                        }
+                    }
+                }
+            });
+
+            const updateSchoolDropdown = setupSearchableDropdown('filter-school-input', 'filter-school-options', 'filter-school', schoolNames, (selectedSchoolName) => {
+                deptInput.value = '';
+                deptHidden.value = '';
+
+                if (selectedSchoolName) {
+                    const selectedSchool = schools.find(s => s.school_name === selectedSchoolName);
+                    if (selectedSchool) {
+                        const relevantDepts = departments
+                            .filter(d => d.school_id === selectedSchool.unique_id)
+                            .map(d => d.department_name)
+                            .sort();
+                        updateDeptDropdown(relevantDepts);
+                    }
+                } else {
+                    updateDeptDropdown(allDepartmentNames);
+                }
+            });
+            
+            const initialSchool = schoolHidden.value;
+            if(initialSchool) {
+                 const selectedSchool = schools.find(s => s.school_name === initialSchool);
+                 if(selectedSchool) {
+                     const relevantDepts = departments
+                        .filter(d => d.school_id === selectedSchool.unique_id)
+                        .map(d => d.department_name)
+                        .sort();
+                     updateDeptDropdown(relevantDepts);
+                 }
+            }
         }
         
         openModal(`filter-modal-${column}`);
@@ -632,8 +715,8 @@ window.EmployeeView = (function() {
         try {
             const data = await fetchEmployeeData();
             state.allEmployees = data;
-            state.allSchools = await fetchRawSchools();
-            state.allDepartments = await fetchRawDepartments();
+            
+            await getSchoolsAndDepartments();
 
             applyFiltersAndRender();
             setupEventHandlers();
