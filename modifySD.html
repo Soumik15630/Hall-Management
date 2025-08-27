@@ -68,9 +68,14 @@
                     <input type="text" id="incharge_contact" x-model="formData.incharge_contact" class="block w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-gray-800" required>
                 </div>
                 
-                 <div>
+                <div>
                     <label for="incharge_intercom" class="block text-white text-sm font-medium mb-2">Intercom</label>
-                    <input type="text" id="incharge_intercom" x-model="formData.incharge_intercom" class="block w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-gray-800">
+                    <input type="text" id="incharge_intercom" x-model="formData.incharge_intercom" 
+                        class="block w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-gray-800" 
+                        placeholder="Numbers only" 
+                        pattern="[0-9]*" 
+                        title="Please enter numbers only." 
+                        @input="formData.incharge_intercom = formData.incharge_intercom.replace(/[^0-9]/g, '')">
                 </div>
 
                 <div>

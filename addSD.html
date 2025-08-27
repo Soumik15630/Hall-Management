@@ -58,7 +58,15 @@
                             <div><label for="deanName" class="block text-gray-600 text-sm font-medium mb-2">Dean Name:</label><input type="text" id="deanName" name="incharge_name_school" placeholder="Enter Dean Name" class="block w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800" :required="type === 'school'"></div>
                             <div><label for="deanContactNumber" class="block text-gray-600 text-sm font-medium mb-2">Dean Contact Number:</label><input type="text" id="deanContactNumber" x-model="deanContactNumber" placeholder="e.g., +919876543210 or 9876543210" class="block w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800" :required="type === 'school'"><p class="text-red-500 text-xs mt-1" x-show="deanContactNumber && !isValidPhoneNumber(deanContactNumber)">Must be 10 digits, or 13 digits with +91 prefix.</p></div>
                             <div><label for="deanEmail" class="block text-gray-600 text-sm font-medium mb-2">Dean Email:</label><input type="email" id="deanEmail" name="incharge_email_school" placeholder="Enter Dean Email" class="block w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800" :required="type === 'school'" pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$"></div>
-                            <div><label for="deanIntercom" class="block text-gray-600 text-sm font-medium mb-2">Dean Intercom:</label><input type="text" id="deanIntercom" name="incharge_intercom_school" x-model="deanIntercom" placeholder="Enter Dean Intercom" class="block w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800" :required="type === 'school'"></div>
+                            <div>
+                                <label for="deanIntercom" class="block text-gray-600 text-sm font-medium mb-2">Dean Intercom:</label>
+                                <input type="text" id="deanIntercom" name="incharge_intercom_school" x-model="deanIntercom" 
+                                    placeholder="Enter Dean Intercom (Numbers only)" 
+                                    class="block w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800" 
+                                    pattern="[0-9]*" 
+                                    title="Please enter numbers only." 
+                                    @input="deanIntercom = deanIntercom.replace(/[^0-9]/g, '')">
+                            </div>
                             <div>
                                 <label class="block text-gray-600 text-sm font-medium mb-2">Dean Status:</label>
                                 <div class="flex items-center space-x-2 bg-gray-100 rounded-md p-1">
@@ -81,7 +89,15 @@
                             <div><label for="hodName" class="block text-gray-600 text-sm font-medium mb-2">HoD Name:</label><input type="text" id="hodName" name="incharge_name_dept" placeholder="Enter HoD name" class="block w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800" :required="type === 'department'"></div>
                             <div><label for="hodContactNumber" class="block text-gray-600 text-sm font-medium mb-2">HoD's Contact Number:</label><input type="text" id="hodContactNumber" name="incharge_contact_number_dept" x-model="hodContactNumber" placeholder="e.g., +919876543210 or 9876543210" class="block w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800" :required="type === 'department'"><p class="text-red-500 text-xs mt-1" x-show="hodContactNumber && !isValidPhoneNumber(hodContactNumber)">Must be 10 digits, or 13 digits with +91 prefix.</p></div>
                             <div><label for="hodEmail" class="block text-gray-600 text-sm font-medium mb-2">HoD's Email:</label><input type="email" id="hodEmail" name="incharge_email_dept" placeholder="Enter HoD Email" class="block w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800" :required="type === 'department'" pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$"></div>
-                            <div><label for="hodIntercom" class="block text-gray-600 text-sm font-medium mb-2">HoD's Intercom:</label><input type="text" id="hodIntercom" name="incharge_intercom_dept" x-model="hodIntercom" placeholder="Enter HoD Intercom" class="block w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800" :required="type === 'department'"></div>
+                            <div>
+                                <label for="hodIntercom" class="block text-gray-600 text-sm font-medium mb-2">HoD's Intercom:</label>
+                                <input type="text" id="hodIntercom" name="incharge_intercom_dept" x-model="hodIntercom" 
+                                    placeholder="Enter HoD Intercom (Numbers only)" 
+                                    class="block w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800" 
+                                    pattern="[0-9]*" 
+                                    title="Please enter numbers only." 
+                                    @input="hodIntercom = hodIntercom.replace(/[^0-9]/g, '')">
+                            </div>
                             <div>
                                 <label class="block text-gray-600 text-sm font-medium mb-2">HoD Status:</label>
                                 <div class="flex items-center space-x-2 bg-gray-100 rounded-md p-1">
