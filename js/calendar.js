@@ -13,10 +13,12 @@ window.CalendarModule = (function() {
 
         calendar = new FullCalendar.Calendar(calendarEl, {
             initialView: 'dayGridMonth',
+            // FIX: Removed the default view-switching buttons from the right side of the toolbar.
+            // Your custom buttons in hod.html will handle this functionality.
             headerToolbar: { 
                 left: 'prev,next today', 
                 center: 'title', 
-                right: '' 
+                right: '' // This was previously showing the default month, week, day buttons
             },
             editable: true,
             events: [

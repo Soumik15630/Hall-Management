@@ -47,24 +47,30 @@
             background-color: rgba(15, 23, 42, 0.7);
         }
        .table-container table {
-    table-layout: fixed;
-    width: 100%;
-}
+            table-layout: fixed;
+            width: 100%;
+        }
 
-.table-container td, .table-container th {
-    overflow-wrap: break-word;
-}
+        .table-container td, .table-container th {
+            overflow-wrap: break-word;
+            word-wrap: break-word;
+        }
 
-/* Give more space to columns with potentially long content */
-#approve-bookings-view th:nth-child(2),
-#approve-bookings-view th:nth-child(5) {
-    width: 20%; 
-}
+        /* Give more space to columns with potentially long content */
+        #approve-bookings-view th:nth-child(2),
+        #approve-bookings-view th:nth-child(5) {
+            width: 20%; 
+        }
 
-#approve-bookings-view th:nth-child(4) {
-    width: 22%;
-}
+        #approve-bookings-view th:nth-child(4) {
+            width: 22%;
+        }
 
+        /* FIX: Added width constraints for hall details table to prevent overflow */
+        #hall-details-view th:nth-child(3) { width: 20%; } /* Hall Details */
+        #hall-details-view th:nth-child(4) { width: 20%; } /* Belongs to */
+        #hall-details-view th:nth-child(5) { width: 24%; } /* Features */
+        #hall-details-view th:nth-child(6) { width: 20%; } /* Incharge */
 
 
     </style>
@@ -107,11 +113,7 @@
         <div class="bg-slate-800/50 rounded-xl shadow-2xl p-2 sm:p-4 lg:p-6 h-full flex flex-col">
             <div class="flex flex-col sm:flex-row justify-between items-center mb-4 flex-shrink-0">
                 <h1 class="text-2xl sm:text-3xl font-bold text-white mb-2 sm:mb-0">Hall Booking Calendar</h1>
-                <div id="calendar-view-toggle" class="flex items-center bg-slate-700 rounded-lg p-1 space-x-1">
-                    <button data-view="dayGridMonth" class="view-btn px-3 py-1 text-sm font-semibold rounded-md transition">Month</button>
-                    <button data-view="timeGridWeek" class="view-btn px-3 py-1 text-sm font-semibold rounded-md transition">Week</button>
-                    <button data-view="timeGridDay" class="view-btn px-3 py-1 text-sm font-semibold rounded-md transition">Day</button>
-                </div>
+
             </div>
             <div id='calendar' class="w-full flex-grow"></div>
         </div>
@@ -476,7 +478,6 @@
                             <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white">
                                 <span class="flex items-center gap-2">Booked By <i data-filter-column="bookedBy" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span>
                             </th>
-                            <!-- FIX: Removed filter icon from status column -->
                             <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white">
                                 Status
                             </th>
@@ -765,7 +766,6 @@
         </div>
     </div>
 
-    <!-- Container for dynamically generated filter modals -->
     <div id="filter-modal-container"></div>
 
     <div id="filter-hall-details-modal" class="modal fixed inset-0 z-50 flex items-center justify-center p-4 hidden"></div>

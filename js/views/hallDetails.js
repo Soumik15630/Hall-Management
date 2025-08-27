@@ -228,19 +228,20 @@ window.HallDetailsView = (function() {
                     <input type="checkbox" class="row-checkbox rounded bg-slate-700 border-slate-500 text-blue-500 focus:ring-blue-500" ${isSelected ? 'checked' : ''}>
                 </td>
                 <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300">${hall.displayDate}</td>
-                <td class="whitespace-nowrap px-3 py-4 text-sm">
+                
+                <td class="px-3 py-4 text-sm">
                     <div class="font-medium text-blue-400">${hall.hallName}</div>
                     <div class="text-slate-400">${hall.hallCode}</div>
                     <div class="text-slate-400">Capacity: ${hall.capacity}</div>
                     <div class="text-slate-400">${hall.displayFloor}</div>
                     <div class="text-slate-400">${hall.displayZone}</div>
                 </td>
-                <td class="whitespace-nowrap px-3 py-4 text-sm">
+                <td class="px-3 py-4 text-sm">
                     <div class="font-medium text-blue-400">${hall.schoolName}</div>
                     <div class="text-slate-400">${hall.departmentName}</div>
                 </td>
-                <td class="px-3 py-4 text-sm text-slate-300" style="white-space: normal; max-width: 250px; word-wrap: break-word;">${hall.displayFeatures}</td>
-                <td class="whitespace-nowrap px-3 py-4 text-sm">
+                <td class="px-3 py-4 text-sm text-slate-300">${hall.displayFeatures}</td>
+                <td class="px-3 py-4 text-sm">
                     <div class="font-medium text-blue-400">${hall.inchargeName}</div>
                     <div class="text-slate-400">${hall.inchargeRole}</div>
                     <div class="text-slate-400">${hall.inchargeEmail}</div>
@@ -251,7 +252,7 @@ window.HallDetailsView = (function() {
                 </td>
             </tr>
         `
-    }).join('');
+        }).join('');
 
         tableBody.innerHTML = tableHtml;
         updateActionButtonsState();
@@ -377,15 +378,15 @@ window.HallDetailsView = (function() {
         container.insertAdjacentHTML('beforeend', modalHtml);
     }
     
-    function setupSearchableDropdown(inputId, optionsId, hiddenId, data) {
+    function setupSearchableDropdown(inputId, optionsId, hiddenId, data, onSelect = () => {}) {
         const input = document.getElementById(inputId);
         const optionsContainer = document.getElementById(optionsId);
         const hiddenInput = document.getElementById(hiddenId);
 
         if (!input || !optionsContainer || !hiddenInput) return;
 
-        const populateOptions = (term = '') => {
-            const filteredData = data.filter(item => item.toLowerCase().includes(term.toLowerCase()));
+        const populateOptions = (term = '', customData = data) => {
+            const filteredData = customData.filter(item => item.toLowerCase().includes(term.toLowerCase()));
             optionsContainer.innerHTML = filteredData.map(item => `<div class="p-2 cursor-pointer hover:bg-slate-700" data-value="${item}">${item}</div>`).join('');
         };
 
@@ -394,7 +395,14 @@ window.HallDetailsView = (function() {
             optionsContainer.classList.remove('hidden');
         });
 
-        input.addEventListener('input', () => populateOptions(input.value));
+        input.addEventListener('input', () => {
+            populateOptions(input.value);
+            // Clear hidden input if text doesn't match a valid option
+            if (!data.includes(input.value)) {
+                hiddenInput.value = '';
+            }
+            onSelect(null); // Notify that selection might have changed/cleared
+        });
 
         optionsContainer.addEventListener('mousedown', e => {
             const { value } = e.target.dataset;
@@ -402,6 +410,7 @@ window.HallDetailsView = (function() {
                 hiddenInput.value = value;
                 input.value = value;
                 optionsContainer.classList.add('hidden');
+                onSelect(value);
             }
         });
 
@@ -410,6 +419,12 @@ window.HallDetailsView = (function() {
         if (hiddenInput.value) {
             input.value = hiddenInput.value;
         }
+
+        // Return a function to update the dropdown's data source
+        return (newData) => {
+            data = newData;
+            populateOptions(input.value, newData);
+        };
     }
 
     async function openFilterModalFor(column) {
@@ -500,64 +515,59 @@ window.HallDetailsView = (function() {
         }
         createFilterModal(column, title, contentHtml);
         
+        // Setup dynamic dropdowns after modal is in the DOM
         if (column === 'hall') {
-            const hallNames = [...new Set(state.allHalls.map(h => h.hallName))];
+            const hallNames = [...new Set(state.allHalls.map(h => h.hallName))].sort();
             setupSearchableDropdown('filter-hall-name-input', 'filter-hall-name-options', 'filter-hall-name', hallNames);
         }
         if (column === 'belongsTo') {
+            // FIX: Reworked this entire block for cascading dropdowns
             const { schools, departments } = await getSchoolsAndDepartments();
-            const schoolNames = schools.map(s => s.school_name);
-            setupSearchableDropdown('filter-school-input', 'filter-school-options', 'filter-school', schoolNames);
-
+            const schoolNames = schools.map(s => s.school_name).sort();
+            const allDepartmentNames = departments.map(d => d.department_name).sort();
+            
             const deptInput = document.getElementById('filter-department-input');
-            const deptOptionsContainer = document.getElementById('filter-department-options');
-            const deptHiddenInput = document.getElementById('filter-department');
-            const schoolInput = document.getElementById('filter-school-input');
-            const schoolHiddenInput = document.getElementById('filter-school');
+            const deptHidden = document.getElementById('filter-department');
+            
+            // Function to update department options
+            const updateDeptDropdown = setupSearchableDropdown('filter-department-input', 'filter-department-options', 'filter-department', allDepartmentNames);
 
-            if (deptInput && deptOptionsContainer && deptHiddenInput && schoolInput && schoolHiddenInput) {
-                const departmentNames = departments.map(d => d.department_name);
-                
-                const populateDeptOptions = (term = '') => {
-                    const filteredData = departmentNames.filter(item => item.toLowerCase().includes(term.toLowerCase()));
-                    deptOptionsContainer.innerHTML = filteredData.map(item => `<div class="p-2 cursor-pointer hover:bg-slate-700" data-value="${item}">${item}</div>`).join('');
-                };
+            // Setup school dropdown
+            setupSearchableDropdown('filter-school-input', 'filter-school-options', 'filter-school', schoolNames, (selectedSchoolName) => {
+                // Clear department when school changes
+                deptInput.value = '';
+                deptHidden.value = '';
 
-                deptInput.addEventListener('focus', () => {
-                    populateDeptOptions(deptInput.value);
-                    deptOptionsContainer.classList.remove('hidden');
-                });
-
-                deptInput.addEventListener('input', () => populateDeptOptions(deptInput.value));
-
-                deptOptionsContainer.addEventListener('mousedown', e => {
-                    const { value } = e.target.dataset;
-                    if (value) {
-                        deptHiddenInput.value = value;
-                        deptInput.value = value;
-
-                        const selectedDept = departments.find(d => d.department_name === value);
-                        if (selectedDept) {
-                            const parentSchool = schools.find(s => s.unique_id === selectedDept.school_id);
-                            if (parentSchool) {
-                                schoolHiddenInput.value = parentSchool.school_name;
-                                schoolInput.value = parentSchool.school_name;
-                            }
-                        }
-                        deptOptionsContainer.classList.add('hidden');
+                if (selectedSchoolName) {
+                    const selectedSchool = schools.find(s => s.school_name === selectedSchoolName);
+                    if (selectedSchool) {
+                        const relevantDepts = departments
+                            .filter(d => d.school_id === selectedSchool.unique_id)
+                            .map(d => d.department_name)
+                            .sort();
+                        updateDeptDropdown(relevantDepts); // Update data source for dept dropdown
                     }
-                });
-
-                deptInput.addEventListener('blur', () => setTimeout(() => deptOptionsContainer.classList.add('hidden'), 150));
-                
-                if (deptHiddenInput.value) {
-                    deptInput.value = deptHiddenInput.value;
+                } else {
+                    // If school is cleared, show all departments again
+                    updateDeptDropdown(allDepartmentNames);
                 }
+            });
+
+            // If a school is already selected on modal open, trigger the cascade
+            const initialSchool = document.getElementById('filter-school').value;
+            if(initialSchool) {
+                 const selectedSchool = schools.find(s => s.school_name === initialSchool);
+                 if(selectedSchool) {
+                     const relevantDepts = departments
+                        .filter(d => d.school_id === selectedSchool.unique_id)
+                        .map(d => d.department_name)
+                        .sort();
+                     updateDeptDropdown(relevantDepts);
+                 }
             }
         }
         if (column === 'incharge') {
-            const employees = await getEmployees();
-            const inchargeNames = [...new Set(employees.map(e => e.employee_name))];
+            const inchargeNames = [...new Set(state.allHalls.map(h => h.inchargeName))].filter(name => name !== 'N/A').sort();
             setupSearchableDropdown('filter-incharge-name-input', 'filter-incharge-name-options', 'filter-incharge-name', inchargeNames);
         }
 
@@ -652,7 +662,6 @@ window.HallDetailsView = (function() {
             if (e.target.closest('.modal-close-btn')) {
                 closeModal();
             }
-            // FIX: Added event listener for the "Clear All" button in the features modal.
             if (e.target.id === 'clear-all-features') {
                 const checkboxes = document.querySelectorAll('#features-checkbox-container input[type="checkbox"]');
                 checkboxes.forEach(cb => cb.checked = false);
