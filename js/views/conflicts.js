@@ -70,7 +70,7 @@ window.ConflictsView = (function() {
     async function fetchBookingConflictsData() {
         // UPDATED: Use a new, dedicated endpoint for fetching conflicts.
         // This removes the need for client-side logic to detect conflicts.
-        return await apiCall('api/bookings/conflicts');
+        return await apiCall('api/bookings/approvals?filter=internal');
     }
 
     async function handleBookingAction(bookingId, action) {
