@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Bookings</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Assume config.js contains AppConfig and helper functions like getAuthHeaders and logout -->
     <script src="config.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -80,13 +79,11 @@
     <div id="header-placeholder"></div>
     <div id="nav-placeholder"></div>
     
-    <!-- Main Content -->
     <main class="flex-grow p-2 sm:p-6" x-data="myBookings()" x-init="init()">
         <div class="container mx-auto bg-white p-4 sm:p-6 rounded-lg shadow-xl">
             <h2 class="text-3xl font-bold text-center text-indigo-900 mb-6">My Bookings</h2>
             
             <div class="flex justify-end items-center mb-4 gap-4">
-                <!-- Buttons on the right -->
                 <button @click="clearFilters()" 
                         x-show="isFilterActive"
                         x-transition
@@ -147,9 +144,9 @@
                                         </div>
                                     </td>
                                     <td class="px-2 sm:px-6 py-4">
-                                        <div class="text-sm font-medium text-gray-900" x-text="booking.hall.type || 'Loading...'"></div>
+                                        <div class="text-sm font-medium text-gray-900" x-text="booking.hall.type"></div>
                                         <div class="text-sm font-bold text-blue-600" x-text="booking.hall.name"></div>
-                                        <div class="text-sm text-gray-500" x-text="booking.hall.owner || 'Loading...'"></div>
+                                        <div class="text-sm text-gray-500" x-text="booking.hall.owner"></div>
                                     </td>
                                     <td class="hidden lg:table-cell px-6 py-4">
                                         <div class="text-sm text-gray-900" x-text="booking.purpose"></div>
@@ -182,7 +179,6 @@
             </div>
         </div>
 
-        <!-- All Modals -->
         <div x-show="showDateFilterModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30" @click.away="showDateFilterModal = false" x-cloak>
             <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md relative" @click.stop>
                 <button @click="showDateFilterModal = false" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800">
@@ -283,6 +279,7 @@
         function myBookings() {
             return {
                 isLoading: true,
+                hasBeenInitialized: false, // <-- Add this guard flag
                 selectedBookings: [],
                 showDateFilterModal: false,
                 showHallFilterModal: false,
@@ -292,6 +289,10 @@
                 allBookings: [],
                 
                 async init() {
+                    // Only run the fetch logic if it hasn't run before
+                    if (this.hasBeenInitialized) return;
+                    this.hasBeenInitialized = true;
+
                     await this.fetchAndProcessBookings();
                 },
 
@@ -317,34 +318,11 @@
                 async fetchAndProcessBookings() {
                     this.isLoading = true;
                     try {
-                        // 1. Fetch all bookings first
                         const bookingUrl = AppConfig.apiBaseUrl + AppConfig.endpoints.myBookings;
                         const bookingResult = await this.fetchWithAuth(bookingUrl);
                         if (!bookingResult.success) throw new Error("Failed to fetch bookings.");
                         
-                        const rawBookings = bookingResult.data;
-                        let processedBookings = rawBookings.map(item => this.mapInitialBookingData(item));
-
-                        // 2. Efficiently fetch details for all unique halls
-                        const uniqueHallIds = [...new Set(rawBookings.map(b => b.hall_id))].filter(id => id);
-                        if (uniqueHallIds.length > 0) {
-                            const hallPromises = uniqueHallIds.map(id => 
-                                this.fetchWithAuth(`${AppConfig.apiBaseUrl}${AppConfig.endpoints.hall}/${id}`)
-                            );
-                            
-                            const hallResults = await Promise.all(hallPromises);
-                            const hallMap = new Map(hallResults.map(h => [h.unique_id, h]));
-
-                            // 3. Enrich the booking data with the fetched hall details
-                            processedBookings = processedBookings.map(booking => {
-                                const hallDetails = hallMap.get(booking.hall.id);
-                                if (hallDetails) {
-                                    return this.mapEnrichedBookingData(booking, hallDetails);
-                                }
-                                return booking;
-                            });
-                        }
-                        this.allBookings = processedBookings;
+                        this.allBookings = bookingResult.data.map(item => this.mapBookingData(item));
 
                     } catch (error) {
                         console.error('Failed to fetch and process bookings:', error.message);
@@ -353,42 +331,31 @@
                     }
                 },
                 
-                mapInitialBookingData(item) {
+                mapBookingData(item) {
+                    let hallOwner = 'N/A'; // Default value
+                    if (item.hall.belongs_to === 'DEPARTMENT' && item.hall.department) {
+                        hallOwner = item.hall.department.department_name;
+                    } else if (item.hall.belongs_to === 'SCHOOL' && item.hall.school) {
+                        hallOwner = item.hall.school.school_name;
+                    } else if (item.hall.belongs_to === 'ADMINISTRATION') {
+                        // Use section if available, otherwise fallback to 'Administration'
+                        hallOwner = item.hall.section || 'Administration';
+                    }
+
                     return {
                         id: item.id,
                         bookedOn: new Date(item.created_at).toISOString().split('T')[0],
                         bookingId: item.unique_id,
                         hall: {
-                            id: item.hall_id,
                             name: item.hall.name,
-                            type: 'Loading...',
-                            owner: 'Loading...'
+                            type: this.formatHallType(item.hall.type),
+                            owner: hallOwner
                         },
                         purpose: item.purpose,
                         dateTimeRange: this.formatDateTimeRange(item.start_date, item.start_time, item.end_date, item.end_time),
                         rawStatus: item.status, // Keep original status for filtering
                         status: this.formatStatus(item.status), // Formatted status for display
                         startDateForFilter: item.start_date
-                    };
-                },
-
-                mapEnrichedBookingData(booking, hallDetails) {
-                    let hallOwner = 'N/A'; // A neutral default
-                    if (hallDetails.belongs_to === 'DEPARTMENT' && hallDetails.department && hallDetails.department.department_name) {
-                        hallOwner = hallDetails.department.department_name;
-                    } else if (hallDetails.belongs_to === 'SCHOOL' && hallDetails.school && hallDetails.school.school_name) {
-                        hallOwner = hallDetails.school.school_name;
-                    } else if (hallDetails.belongs_to === 'ADMINISTRATION') {
-                        hallOwner = 'Administration';
-                    }
-
-                    return {
-                        ...booking,
-                        hall: {
-                            ...booking.hall,
-                            type: this.formatHallType(hallDetails.type),
-                            owner: hallOwner
-                        }
                     };
                 },
 
