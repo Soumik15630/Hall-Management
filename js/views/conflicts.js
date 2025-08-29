@@ -64,15 +64,10 @@ window.ConflictsView = (function() {
         return employees;
     }
 
-    /**
-     * Fetches booking requests that are in conflict with each other.
-     */
-    async function fetchBookingConflictsData() {
-        // UPDATED: Use a new, dedicated endpoint for fetching conflicts.
-        // This removes the need for client-side logic to detect conflicts.
-        return await apiCall('api/bookings/approvals?filter=internal');
-    }
-
+async function fetchBookingConflictsData() {
+    // FIXED: The second argument to apiCall should be a string, not an object.
+    return await apiCall('api/booking/approvals?filter=internal', 'GET');
+}
     async function handleBookingAction(bookingId, action) {
         const row = document.querySelector(`tr[data-booking-id="${bookingId}"]`);
         if(row) {
