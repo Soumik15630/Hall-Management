@@ -1,6 +1,6 @@
 // Forward Bookings View Module
 window.ForwardView = (function() {
-    // --- STATE MANAGEMENT ---
+    // --- STATE MANAGEMENT (Unchanged) ---
     const defaultFilters = () => ({
         bookedOn: { from: '', to: '' },
         hall: { name: '' },
@@ -18,7 +18,7 @@ window.ForwardView = (function() {
     };
     let abortController;
 
-    // --- HELPER FUNCTIONS ---
+    // --- HELPER FUNCTIONS (Unchanged) ---
     function formatStatus(status) {
         if (!status) return { text: 'Unknown', className: 'text-yellow-400' };
         const text = status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
@@ -33,32 +33,14 @@ window.ForwardView = (function() {
         return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     }
 
-    // --- API & DATA HANDLING ---
-    async function fetchFromAPI(endpoint, options = {}) {
-        const headers = getAuthHeaders();
-        if (!headers) {
-            logout();
-            throw new Error("User not authenticated");
-        }
-        if (options.body) headers['Content-Type'] = 'application/json';
-        
-        const fullUrl = AppConfig.apiBaseUrl + endpoint;
-        const config = { ...options, headers };
-        const response = await fetch(fullUrl, config);
+    // --- API & DATA HANDLING (Updated to use ApiService) ---
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`API Error on ${endpoint}: ${response.status} - ${errorText}`);
-        }
-        const text = await response.text();
-        if (!text) return null;
-        const result = JSON.parse(text);
-        return result.data || result;
-    }
-    
+    // The local fetchFromAPI function has been REMOVED.
+
     async function getEmployees() {
         if (state.employeeDataCache) return state.employeeDataCache;
-        const employees = await fetchFromAPI(AppConfig.endpoints.allemp);
+        // UPDATED: Now uses the centralized ApiService
+        const employees = await ApiService.employees.getAll();
         state.employeeDataCache = employees;
         return employees;
     }
@@ -67,20 +49,19 @@ window.ForwardView = (function() {
      * Fetches booking requests that can be forwarded to another department's HOD.
      */
     async function fetchForwardBookingsData() {
-        // UPDATED: Use the new consolidated endpoint with the 'forward' filter.
-        return await fetchFromAPI('api/booking/approvals?filter=forward');
+        // UPDATED: Now uses the centralized ApiService
+        return await ApiService.bookings.getForForwarding();
     }
 
     async function handleBookingAction(bookingId, action) {
-        // The actions 'forward' and 'reject' remain the same.
-        const endpoint = `api/booking/${bookingId}/${action}`;
         const row = document.querySelector(`tr[data-booking-id="${bookingId}"]`);
         if (row) {
             row.style.opacity = '0.5';
             row.querySelectorAll('button').forEach(btn => btn.disabled = true);
         }
         try {
-            const response = await fetchFromAPI(endpoint, { method: 'PUT' });
+            // UPDATED: Now uses the centralized ApiService
+            const response = await ApiService.bookings.updateStatus(bookingId, action);
             alert(response.message || `Booking action '${action}' completed successfully.`);
             await initialize(); // Refresh the list
         } catch (error) {
@@ -93,12 +74,10 @@ window.ForwardView = (function() {
         }
     }
 
-    // --- FILTERING ---
+    // --- FILTERING (Unchanged) ---
     function applyFiltersAndRender() {
         const { bookedOn, hall, purpose, dateTime, bookedBy, status } = state.filters;
 
-        // REMOVED: The complex client-side logic to determine if a booking is "forwardable"
-        // is no longer needed, as the API now provides the correct data directly.
         state.filteredBookings = state.allForwardableBookings.filter(b => {
             if (bookedOn.from && new Date(b.created_at) < new Date(bookedOn.from)) return false;
             if (bookedOn.to) {
@@ -116,14 +95,14 @@ window.ForwardView = (function() {
             }
             if (bookedBy.name && b.user?.employee?.employee_name !== bookedBy.name) return false;
             if (status && b.status !== status) return false;
-            
+
             return true;
         });
 
         renderForwardBookingsTable();
     }
 
-    // --- RENDERING ---
+    // --- RENDERING (Unchanged) ---
     function renderForwardBookingsTable() {
         const data = state.filteredBookings;
         const tableBody = document.getElementById('forward-bookings-body');
@@ -181,7 +160,7 @@ window.ForwardView = (function() {
         });
     }
 
-    // --- MODAL & EVENT HANDLING (No changes needed here) ---
+    // --- MODAL & EVENT HANDLING (Unchanged) ---
     function openModal(modalId) {
         const modal = document.getElementById(modalId);
         const backdrop = document.getElementById('modal-backdrop');
@@ -201,7 +180,7 @@ window.ForwardView = (function() {
             else modal.classList.add('hidden');
         });
     }
-    
+
     function createFilterModal(column, title, contentHtml) {
         const container = document.getElementById('filter-modal-container');
         if (!container) return;
@@ -223,7 +202,7 @@ window.ForwardView = (function() {
         </div>`;
         container.insertAdjacentHTML('beforeend', modalHtml);
     }
-    
+
     function setupSearchableDropdown(inputId, optionsId, hiddenId, data) {
         const input = document.getElementById(inputId);
         const optionsContainer = document.getElementById(optionsId);
@@ -289,7 +268,7 @@ window.ForwardView = (function() {
             const userNames = [...new Set(employees.map(e => e.employee_name))].sort();
             setupSearchableDropdown('filter-user-name-input', 'filter-user-name-options', 'filter-user-name', userNames);
         }
-        
+
         openModal(`filter-modal-${column}`);
     }
 
@@ -338,7 +317,7 @@ window.ForwardView = (function() {
         view.addEventListener('click', e => {
             const filterIcon = e.target.closest('.filter-icon');
             if (filterIcon) openFilterModalFor(filterIcon.dataset.filterColumn);
-            
+
             if (e.target.closest('#clear-forward-filters-btn')) {
                 state.filters = defaultFilters();
                 applyFiltersAndRender();
@@ -368,7 +347,7 @@ window.ForwardView = (function() {
     async function initialize() {
         const tableBody = document.getElementById('forward-bookings-body');
         if (tableBody) tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10"><div class="spinner"></div></td></tr>`;
-        
+
         try {
             state.allForwardableBookings = await fetchForwardBookingsData();
             applyFiltersAndRender();

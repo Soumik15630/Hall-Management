@@ -17,7 +17,7 @@ window.ApproveBookingsView = (function() {
     };
     let abortController;
 
-    // --- HELPER FUNCTIONS ---
+    // --- HELPER FUNCTIONS (Unchanged) ---
     function formatStatus(status) {
         if (!status) return { text: 'Unknown', className: 'text-yellow-400' };
         const text = status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
@@ -32,55 +32,32 @@ window.ApproveBookingsView = (function() {
         return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     }
 
-    // --- API & DATA HANDLING ---
-    async function fetchFromAPI(endpoint, options = {}, isJson = true) {
-        const headers = getAuthHeaders();
-        if (!headers) {
-            logout();
-            throw new Error("User not authenticated");
-        }
-        const fullUrl = AppConfig.apiBaseUrl + endpoint;
-        const config = { ...options, headers };
-        if (options.body) config.headers['Content-Type'] = 'application/json';
-        
-        const response = await fetch(fullUrl, config);
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`API Error on ${endpoint}: ${response.status} - ${errorText}`);
-        }
-        if (isJson) {
-            const text = await response.text();
-            if (!text) return null;
-            const result = JSON.parse(text);
-            return result.data || result;
-        }
-        return response;
-    }
+    // --- API & DATA HANDLING (Updated to use ApiService) ---
+
+    // The local fetchFromAPI function has been REMOVED.
 
     async function getEmployees() {
         if (state.employeeDataCache) return state.employeeDataCache;
-        const employees = await fetchFromAPI(AppConfig.endpoints.allemp);
+        // UPDATED: Now uses the centralized ApiService
+        const employees = await ApiService.employees.getAll();
         state.employeeDataCache = employees;
         return employees;
     }
 
     /**
      * Fetches booking requests that require direct approval by the HOD.
-     * This includes internal requests and requests forwarded from other departments.
      */
     async function fetchApprovalData() {
-        // UPDATED: Use the new consolidated endpoint with the 'internal' filter
-        // to get both internal and external (forwarded-in) requests.
-        return await fetchFromAPI('api/booking/approvals?filter=internal');
+        // UPDATED: Now uses the centralized ApiService
+        return await ApiService.bookings.getForApproval();
     }
 
     async function updateBookingStatus(bookingId, action) {
-        // The actions 'approve' and 'reject' remain the same.
-        const endpoint = `api/booking/${bookingId}/${action}`;
-        return await fetchFromAPI(endpoint, { method: 'PUT' });
+        // UPDATED: Now uses the centralized ApiService
+        return await ApiService.bookings.updateStatus(bookingId, action);
     }
-    
-    // --- FILTERING ---
+
+    // --- FILTERING (Unchanged) ---
     function applyFiltersAndRender() {
         const { bookedOn, hall, purpose, dateTime, bookedBy } = state.filters;
 
@@ -100,14 +77,14 @@ window.ApproveBookingsView = (function() {
                 if (new Date(b.start_date) > toDate) return false;
             }
             if (bookedBy.name && b.user?.employee?.employee_name !== bookedBy.name) return false;
-            
+
             return true;
         });
 
         renderApproveBookingsTable();
     }
 
-    // --- RENDERING ---
+    // --- RENDERING (Unchanged) ---
     function renderApproveBookingsTable() {
         const data = state.filteredBookings;
         const tableBody = document.getElementById('approve-bookings-body');
@@ -124,10 +101,9 @@ window.ApproveBookingsView = (function() {
             const startDateTime = new Date(`${booking.start_date.substring(0, 10)}T${booking.start_time}`);
             const endDateTime = new Date(`${booking.end_date.substring(0, 10)}T${booking.end_time}`);
             const statusInfo = formatStatus(booking.status);
-            
-            // NEW: Add a visual indicator for requests forwarded from other departments.
-            const externalIndicator = booking.is_external_approval 
-                ? `<span class="ml-2 text-xs font-semibold bg-purple-600 text-white px-2 py-1 rounded-full">External</span>` 
+
+            const externalIndicator = booking.is_external_approval
+                ? `<span class="ml-2 text-xs font-semibold bg-purple-600 text-white px-2 py-1 rounded-full">External</span>`
                 : '';
 
             return `
@@ -160,7 +136,7 @@ window.ApproveBookingsView = (function() {
         updateFilterIcons();
         if(window.lucide) lucide.createIcons();
     }
-    
+
     function updateFilterIcons() {
         document.querySelectorAll('#approve-bookings-view .filter-icon').forEach(icon => {
             const column = icon.dataset.filterColumn;
@@ -177,7 +153,7 @@ window.ApproveBookingsView = (function() {
         });
     }
 
-    // --- MODAL & EVENT HANDLING (No changes needed here) ---
+    // --- MODAL & EVENT HANDLING (Unchanged) ---
     function openModal(modalId) {
         const modal = document.getElementById(modalId);
         const backdrop = document.getElementById('modal-backdrop');
@@ -197,7 +173,7 @@ window.ApproveBookingsView = (function() {
             else modal.classList.add('hidden');
         });
     }
-    
+
     function createFilterModal(column, title, contentHtml) {
         const container = document.getElementById('filter-modal-container');
         if (!container) return;
@@ -219,7 +195,7 @@ window.ApproveBookingsView = (function() {
         </div>`;
         container.insertAdjacentHTML('beforeend', modalHtml);
     }
-    
+
     function setupSearchableDropdown(inputId, optionsId, hiddenId, data) {
         const input = document.getElementById(inputId);
         const optionsContainer = document.getElementById(optionsId);
@@ -279,7 +255,7 @@ window.ApproveBookingsView = (function() {
             const userNames = [...new Set(employees.map(e => e.employee_name))].sort();
             setupSearchableDropdown('filter-user-name-input', 'filter-user-name-options', 'filter-user-name', userNames);
         }
-        
+
         openModal(`filter-modal-${column}`);
     }
 
@@ -324,6 +300,7 @@ window.ApproveBookingsView = (function() {
         }
         try {
             await updateBookingStatus(bookingId, action);
+            // Remove the booking from the local state to update the UI instantly
             state.bookings = state.bookings.filter(b => b.unique_id !== bookingId);
             applyFiltersAndRender();
         } catch (error) {
@@ -379,9 +356,10 @@ window.ApproveBookingsView = (function() {
         const tableBody = document.getElementById('approve-bookings-body');
         if (tableBody) tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10"><div class="spinner"></div></td></tr>`;
         try {
+            // UPDATED: Now uses the centralized ApiService
             const data = await fetchApprovalData();
             state.bookings = Array.isArray(data) ? data : [];
-            await getEmployees();
+            await getEmployees(); // This now also uses ApiService
             applyFiltersAndRender();
             setupEventHandlers();
         } catch (error) {

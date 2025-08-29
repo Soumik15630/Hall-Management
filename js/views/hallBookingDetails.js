@@ -1,6 +1,6 @@
 window.HallBookingDetailsView = (function() {
 
-    // --- STATE MANAGEMENT ---
+    // --- STATE MANAGEMENT (Unchanged) ---
     let state = {
         hall: null,
         availabilityData: [], // Combined list of approved and pending bookings
@@ -17,7 +17,7 @@ window.HallBookingDetailsView = (function() {
     const timeSlots = ['09:30', '10:30', '11:30', '12:30', '13:30', '14:30', '15:30', '16:30'];
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-    // --- UI HELPERS ---
+    // --- UI HELPERS (Unchanged) ---
     function showLoader() {
         if (document.getElementById('booking-loader')) return;
         const loader = document.createElement('div');
@@ -36,7 +36,7 @@ window.HallBookingDetailsView = (function() {
         }
     }
 
-    // --- UTILITY FUNCTIONS FOR TIME HANDLING ---
+    // --- UTILITY FUNCTIONS FOR TIME HANDLING (Unchanged) ---
     function getTodayISTString() {
         const now = new Date();
         const year = now.toLocaleString('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric' });
@@ -58,30 +58,9 @@ window.HallBookingDetailsView = (function() {
         return false;
     }
 
-    // --- API & DATA HANDLING ---
-    async function fetchFromAPI(endpoint, options = {}) {
-        const headers = getAuthHeaders();
-        if (!headers) {
-            logout();
-            throw new Error("User not authenticated");
-        }
-        const fullUrl = AppConfig.apiBaseUrl + endpoint;
-        const config = { ...options, headers };
-        const response = await fetch(fullUrl, config);
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`API Error on ${endpoint}: ${response.status} - ${errorText}`);
-        }
-        const text = await response.text();
-        if (!text) return null;
-        try {
-            const parsed = JSON.parse(text);
-            return parsed.data || parsed;
-        } catch (e) {
-            console.error("Failed to parse API response:", text);
-            return null;
-        }
-    }
+    // --- API & DATA HANDLING (Updated to use ApiService) ---
+
+    // The local fetchFromAPI function has been REMOVED.
 
     function getBookingsForSlot(dateString, time) {
         if (!state.availabilityData || state.availabilityData.length === 0) {
@@ -102,8 +81,8 @@ window.HallBookingDetailsView = (function() {
             }
         });
     }
-    
-    // --- SELECTION LOGIC ---
+
+    // --- SELECTION LOGIC (Unchanged) ---
     function validateSingleDayBooking(newSlot) {
         if (state.selectedSlots.length === 0) return true;
         const existingDate = state.selectedSlots[0].date;
@@ -127,37 +106,27 @@ window.HallBookingDetailsView = (function() {
         }
     }
 
-    // --- TOOLTIP MANAGEMENT ---
-    /**
-     * [FIXED] Creates and positions a tooltip next to the mouse cursor.
-     * @param {string} content - The HTML content for the tooltip.
-     * @param {MouseEvent} event - The mouse event that triggered the tooltip.
-     */
+    // --- TOOLTIP MANAGEMENT (Unchanged) ---
     function createTooltip(content, event) {
         removeTooltip();
         const tooltip = document.createElement('div');
         tooltip.id = 'booking-tooltip';
-        // Added 'pointer-events-none' to prevent the tooltip from interfering with other mouse events.
         tooltip.className = 'absolute z-50 p-3 bg-slate-900 border border-slate-700 rounded-lg shadow-xl text-sm max-w-xs w-max pointer-events-none';
         tooltip.innerHTML = content;
         document.body.appendChild(tooltip);
 
         const tooltipRect = tooltip.getBoundingClientRect();
-        
-        // Position tooltip beside the cursor with an offset.
+
         let top = event.pageY + 15;
         let left = event.pageX + 15;
 
-        // Adjust if it goes off the right edge of the screen.
         if (left + tooltipRect.width > window.innerWidth) {
             left = event.pageX - tooltipRect.width - 15;
         }
-        // Adjust if it goes off the bottom edge of the screen.
         if (top + tooltipRect.height > (window.innerHeight + window.scrollY)) {
             top = event.pageY - tooltipRect.height - 15;
         }
-        
-        // Ensure it's not off-screen top/left.
+
         if (top < window.scrollY) top = window.scrollY + 5;
         if (left < 0) left = 5;
 
@@ -170,7 +139,7 @@ window.HallBookingDetailsView = (function() {
         if (existingTooltip) existingTooltip.remove();
     }
 
-    // --- SAFE RENDERING ---
+    // --- SAFE RENDERING (Unchanged) ---
     function safeRender(callback, delay = 0) {
         if (renderTimeout) clearTimeout(renderTimeout);
         renderTimeout = setTimeout(() => {
@@ -189,7 +158,7 @@ window.HallBookingDetailsView = (function() {
         }, delay);
     }
 
-    // --- RENDERING LOGIC ---
+    // --- RENDERING LOGIC (Unchanged) ---
     function render() {
         if (!state.hall) return;
         safeRender(() => {
@@ -304,7 +273,7 @@ window.HallBookingDetailsView = (function() {
             ? { classes: 'slot-available-weekend', status: 'available-weekend', isClickable: true }
             : { classes: 'slot-available-weekday', status: 'available', isClickable: true };
     }
-    
+
     function updateCalendarUI() {
         document.querySelectorAll('#calendar-body .slot').forEach(slotEl => {
             const { date, time } = slotEl.dataset;
@@ -326,11 +295,6 @@ window.HallBookingDetailsView = (function() {
         });
     }
 
-    /**
-     * [FIXED] Shows a tooltip, now accepting a mouse event for positioning.
-     * @param {HTMLElement} slotEl - The slot element being hovered over.
-     * @param {MouseEvent} event - The mouse event that triggered the tooltip.
-     */
     function showSlotTooltip(slotEl, event) {
         const { date, time, status } = slotEl.dataset;
         const bookings = getBookingsForSlot(date, time);
@@ -338,7 +302,7 @@ window.HallBookingDetailsView = (function() {
             removeTooltip();
             return;
         };
-        
+
         let content = '';
         if (status === 'booked') {
             const booking = bookings.find(b => b.status === 'APPROVED') || bookings[0];
@@ -370,12 +334,12 @@ window.HallBookingDetailsView = (function() {
 
         if (status === 'booked') {
             showSlotTooltip(slotEl, e);
-            return; 
+            return;
         }
         if (status === 'pending') {
             showSlotTooltip(slotEl, e);
         }
-        
+
         if (!validateSingleDayBooking({ date, time })) {
             const existingDate = state.selectedSlots[0].date;
             showNotification(`You can only book slots for one day. Please clear your selection for ${new Date(existingDate+'T00:00:00').toLocaleDateString()} to choose a different date.`);
@@ -422,7 +386,7 @@ window.HallBookingDetailsView = (function() {
         }
         updateCalendarUI();
     }
-    
+
     function showNotification(message) {
         const notification = document.createElement('div');
         notification.className = 'fixed top-5 right-5 bg-red-500 text-white py-2 px-4 rounded-lg shadow-lg animate-pulse z-[200]';
@@ -458,7 +422,6 @@ window.HallBookingDetailsView = (function() {
 
         const calendarGrid = document.getElementById('booking-calendar-grid');
         if (calendarGrid) {
-            // [FIXED] Pass the mouse event to the tooltip handler.
             calendarGrid.addEventListener('mouseover', e => {
                 const slot = e.target.closest('button.slot[data-status="booked"], button.slot[data-status="pending"]');
                 if (slot) {
@@ -477,6 +440,13 @@ window.HallBookingDetailsView = (function() {
     }
 
     async function initialize(hallId) {
+            if (document.readyState !== 'complete') {
+                await new Promise(resolve => {
+                    window.addEventListener('load', resolve, { once: true });
+                });
+            }
+    
+
         showLoader();
         if (abortController) abortController.abort();
         abortController = new AbortController();
@@ -487,13 +457,14 @@ window.HallBookingDetailsView = (function() {
             state.isRendering = false;
             sessionStorage.removeItem('finalBookingSlots');
             sessionStorage.removeItem('finalBookingHall');
-            
+
+            // UPDATED: Now uses the centralized ApiService
             const [hallData, approvedBookingsData, pendingBookingsData] = await Promise.all([
-                fetchFromAPI(`api/hall/${hallId}`),
-                fetchFromAPI(`api/booking/hall/${hallId}`),
-                fetchFromAPI(`api/booking/hall/pending/${hallId}`)
+                ApiService.halls.getById(hallId),
+                ApiService.bookings.getForHall(hallId),
+                ApiService.bookings.getPendingForHall(hallId)
             ]);
-            
+
             if (!hallData) throw new Error(`Hall data not found for ID: ${hallId}`);
 
             const processedHallData = {
@@ -507,7 +478,7 @@ window.HallBookingDetailsView = (function() {
                     intercom: hallData.department?.incharge_contact_number || hallData.school?.incharge_contact_number || hallData.incharge_contact_number || 'N/A',
                 }
             };
-            
+
             const processBooking = (bookingData, status) => {
                 const details = bookingData.bookingRequest;
                 if (!details) {
@@ -536,7 +507,7 @@ window.HallBookingDetailsView = (function() {
                     }
                 };
             };
-            
+
             const processedApproved = (approvedBookingsData || []).map(b => processBooking(b, 'APPROVED'));
             const processedPending = (pendingBookingsData || []).map(p => processBooking(p, 'PENDING'));
 
@@ -546,12 +517,12 @@ window.HallBookingDetailsView = (function() {
                 availabilityData: [...processedApproved, ...processedPending],
                 currentDate: new Date(),
             };
-            
+
             await new Promise(resolve => {
                 render();
                 setTimeout(resolve, 10);
             });
-            
+
             document.getElementById('prev-month-btn')?.addEventListener('click', () => { state.currentDate.setMonth(state.currentDate.getMonth() - 1); rerenderCalendar(); }, { signal });
             document.getElementById('next-month-btn')?.addEventListener('click', () => { state.currentDate.setMonth(state.currentDate.getMonth() + 1); rerenderCalendar(); }, { signal });
             document.getElementById('confirm-booking-btn')?.addEventListener('click', handleBookHall, { signal });

@@ -1,24 +1,5 @@
 window.BrowseBookView = (function() {
-    // --- START: Simple API Cache ---
-    window.apiCache = window.apiCache || {
-        _data: {},
-        _promises: {},
-        fetch: async function(key, fetcherFn) {
-            if (this._data[key]) return this._data[key];
-            if (!this._promises[key]) {
-                this._promises[key] = fetcherFn().then(data => {
-                    this._data[key] = data;
-                    delete this._promises[key];
-                    return data;
-                }).catch(err => {
-                    delete this._promises[key];
-                    throw err;
-                });
-            }
-            return this._promises[key];
-        }
-    };
-    // --- END: Simple API Cache ---
+    // --- START: Simple API Cache (REMOVED as ApiService handles this implicitly) ---
 
     let allHalls = []; // Flat array of all halls
     let schoolsData = {}; // For dropdown compatibility
@@ -31,14 +12,14 @@ window.BrowseBookView = (function() {
     const getDefaultState = () => ({
         hallType: 'Seminar', // Display format, maps to 'SEMINAR' in API
         viewMode: 'with-image',
-        filters: { 
-            school: 'All', 
-            department: 'All', 
-            fromDate: '', 
-            toDate: '', 
-            capacity: null, 
-            features: [], 
-            timeSlots: [] 
+        filters: {
+            school: 'All',
+            department: 'All',
+            fromDate: '',
+            toDate: '',
+            capacity: null,
+            features: [],
+            timeSlots: []
         }
     });
     let state = getDefaultState();
@@ -46,7 +27,7 @@ window.BrowseBookView = (function() {
     // Map display names to API types and vice versa
     const HALL_TYPE_MAPPING = {
         'Seminar': 'SEMINAR',
-        'Auditorium': 'AUDITORIUM', 
+        'Auditorium': 'AUDITORIUM',
         'Lecture Hall': 'LECTURE',
         'Conference Hall': 'CONFERENCE',
         'Other': 'OTHER'
@@ -55,65 +36,44 @@ window.BrowseBookView = (function() {
     const API_TO_DISPLAY_MAPPING = {
         'SEMINAR': 'Seminar',
         'AUDITORIUM': 'Auditorium',
-        'LECTURE': 'Lecture Hall', 
+        'LECTURE': 'Lecture Hall',
         'CONFERENCE': 'Conference Hall',
         'OTHER': 'Other'
     };
 
-    // --- API & DATA HANDLING ---
-    async function fetchFromAPI(endpoint, options = {}, isJson = true) {
-        const headers = getAuthHeaders();
-        if (!headers) { 
-            logout(); 
-            throw new Error("User not authenticated"); 
-        }
-        const fullUrl = AppConfig.apiBaseUrl + endpoint;
-        const config = { ...options, headers };
-        const response = await fetch(fullUrl, config);
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`API Error on ${endpoint}: ${response.status} - ${errorText}`);
-        }
-        if (isJson) {
-            const text = await response.text();
-            return text ? (JSON.parse(text).data || JSON.parse(text)) : null;
-        }
-        return response;
-    }
-    
+    // --- API & DATA HANDLING (Updated to use ApiService) ---
+
+    // The local fetchFromAPI, fetchRawSchools, and fetchRawDepartments functions have been REMOVED.
+
     function formatTitleCase(str) {
         if (!str) return 'N/A';
-        return str.replace(/_/g, ' ').replace(/\w\S*/g, txt => 
+        return str.replace(/_/g, ' ').replace(/\w\S*/g, txt =>
             txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
-    }
-
-    async function fetchRawSchools() {
-        return await window.apiCache.fetch('schools', () => fetchFromAPI(AppConfig.endpoints.allschool));
-    }
-
-    async function fetchRawDepartments() {
-        return await window.apiCache.fetch('departments', () => fetchFromAPI(AppConfig.endpoints.alldept));
     }
 
     async function getSchoolsDataForFilters() {
         if (Object.keys(schoolsData).length > 0) return schoolsData;
 
         try {
-            const [schools, departments] = await Promise.all([fetchRawSchools(), fetchRawDepartments()]);
-            
+            // UPDATED: Now uses the centralized ApiService
+            const [schools, departments] = await Promise.all([
+                ApiService.organization.getSchools(),
+                ApiService.organization.getDepartments()
+            ]);
+
             // Build schoolOptions and departmentOptions for new system
             schoolOptions = schools.map(s => ({ value: s.school_name, label: s.school_name, id: s.unique_id }));
-            departmentOptions = departments.map(d => ({ 
-                value: d.department_name, 
-                label: d.department_name, 
+            departmentOptions = departments.map(d => ({
+                value: d.department_name,
+                label: d.department_name,
                 id: d.unique_id,
-                schoolId: d.school_id 
+                schoolId: d.school_id
             }));
 
             // Build schoolsData for dropdown compatibility
             const schoolsMap = {};
-            schools.forEach(school => { 
-                schoolsMap[school.school_name] = []; 
+            schools.forEach(school => {
+                schoolsMap[school.school_name] = [];
             });
             departments.forEach(dept => {
                 const school = schools.find(s => s.unique_id === dept.school_id);
@@ -132,19 +92,20 @@ window.BrowseBookView = (function() {
     async function fetchBookingHalls() {
         console.log("Attempting to fetch booking halls...");
         try {
+            // UPDATED: Now uses the centralized ApiService
             const [rawHalls, schools, departments] = await Promise.all([
-                fetchFromAPI(AppConfig.endpoints.allHall),
-                fetchRawSchools(),
-                fetchRawDepartments()
+                ApiService.halls.getAll(),
+                ApiService.organization.getSchools(),
+                ApiService.organization.getDepartments()
             ]);
 
             console.log("API Response (rawHalls):", rawHalls);
-            
+
             const hallsArray = Array.isArray(rawHalls) ? rawHalls :
                                (rawHalls && Array.isArray(rawHalls.data)) ? rawHalls.data :
                                (rawHalls && Array.isArray(rawHalls.halls)) ? rawHalls.halls :
                                null;
-            
+
             console.log("Extracted hallsArray for processing:", hallsArray);
 
             if (!hallsArray) {
@@ -155,33 +116,33 @@ window.BrowseBookView = (function() {
 
             const schoolMap = new Map(schools.map(s => [s.unique_id, s]));
             const departmentMap = new Map(departments.map(d => [d.unique_id, d]));
-            
+
             allHalls = hallsArray.map((hall, index) => {
                 const dept = hall.department_id ? departmentMap.get(hall.department_id) : null;
                 const school = hall.school_id ? schoolMap.get(hall.school_id) : null;
-                const incharge = dept 
+                const incharge = dept
                     ? { name: dept.incharge_name || 'N/A', designation: 'HOD', email: dept.incharge_email || 'N/A', intercom: dept.incharge_contact_number || 'N/A' }
-                    : (school ? { name: school.incharge_name || 'N/A', designation: 'Dean', email: school.incharge_email || 'N/A', intercom: school.incharge_contact_number || 'N/A' } 
+                    : (school ? { name: school.incharge_name || 'N/A', designation: 'Dean', email: school.incharge_email || 'N/A', intercom: school.incharge_contact_number || 'N/A' }
                     : { name: 'N/A', designation: 'N/A', email: 'N/A', intercom: 'N/A' });
-                
+
                 return {
-                    id: hall.unique_id || hall.id, 
+                    id: hall.unique_id || hall.id,
                     unique_id: hall.unique_id || hall.id,
-                    name: hall.name || `Hall ${index + 1}`, 
+                    name: hall.name || `Hall ${index + 1}`,
                     type: hall.type || 'OTHER', // Keep API format
                     displayType: API_TO_DISPLAY_MAPPING[hall.type] || 'Other', // For display
                     location: `${school ? school.school_name : 'N/A'}${dept ? ' - ' + dept.department_name : ''}`,
-                    capacity: hall.capacity || 0, 
+                    capacity: hall.capacity || 0,
                     school: school ? school.school_name : 'N/A',
-                    department: dept ? dept.department_name : 'N/A', 
+                    department: dept ? dept.department_name : 'N/A',
                     school_id: hall.school_id,
                     department_id: hall.department_id,
                     features: Array.isArray(hall.features) ? hall.features.map(formatTitleCase) : [],
-                    floor: formatTitleCase(hall.floor), 
+                    floor: formatTitleCase(hall.floor),
                     zone: formatTitleCase(hall.zone),
-                    availability: hall.availability !== false, 
+                    availability: hall.availability !== false,
                     image_url: hall.image_url || `https://placehold.co/600x400/0f172a/93c5fd?text=${encodeURIComponent(hall.name)}`,
-                    incharge: incharge, 
+                    incharge: incharge,
                     ...hall
                 };
             });
@@ -189,7 +150,7 @@ window.BrowseBookView = (function() {
             window.allHallsCache = allHalls;
             console.log("Final processed halls:", allHalls);
             return allHalls;
-            
+
         } catch (error) {
             console.error("Error in fetchBookingHalls function:", error);
             allHalls = []; // Ensure allHalls is empty on error
@@ -197,26 +158,23 @@ window.BrowseBookView = (function() {
         }
     }
 
-    // Get halls filtered by current state
+    // --- FILTERING & RENDERING (Unchanged) ---
+
     function getFilteredHalls() {
         if (!allHalls || !allHalls.length) return [];
-        
+
         return allHalls.filter(hall => {
-            // Hall Type Filter - convert display type to API type for comparison
             const apiType = HALL_TYPE_MAPPING[state.hallType];
             if (apiType && hall.type !== apiType) return false;
-            
-            // School Filter
+
             if (state.filters.school && state.filters.school !== 'All' && hall.school !== state.filters.school) {
                 return false;
             }
-            
-            // Department Filter  
+
             if (state.filters.department && state.filters.department !== 'All' && hall.department !== state.filters.department) {
                 return false;
             }
-            
-            // Capacity Filter
+
             if (state.filters.capacity) {
                 const capacity = hall.capacity;
                 if (state.filters.capacity === 'less-50' && capacity >= 50) return false;
@@ -224,19 +182,16 @@ window.BrowseBookView = (function() {
                 if (state.filters.capacity === 'more-100' && capacity <= 100) return false;
             }
 
-            // Features Filter (Corrected Version)
             if (state.filters.features.length > 0) {
-                // Convert hall's features to lowercase for robust comparison
                 const hallFeaturesLower = hall.features.map(f => f.toLowerCase());
-                // Check if every selected feature (also converted to lowercase) is present
-                const allFeaturesMatch = state.filters.features.every(selectedFeature => 
+                const allFeaturesMatch = state.filters.features.every(selectedFeature =>
                     hallFeaturesLower.includes(selectedFeature.toLowerCase())
                 );
                 if (!allFeaturesMatch) {
                     return false;
                 }
             }
-            
+
             return true;
         });
     }
@@ -245,21 +200,21 @@ window.BrowseBookView = (function() {
         const titleElement = document.getElementById('hall-listing-title');
         const cardsContainer = document.getElementById('hall-cards-container');
         const tableContainer = document.getElementById('hall-table-container');
-        
+
         if (titleElement) {
             titleElement.textContent = `${state.hallType} (${halls.length})`;
         }
-        
+
         const mainContainer = cardsContainer || tableContainer;
         if (!mainContainer) {
-             console.error("CRITICAL: Could not find main content containers ('hall-cards-container' or 'hall-table-container'). Make sure they exist in your HTML and the script is loaded at the end of the body.");
+             console.error("CRITICAL: Could not find main content containers ('hall-cards-container' or 'hall-table-container').");
              const fallbackContainer = document.querySelector('#browse-book-view .container, #browse-book-view > div, .hall-container');
              if(fallbackContainer) fallbackContainer.innerHTML = `<div class="text-center text-slate-400 p-8">Error: Could not find the main content area to display halls.</div>`;
             return;
         }
 
         const renderCards = state.viewMode === 'with-image' || state.viewMode === 'no-image';
-        
+
         if (cardsContainer) cardsContainer.classList.toggle('hidden', !renderCards);
         if (tableContainer) tableContainer.classList.toggle('hidden', renderCards);
 
@@ -276,15 +231,14 @@ window.BrowseBookView = (function() {
         if (renderCards && cardsContainer) {
             const cardsHtml = halls.map(hall => {
                 const imageUrl = hall.image_url;
-                const hallId = hall.unique_id || hall.id; 
-                
-                // MODIFICATION: Added a white background and padding to the image container.
+                const hallId = hall.unique_id || hall.id;
+
                 return `
                 <div data-hall-id="${hallId}" class="hall-card bg-slate-900/70 rounded-lg border border-slate-700 flex flex-col overflow-hidden group">
                     ${state.viewMode === 'with-image' ? `
                     <div class="overflow-hidden bg-white p-4">
-                        <img src="${imageUrl}" alt="${hall.name}" 
-                             class="w-full h-40 object-contain transition-transform duration-300 ease-in-out group-hover:scale-105" 
+                        <img src="${imageUrl}" alt="${hall.name}"
+                             class="w-full h-40 object-contain transition-transform duration-300 ease-in-out group-hover:scale-105"
                              onerror="this.src='https://placehold.co/600x400/0f172a/93c5fd?text=${encodeURIComponent(hall.name)}'">
                     </div>` : ''}
                     <div class="p-4 flex flex-col flex-grow justify-between">
@@ -325,16 +279,16 @@ window.BrowseBookView = (function() {
             tableContainer.innerHTML = tableHtml;
         }
     }
-    
+
     async function applyFiltersAndRender() {
         const filteredHalls = getFilteredHalls();
         renderFilteredResults(filteredHalls);
     }
 
-    function saveStateToSession() { 
+    function saveStateToSession() {
         try { sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
     }
-    
+
     function loadStateFromSession() {
         try {
             const savedState = sessionStorage.getItem(SESSION_STORAGE_KEY);
@@ -351,18 +305,18 @@ window.BrowseBookView = (function() {
         const viewModeSelect = document.getElementById('view-mode-select');
         const fromDateInput = document.getElementById('from-date');
         const toDateInput = document.getElementById('to-date');
-        
+
         if (schoolFilter) state.filters.school = schoolFilter.value || 'All';
         if (deptFilter) state.filters.department = deptFilter.value || 'All';
         if (viewModeSelect) state.viewMode = viewModeSelect.value;
         if (fromDateInput) state.filters.fromDate = fromDateInput.value;
         if (toDateInput) state.filters.toDate = toDateInput.value;
-        
+
         const capacityChecked = document.querySelector('input[name="capacity"]:checked');
         state.filters.capacity = capacityChecked ? capacityChecked.value : null;
         state.filters.features = [...document.querySelectorAll('input[data-feature]:checked')].map(cb => cb.dataset.feature);
         state.filters.timeSlots = [...document.querySelectorAll('button.selected')].map(btn => btn.dataset.time).filter(Boolean);
-        
+
         applyFiltersAndRender();
         saveStateToSession();
     }
@@ -407,7 +361,7 @@ window.BrowseBookView = (function() {
                 handleFilterChange(); deptOptions.classList.add('hidden');
             }
         });
-        
+
         schoolInput.addEventListener('blur', () => setTimeout(() => schoolOptions.classList.add('hidden'), 150));
         deptInput.addEventListener('blur', () => setTimeout(() => deptOptions.classList.add('hidden'), 150));
     }
@@ -436,11 +390,11 @@ window.BrowseBookView = (function() {
                 state.hallType = newHallType;
                 applyFiltersAndRender();
                 saveStateToSession();
-            } else if (target.matches('#clear-capacity')) { // Handles click on "Clear" for Capacity
+            } else if (target.matches('#clear-capacity')) {
                 e.preventDefault();
                 document.querySelectorAll('input[name="capacity"]:checked').forEach(radio => radio.checked = false);
                 handleFilterChange();
-            } else if (target.matches('#clear-features')) { // Handles click on "Clear" for Features
+            } else if (target.matches('#clear-features')) {
                 e.preventDefault();
                 document.querySelectorAll('input[data-feature]:checked').forEach(cb => cb.checked = false);
                 handleFilterChange();
@@ -449,7 +403,7 @@ window.BrowseBookView = (function() {
                 target.classList.toggle('bg-blue-600'); target.classList.toggle('text-white');
                 target.classList.toggle('bg-slate-700'); target.classList.toggle('text-slate-300');
                 handleFilterChange();
-            } else if (target.matches('#clear-timeslots')) { // This button clears only the time slots
+            } else if (target.matches('#clear-timeslots')) {
                  e.preventDefault();
                 container.querySelectorAll('button.selected[data-time]').forEach(btn => {
                     btn.classList.remove('selected', 'bg-blue-600', 'text-white');
@@ -462,9 +416,9 @@ window.BrowseBookView = (function() {
                     console.error('No hall ID found in button dataset');
                     return;
                 }
-                
+
                 let hallData = allHalls.find(h => String(h.id) === String(hallId) || String(h.unique_id) === String(hallId));
-                
+
                 if (!hallData) {
                     console.error('Hall data not found for ID:', hallId);
                     if (window.showModal) {
@@ -472,9 +426,9 @@ window.BrowseBookView = (function() {
                     } else {
                         alert('Error: Hall data not found. Please try refreshing.');
                     }
-                    return; 
+                    return;
                 }
-                
+
                 if (button.dataset.action === 'view-details') {
                     sessionStorage.setItem('hallDetailsData', JSON.stringify(hallData));
                     window.location.hash = `#hall-booking-details-view?id=${hallId}`;
@@ -484,19 +438,19 @@ window.BrowseBookView = (function() {
                 }
             }
         }, { signal });
-        
+
         container.addEventListener('change', e => {
             if(e.target.matches('input[name="capacity"], input[data-feature], #view-mode-select, #from-date, #to-date')) {
                 handleFilterChange();
             }
         }, { signal });
     }
-    
+
     function initializeFormElements() {
         const schoolFilter = document.getElementById('school-filter');
         const deptFilter = document.getElementById('dept-filter');
         const viewModeSelect = document.getElementById('view-mode-select');
-        
+
         if (schoolFilter) schoolFilter.value = state.filters.school || 'All';
         if (deptFilter) deptFilter.value = state.filters.department || 'All';
         if (viewModeSelect) viewModeSelect.value = state.viewMode || 'with-image';
@@ -515,27 +469,23 @@ window.BrowseBookView = (function() {
         });
     }
 
-    function cleanup() { 
-        if (abortController) abortController.abort(); 
+    function cleanup() {
+        if (abortController) abortController.abort();
     }
 
-    // --- [FIXED] More Robust Initialization ---
     async function initialize() {
         console.log("Initializing BrowseBookView...");
         loadStateFromSession();
-        
+
         const mainContainer = document.getElementById('hall-cards-container') || document.getElementById('hall-table-container') || document.querySelector('#browse-book-view');
         if (mainContainer) {
             mainContainer.innerHTML = `<div class="col-span-full text-center py-10 text-slate-400">Loading halls...</div>`;
         }
-        
+
         try {
-            // Explicitly wait for hall and filter data to be fetched.
-            // The fetchBookingHalls function will populate the global 'allHalls' variable.
-            await fetchBookingHalls(); 
+            await fetchBookingHalls();
             await getSchoolsDataForFilters();
-            
-            // Now that data is fetched, update the UI.
+
             const currentTypeBtn = document.querySelector(`.hall-type-btn[data-hall-type="${state.hallType}"]`);
             if (currentTypeBtn) {
                 document.querySelectorAll('.hall-type-btn').forEach(btn => {
@@ -545,15 +495,14 @@ window.BrowseBookView = (function() {
                 currentTypeBtn.classList.add('bg-blue-600', 'text-white');
                 currentTypeBtn.classList.remove('bg-slate-700', 'text-slate-300');
             }
-            
+
             initializeFormElements();
-            // This function uses the now-populated 'allHalls' global variable to filter and render.
-            await applyFiltersAndRender(); 
+            await applyFiltersAndRender();
             initializeTimeSlotButtons();
             setupEventHandlers();
-            
+
             console.log("BrowseBookView initialized successfully.");
-            
+
         } catch (error) {
             console.error("Initialization failed:", error);
             const errorHtml = `<div class="col-span-full text-center py-10 text-red-400">
@@ -566,10 +515,9 @@ window.BrowseBookView = (function() {
         }
     }
 
-    return { 
-        initialize, 
+    return {
+        initialize,
         cleanup,
-        // For debugging
         getState: () => state,
         getAllHalls: () => allHalls,
         getFilteredHalls

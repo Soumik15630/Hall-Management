@@ -1,6 +1,6 @@
 // Booking Conflicts View Module
 window.ConflictsView = (function() {
-    // --- STATE MANAGEMENT ---
+    // --- STATE MANAGEMENT (Unchanged) ---
     const defaultFilters = () => ({
         bookedOn: { from: '', to: '' },
         hall: { name: '' },
@@ -18,7 +18,7 @@ window.ConflictsView = (function() {
     };
     let abortController;
 
-    // --- HELPER FUNCTIONS ---
+    // --- HELPER FUNCTIONS (Unchanged) ---
     function formatStatus(status) {
         if (!status) return { text: 'Unknown', className: 'text-yellow-400' };
         const text = status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
@@ -27,47 +27,29 @@ window.ConflictsView = (function() {
         else if (status.includes('APPROVED')) className = 'text-green-400';
         return { text, className };
     }
-    
+
     function formatDate(dateString) {
         if (!dateString) return 'N/A';
         return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     }
 
-    // --- API & DATA HANDLING ---
-    async function apiCall(endpoint, method = 'GET', body = null) {
-        const headers = getAuthHeaders();
-        if (!headers) {
-            logout();
-            throw new Error("User not authenticated");
-        }
-        const fullUrl = AppConfig.apiBaseUrl + endpoint;
-        const options = { method, headers };
-        if (body) {
-            options.headers['Content-Type'] = 'application/json';
-            options.body = JSON.stringify(body);
-        }
-        const response = await fetch(fullUrl, options);
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`API Error on ${method} ${endpoint}: ${response.status} - ${errorText}`);
-        }
-        const text = await response.text();
-        if (!text) return null;
-        const result = JSON.parse(text);
-        return result.data || result;
-    }
+    // --- API & DATA HANDLING (Updated to use ApiService) ---
+
+    // The local apiCall function has been REMOVED.
 
     async function getEmployees() {
         if (state.employeeDataCache) return state.employeeDataCache;
-        const employees = await apiCall(AppConfig.endpoints.allemp);
+        // UPDATED: Now uses the centralized ApiService
+        const employees = await ApiService.employees.getAll();
         state.employeeDataCache = employees;
         return employees;
     }
 
-async function fetchBookingConflictsData() {
-    // FIXED: The second argument to apiCall should be a string, not an object.
-    return await apiCall('api/booking/approvals?filter=internal', 'GET');
-}
+    async function fetchBookingConflictsData() {
+        // UPDATED: Now uses the centralized ApiService
+        return await ApiService.bookings.getForApproval();
+    }
+
     async function handleBookingAction(bookingId, action) {
         const row = document.querySelector(`tr[data-booking-id="${bookingId}"]`);
         if(row) {
@@ -75,8 +57,8 @@ async function fetchBookingConflictsData() {
             row.querySelectorAll('button').forEach(btn => btn.disabled = true);
         }
         try {
-            const endpoint = `api/booking/${bookingId}/${action}`;
-            await apiCall(endpoint, 'PUT');
+            // UPDATED: Now uses the centralized ApiService
+            await ApiService.bookings.updateStatus(bookingId, action);
             // After an action, re-fetch the conflicts list to see if the action resolved it.
             await initialize();
         } catch (error) {
@@ -89,7 +71,7 @@ async function fetchBookingConflictsData() {
         }
     }
 
-    // --- FILTERING ---
+    // --- FILTERING (Unchanged) ---
     function applyFiltersAndRender() {
         const { bookedOn, hall, purpose, dateTime, bookedBy, status } = state.filters;
 
@@ -110,13 +92,13 @@ async function fetchBookingConflictsData() {
             }
             if (bookedBy.name && b.user?.employee?.employee_name !== bookedBy.name) return false;
             if (status && b.status !== status) return false;
-            
+
             return true;
         });
         renderBookingConflictsTable();
     }
-    
-    // --- RENDERING ---
+
+    // --- RENDERING (Unchanged) ---
     function renderBookingConflictsTable() {
         const data = state.filteredConflicts;
         const tableBody = document.getElementById('booking-conflicts-body');
@@ -126,7 +108,7 @@ async function fetchBookingConflictsData() {
             tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-slate-400">No booking conflicts found.</td></tr>`;
             return;
         }
-        
+
         const tableHtml = data.map(booking => `
             <tr class="bg-red-900/20 hover:bg-red-900/40" data-booking-id="${booking.unique_id}">
                 <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300">${formatDate(booking.created_at)}</td>
@@ -166,7 +148,7 @@ async function fetchBookingConflictsData() {
         });
     }
 
-    // --- MODAL & EVENT HANDLING (No changes needed here) ---
+    // --- MODAL & EVENT HANDLING (Unchanged) ---
     function openModal(modalId) {
         const modal = document.getElementById(modalId);
         const backdrop = document.getElementById('modal-backdrop');
@@ -186,7 +168,7 @@ async function fetchBookingConflictsData() {
             else modal.classList.add('hidden');
         });
     }
-    
+
     function createFilterModal(column, title, contentHtml) {
         const container = document.getElementById('filter-modal-container');
         if (!container) return;
@@ -208,7 +190,7 @@ async function fetchBookingConflictsData() {
         </div>`;
         container.insertAdjacentHTML('beforeend', modalHtml);
     }
-    
+
     function setupSearchableDropdown(inputId, optionsId, hiddenId, data) {
         const input = document.getElementById(inputId);
         const optionsContainer = document.getElementById(optionsId);
@@ -274,7 +256,7 @@ async function fetchBookingConflictsData() {
             const userNames = [...new Set(employees.map(e => e.employee_name))].sort();
             setupSearchableDropdown('filter-user-name-input', 'filter-user-name-options', 'filter-user-name', userNames);
         }
-        
+
         openModal(`filter-modal-${column}`);
     }
 
@@ -323,7 +305,7 @@ async function fetchBookingConflictsData() {
         view.addEventListener('click', e => {
             const filterIcon = e.target.closest('.filter-icon');
             if (filterIcon) openFilterModalFor(filterIcon.dataset.filterColumn);
-            
+
             if (e.target.closest('#clear-conflicts-filters-btn')) {
                 state.filters = defaultFilters();
                 applyFiltersAndRender();
@@ -353,7 +335,7 @@ async function fetchBookingConflictsData() {
     async function initialize() {
         const tableBody = document.getElementById('booking-conflicts-body');
         if (tableBody) tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10"><div class="spinner"></div></td></tr>`;
-        
+
         try {
             state.allConflicts = await fetchBookingConflictsData();
             applyFiltersAndRender();
@@ -363,7 +345,7 @@ async function fetchBookingConflictsData() {
             if(tableBody) tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-red-400">Failed to load conflict data. ${error.message}</td></tr>`;
         }
     }
-    
+
     function cleanup() {
         if (abortController) abortController.abort();
         state = { allConflicts: [], filteredConflicts: [], filters: defaultFilters(), employeeDataCache: null };

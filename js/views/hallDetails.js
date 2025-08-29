@@ -18,71 +18,26 @@ window.HallDetailsView = (function() {
         multiSelection: false,
         filters: defaultFilters()
     };
-    
-    let schoolsDataCache = null; // Cache for school/department data
-    let employeeDataCache = null; // Cache for employee data
+
+    let schoolsDataCache = null;
+    let employeeDataCache = null;
     let abortController;
 
-    // --- API & DATA HANDLING ---
-    async function fetchFromAPI(endpoint, options = {}, isJson = true) {
-        const headers = getAuthHeaders();
-        if (!headers) {
-            logout();
-            throw new Error("User not authenticated");
-        }
-        const fullUrl = AppConfig.apiBaseUrl + endpoint;
-        const config = { ...options, headers };
-
-        if (options.body && !config.headers['Content-Type']) {
-            config.headers['Content-Type'] = 'application/json';
-        }
-
-        const response = await fetch(fullUrl, config);
-        if (!response.ok) {
-            const errorText = await response.text();
-            try {
-                const errorJson = JSON.parse(errorText);
-                console.error('API Error Response:', errorJson);
-                const errorMessages = errorJson.error.map(e => e.message).join('\n');
-                throw new Error(`API Error on ${endpoint}: ${response.status}\n${errorMessages}`);
-            } catch (e) {
-                 throw new Error(`API Error on ${endpoint}: ${response.status} - ${errorText}`);
-            }
-        }
-        if (isJson) {
-            const text = await response.text();
-            if (!text) return null;
-            try {
-                const result = JSON.parse(text);
-                return result.data || result;
-            } catch (e) {
-                console.error("Failed to parse JSON response:", text);
-                throw new Error("Invalid JSON response from server.");
-            }
-        }
-        return response;
-    }
-    
     // --- UTILITY FUNCTIONS ---
     function createCleanPayload(hall) {
-        // This function creates a payload with only the keys the API expects,
-        // preventing "unrecognized_keys" errors. It also handles potential
-        // null values for numbers and adds the required 'belongs_to' field.
         const expectedKeys = [
-            'name', 'type', 'capacity', 'floor', 'zone', 
-            'school_id', 'department_id', 'features', 'availability', 
+            'name', 'type', 'capacity', 'floor', 'zone',
+            'school_id', 'department_id', 'features', 'availability',
             'unavailability_reason', 'belongs_to'
         ];
-        
+
         const payload = {};
         for (const key of expectedKeys) {
-            // Only include keys that exist on the original object
             if (hall.hasOwnProperty(key)) {
                 payload[key] = hall[key];
             }
         }
 
-        // FIX: Determine and set the 'belongs_to' value based on the server's requirements.
         if (hall.department_id) {
             payload.belongs_to = 'DEPARTMENT';
         } else if (hall.school_id) {
@@ -91,7 +46,6 @@ window.HallDetailsView = (function() {
             payload.belongs_to = 'ADMINISTRATION';
         }
 
-        // Ensure latitude and longitude are numbers, defaulting to 0 if null/undefined.
         payload.latitude = Number(hall.latitude) || 0;
         payload.longitude = Number(hall.longitude) || 0;
 
@@ -115,12 +69,12 @@ window.HallDetailsView = (function() {
             default: return formatTitleCase(apiType);
         }
     }
-    
+
     async function getSchoolsAndDepartments() {
         if (schoolsDataCache) return schoolsDataCache;
         const [schools, departments] = await Promise.all([
-            fetchFromAPI(AppConfig.endpoints.allschool),
-            fetchFromAPI(AppConfig.endpoints.alldept)
+            ApiService.organization.getSchools(),
+            ApiService.organization.getDepartments()
         ]);
         schoolsDataCache = { schools, departments };
         return schoolsDataCache;
@@ -128,9 +82,9 @@ window.HallDetailsView = (function() {
 
     async function getEmployees() {
         if (employeeDataCache) return employeeDataCache;
-        const employees = await fetchFromAPI(AppConfig.endpoints.allemp);
+        const employees = await ApiService.employees.getAll();
         employeeDataCache = employees;
-        return employeeDataCache;
+        return employees;
     }
 
     function getFeatures() {
@@ -142,7 +96,7 @@ window.HallDetailsView = (function() {
 
     async function fetchHallsForHOD() {
         const [rawHalls, { schools, departments }] = await Promise.all([
-            fetchFromAPI(AppConfig.endpoints.allHall),
+            ApiService.halls.getAll(),
             getSchoolsAndDepartments()
         ]);
 
@@ -190,7 +144,7 @@ window.HallDetailsView = (function() {
             if (date.from && new Date(h.created_at) < new Date(date.from)) return false;
             if (date.to) {
                 const toDate = new Date(date.to);
-                toDate.setHours(23, 59, 59, 999); // Set to the end of the day to include it
+                toDate.setHours(23, 59, 59, 999);
                 if (new Date(h.created_at) > toDate) return false;
             }
             if (hall.name && h.hallName !== hall.name) return false;
@@ -200,7 +154,7 @@ window.HallDetailsView = (function() {
             if (incharge.name && h.inchargeName !== incharge.name) return false;
             if (status && (status === 'available' ? !h.displayStatus : h.displayStatus)) return false;
             if (features.length > 0 && !features.every(feature => h.features.includes(feature))) return false;
-            
+
             return true;
         });
 
@@ -228,7 +182,7 @@ window.HallDetailsView = (function() {
                     <input type="checkbox" class="row-checkbox rounded bg-slate-700 border-slate-500 text-blue-500 focus:ring-blue-500" ${isSelected ? 'checked' : ''}>
                 </td>
                 <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300">${hall.displayDate}</td>
-                
+
                 <td class="px-3 py-4 text-sm">
                     <div class="font-medium text-blue-400">${hall.hallName}</div>
                     <div class="text-slate-400">${hall.hallCode}</div>
@@ -259,7 +213,7 @@ window.HallDetailsView = (function() {
         updateFilterIcons();
         if (window.lucide) lucide.createIcons();
     }
-    
+
     function updateFilterIcons() {
         document.querySelectorAll('#hall-details-view .filter-icon').forEach(icon => {
             const column = icon.dataset.filterColumn;
@@ -348,8 +302,7 @@ window.HallDetailsView = (function() {
             </label>
         `).join('');
     }
-    
-    // --- FILTER MODAL LOGIC ---
+
     function createFilterModal(column, title, contentHtml) {
         const container = document.getElementById('filter-modal-container');
         if (!container) return;
@@ -377,7 +330,7 @@ window.HallDetailsView = (function() {
         `;
         container.insertAdjacentHTML('beforeend', modalHtml);
     }
-    
+
     function setupSearchableDropdown(inputId, optionsId, hiddenId, data, onSelect = () => {}) {
         const input = document.getElementById(inputId);
         const optionsContainer = document.getElementById(optionsId);
@@ -397,11 +350,10 @@ window.HallDetailsView = (function() {
 
         input.addEventListener('input', () => {
             populateOptions(input.value);
-            // Clear hidden input if text doesn't match a valid option
             if (!data.includes(input.value)) {
                 hiddenInput.value = '';
             }
-            onSelect(null); // Notify that selection might have changed/cleared
+            onSelect(null);
         });
 
         optionsContainer.addEventListener('mousedown', e => {
@@ -415,12 +367,11 @@ window.HallDetailsView = (function() {
         });
 
         input.addEventListener('blur', () => setTimeout(() => optionsContainer.classList.add('hidden'), 150));
-        
+
         if (hiddenInput.value) {
             input.value = hiddenInput.value;
         }
 
-        // Return a function to update the dropdown's data source
         return (newData) => {
             data = newData;
             populateOptions(input.value, newData);
@@ -514,27 +465,22 @@ window.HallDetailsView = (function() {
             default: return;
         }
         createFilterModal(column, title, contentHtml);
-        
-        // Setup dynamic dropdowns after modal is in the DOM
+
         if (column === 'hall') {
             const hallNames = [...new Set(state.allHalls.map(h => h.hallName))].sort();
             setupSearchableDropdown('filter-hall-name-input', 'filter-hall-name-options', 'filter-hall-name', hallNames);
         }
         if (column === 'belongsTo') {
-            // FIX: Reworked this entire block for cascading dropdowns
             const { schools, departments } = await getSchoolsAndDepartments();
             const schoolNames = schools.map(s => s.school_name).sort();
             const allDepartmentNames = departments.map(d => d.department_name).sort();
-            
+
             const deptInput = document.getElementById('filter-department-input');
             const deptHidden = document.getElementById('filter-department');
-            
-            // Function to update department options
+
             const updateDeptDropdown = setupSearchableDropdown('filter-department-input', 'filter-department-options', 'filter-department', allDepartmentNames);
 
-            // Setup school dropdown
             setupSearchableDropdown('filter-school-input', 'filter-school-options', 'filter-school', schoolNames, (selectedSchoolName) => {
-                // Clear department when school changes
                 deptInput.value = '';
                 deptHidden.value = '';
 
@@ -545,15 +491,13 @@ window.HallDetailsView = (function() {
                             .filter(d => d.school_id === selectedSchool.unique_id)
                             .map(d => d.department_name)
                             .sort();
-                        updateDeptDropdown(relevantDepts); // Update data source for dept dropdown
+                        updateDeptDropdown(relevantDepts);
                     }
                 } else {
-                    // If school is cleared, show all departments again
                     updateDeptDropdown(allDepartmentNames);
                 }
             });
 
-            // If a school is already selected on modal open, trigger the cascade
             const initialSchool = document.getElementById('filter-school').value;
             if(initialSchool) {
                  const selectedSchool = schools.find(s => s.school_name === initialSchool);
@@ -619,7 +563,6 @@ window.HallDetailsView = (function() {
         const view = document.getElementById('hall-details-view');
         if (!view) return;
 
-        // General click listener for the view
         view.addEventListener('click', e => {
             const filterIcon = e.target.closest('.filter-icon');
             if (filterIcon) {
@@ -649,7 +592,6 @@ window.HallDetailsView = (function() {
             }
         }, { signal });
 
-        // Listener for filter modals
         document.getElementById('filter-modal-container')?.addEventListener('click', e => {
             const button = e.target.closest('button');
             if (!button) return;
@@ -657,7 +599,6 @@ window.HallDetailsView = (function() {
             if (button.dataset.action === 'clear-filter') handleClearFilter(button.dataset.column);
         }, { signal });
 
-        // General listener for closing any modal
         document.body.addEventListener('click', e => {
             if (e.target.closest('.modal-close-btn')) {
                 closeModal();
@@ -667,8 +608,7 @@ window.HallDetailsView = (function() {
                 checkboxes.forEach(cb => cb.checked = false);
             }
         }, { signal });
-        
-        // Listeners for table interactions
+
         document.getElementById('multiselect-toggle')?.addEventListener('change', e => {
             state.multiSelection = e.target.checked;
             if (!state.multiSelection) state.selectedRows = [];
@@ -688,8 +628,7 @@ window.HallDetailsView = (function() {
                 handleRowSelection(hallCode, e.target.checked);
             }
         }, { signal });
-        
-        // Listeners for action modals
+
         const statusModal = document.getElementById('update-status-modal');
         if (statusModal) {
             statusModal.addEventListener('change', e => {
@@ -717,11 +656,8 @@ window.HallDetailsView = (function() {
                 const toDate = document.getElementById('status-to-date').value;
                 if (!updates.unavailability_reason || !fromDate || !toDate) {
                     console.error("Reason and dates are required for unavailability.");
-                    // You would show a user-facing error here in a real app
                     return;
                 }
-                 // NOTE: Based on the server error, 'unavailable_from' and 'unavailable_to' are
-                 // not recognized keys. We will only send 'unavailability_reason'.
             }
 
             try {
@@ -729,19 +665,16 @@ window.HallDetailsView = (function() {
                     const originalHall = state.allHalls.find(h => h.id === hallId);
                     if (!originalHall) return Promise.reject(`Hall with ID ${hallId} not found.`);
 
-                    // Create a clean payload with only expected keys and merge the updates
                     const payload = { ...createCleanPayload(originalHall), ...updates };
-                    
-                    return fetchFromAPI(`${AppConfig.endpoints.hall}/${hallId}`, { 
-                        method: 'PUT', 
-                        body: JSON.stringify(payload) 
-                    });
+
+                    // UPDATED: Now uses the centralized ApiService
+                    return ApiService.halls.update(hallId, payload);
                 });
 
                 await Promise.all(updatePromises);
-                
+
                 closeModal();
-                await initialize(); // Re-fetch data to show changes
+                await initialize();
                 state.selectedRows = [];
                 updateActionButtonsState();
             } catch (error) {
@@ -754,23 +687,20 @@ window.HallDetailsView = (function() {
             if (!selectedHallCode) return;
 
             const selectedFeatures = Array.from(document.querySelectorAll('#features-checkbox-container input:checked')).map(cb => cb.value);
-            
+
             const originalHall = state.allHalls.find(h => h.id === selectedHallCode);
             if (!originalHall) {
                 console.error(`Hall with ID ${selectedHallCode} not found.`);
                 return;
             }
 
-            // Create a clean payload and merge the new features array
             const payload = { ...createCleanPayload(originalHall), features: selectedFeatures };
 
             try {
-                await fetchFromAPI(`${AppConfig.endpoints.hall}/${selectedHallCode}`, { 
-                    method: 'PUT', 
-                    body: JSON.stringify(payload) 
-                });
+                // UPDATED: Now uses the centralized ApiService
+                await ApiService.halls.update(selectedHallCode, payload);
                 closeModal();
-                await initialize(); // Re-fetch data to show changes
+                await initialize();
                 state.selectedRows = [];
                 updateActionButtonsState();
             } catch (error) {

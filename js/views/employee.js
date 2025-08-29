@@ -1,28 +1,9 @@
 // Employee View Module
 window.EmployeeView = (function() {
-    
-    // --- START: Simple API Cache ---
-    window.apiCache = window.apiCache || {
-        _data: {},
-        _promises: {},
-        fetch: async function(key, fetcherFn) {
-            if (this._data[key]) return this._data[key];
-            if (!this._promises[key]) {
-                this._promises[key] = fetcherFn().then(data => {
-                    this._data[key] = data;
-                    delete this._promises[key];
-                    return data;
-                }).catch(err => {
-                    delete this._promises[key];
-                    throw err;
-                });
-            }
-            return this._promises[key];
-        }
-    };
-    // --- END: Simple API Cache ---
 
-    // --- STATE MANAGEMENT ---
+    // The local API Cache has been REMOVED as ApiService handles this implicitly.
+
+    // --- STATE MANAGEMENT (Unchanged) ---
     const defaultFilters = () => ({
         employee: { name: '', email: '', phone: '' },
         designation: '',
@@ -51,64 +32,32 @@ window.EmployeeView = (function() {
     let abortController;
     let confirmationCallback = null;
 
-    // --- API & DATA HANDLING ---
-    async function fetchFromAPI(endpoint, options = {}, isJson = true) {
-        const headers = getAuthHeaders();
-        if (!headers) {
-            logout();
-            throw new Error("User not authenticated");
-        }
-        const fullUrl = AppConfig.apiBaseUrl + endpoint;
-        const config = { ...options, headers };
-        if (options.body && !config.headers['Content-Type']) {
-            config.headers['Content-Type'] = 'application/json';
-        }
-        const response = await fetch(fullUrl, config);
-        if (!response.ok) {
-            const errorText = await response.text();
-             try {
-                const errorJson = JSON.parse(errorText);
-                console.error('API Error Response:', errorJson);
-                const errorMessages = errorJson.error.map(e => `${e.path.join('.')} - ${e.message}`).join('\n');
-                throw new Error(`API Error: ${response.status}\n${errorMessages}`);
-            } catch (e) {
-                 throw new Error(`API Error on ${endpoint}: ${response.status} - ${errorText}`);
-            }
-        }
-        if (isJson) {
-            const text = await response.text();
-            if (!text) return null;
-            const result = JSON.parse(text);
-            return result.data || result;
-        }
-        return response;
-    }
+    // --- API & DATA HANDLING (Updated to use ApiService) ---
 
-    async function fetchRawSchools() {
-        return await window.apiCache.fetch('schools', () => fetchFromAPI(AppConfig.endpoints.allschool));
-    }
+    // The local fetchFromAPI, fetchRawSchools, and fetchRawDepartments functions have been REMOVED.
 
-    async function fetchRawDepartments() {
-        return await window.apiCache.fetch('departments', () => fetchFromAPI(AppConfig.endpoints.alldept));
-    }
-    
     async function getSchoolsAndDepartments() {
         if (state.allSchools.length > 0 && state.allDepartments.length > 0) {
             return { schools: state.allSchools, departments: state.allDepartments };
         }
-        const [schools, depts] = await Promise.all([fetchRawSchools(), fetchRawDepartments()]);
+        // UPDATED: Now uses the centralized ApiService
+        const [schools, depts] = await Promise.all([
+            ApiService.organization.getSchools(),
+            ApiService.organization.getDepartments()
+        ]);
         state.allSchools = schools;
         state.allDepartments = depts;
         return { schools, departments: depts };
     }
 
     async function fetchEmployeeData() {
+        // UPDATED: Now uses the centralized ApiService
         const [rawEmployees, schools, departments] = await Promise.all([
-            fetchFromAPI(AppConfig.endpoints.allemp),
-            fetchRawSchools(),
-            fetchRawDepartments()
+            ApiService.employees.getAll(),
+            ApiService.organization.getSchools(),
+            ApiService.organization.getDepartments()
         ]);
-        
+
         const schoolMap = new Map(schools.map(s => [s.unique_id, s.school_name]));
         const departmentMap = new Map(departments.map(d => [d.unique_id, d.department_name]));
 
@@ -129,17 +78,19 @@ window.EmployeeView = (function() {
     }
 
     async function updateEmployee(id, employeeData) {
-         return await fetchFromAPI(`${AppConfig.endpoints.emp}/${id}`, { method: 'PUT', body: JSON.stringify(employeeData) });
+        // UPDATED: Now uses the centralized ApiService
+        return await ApiService.employees.update(id, employeeData);
     }
 
     async function deleteEmployees(employeeIds) {
-        const deletePromises = employeeIds.map(id => 
-            fetchFromAPI(`${AppConfig.endpoints.emp}/${id}`, { method: 'DELETE' }, false)
+        // UPDATED: Now uses the centralized ApiService
+        const deletePromises = employeeIds.map(id =>
+            ApiService.employees.delete(id)
         );
         return await Promise.all(deletePromises);
     }
-    
-    // --- FILTERING ---
+
+    // --- FILTERING (Unchanged) ---
     function applyFiltersAndRender() {
         const { employee, designation, office, status } = state.filters;
 
@@ -158,7 +109,7 @@ window.EmployeeView = (function() {
     }
 
 
-    // --- RENDERING ---
+    // --- RENDERING (Unchanged) ---
     function renderEmployeeTable() {
         const tableBody = document.getElementById('employee-details-body');
         if (!tableBody) return;
@@ -167,7 +118,7 @@ window.EmployeeView = (function() {
             tableBody.innerHTML = `<tr><td colspan="5" class="text-center py-10 text-slate-400">No employee details match the current filters.</td></tr>`;
             return;
         }
-        
+
         const tableHtml = state.filteredEmployees.map(emp => {
             const isSelected = state.selectedRows.includes(emp.id);
             const statusColor = emp.status === 'ACTIVE' ? 'text-green-400' : 'text-red-400';
@@ -214,16 +165,16 @@ window.EmployeeView = (function() {
         });
     }
 
-    // --- UI & STATE UPDATES ---
+    // --- UI & STATE UPDATES (Unchanged) ---
     function updateActionButtonsState() {
         const selectedCount = state.selectedRows.length;
         const modifyBtn = document.getElementById('modify-employee-btn');
         const deleteBtn = document.getElementById('delete-employee-btn');
         const selectAllCheckbox = document.getElementById('select-all-employee-checkbox');
-        
+
         if(modifyBtn) modifyBtn.disabled = selectedCount !== 1;
         if(deleteBtn) deleteBtn.disabled = selectedCount === 0;
-        
+
         if (selectAllCheckbox) {
             selectAllCheckbox.disabled = !state.multiSelection;
             selectAllCheckbox.checked = state.multiSelection && selectedCount > 0 && selectedCount === state.filteredEmployees.length;
@@ -243,7 +194,7 @@ window.EmployeeView = (function() {
         renderEmployeeTable();
     }
 
-    // --- MODAL HANDLING ---
+    // --- MODAL HANDLING (Unchanged) ---
     function openModal(modalId) {
         const modal = document.getElementById(modalId);
         const backdrop = document.getElementById('modal-backdrop');
@@ -273,7 +224,7 @@ window.EmployeeView = (function() {
         }, 300);
         confirmationCallback = null;
     }
-    
+
     function createFilterModal(column, title, contentHtml) {
         const container = document.getElementById('filter-modal-container');
         if (!container) return;
@@ -301,7 +252,7 @@ window.EmployeeView = (function() {
         `;
         container.insertAdjacentHTML('beforeend', modalHtml);
     }
-    
+
     function setupSearchableDropdown(inputId, optionsId, hiddenId, data, onSelect = () => {}) {
         const input = document.getElementById(inputId);
         const optionsContainer = document.getElementById(optionsId);
@@ -321,7 +272,7 @@ window.EmployeeView = (function() {
             }
             onSelect(null);
         };
-        
+
         const onFocus = () => {
             populateOptions(input.value);
             optionsContainer.classList.remove('hidden');
@@ -336,18 +287,18 @@ window.EmployeeView = (function() {
                 onSelect(value);
             }
         };
-        
+
         const onBlur = () => setTimeout(() => optionsContainer.classList.add('hidden'), 150);
 
         input.addEventListener('focus', onFocus);
         input.addEventListener('input', onInput);
         optionsContainer.addEventListener('mousedown', onMouseDown);
         input.addEventListener('blur', onBlur);
-        
+
         if (hiddenInput.value) {
             input.value = hiddenInput.value;
         }
-        
+
         return (newData) => {
             data = newData;
             populateOptions(input.value, newData);
@@ -418,18 +369,17 @@ window.EmployeeView = (function() {
                 break;
         }
         createFilterModal(column, title, contentHtml);
-        
+
         if (column === 'employee') {
             const employeeNames = [...new Set(state.allEmployees.map(e => e.name))].sort();
             setupSearchableDropdown('filter-emp-name-input', 'filter-emp-name-options', 'filter-emp-name', employeeNames);
         }
-        
-        // FIX: Reworked this entire block for two-way dependent dropdowns
+
         if (column === 'office') {
             const { schools, departments } = await getSchoolsAndDepartments();
             const schoolNames = schools.map(s => s.school_name).sort();
             const allDepartmentNames = departments.map(d => d.department_name).sort();
-            
+
             const schoolInput = document.getElementById('filter-school-input');
             const schoolHidden = document.getElementById('filter-school');
             const deptInput = document.getElementById('filter-department-input');
@@ -465,7 +415,7 @@ window.EmployeeView = (function() {
                     updateDeptDropdown(allDepartmentNames);
                 }
             });
-            
+
             const initialSchool = schoolHidden.value;
             if(initialSchool) {
                  const selectedSchool = schools.find(s => s.school_name === initialSchool);
@@ -478,7 +428,7 @@ window.EmployeeView = (function() {
                  }
             }
         }
-        
+
         openModal(`filter-modal-${column}`);
     }
 
@@ -538,12 +488,12 @@ window.EmployeeView = (function() {
         document.getElementById('update-employee-name').value = employee.name;
         document.getElementById('update-employee-email').value = employee.email;
         document.getElementById('update-employee-phone').value = employee.phone || '';
-        
+
         const designationSelect = document.getElementById('update-employee-designation-select');
         if (designationSelect) {
             designationSelect.value = employee.designation;
         }
-        
+
         const status = employee.status || 'ACTIVE';
         const statusRadio = document.querySelector(`input[name="update-employee-status"][value="${status}"]`);
         if(statusRadio) statusRadio.checked = true;
@@ -561,13 +511,13 @@ window.EmployeeView = (function() {
 
         openModal('update-employee-modal');
     }
-    
+
     // --- EVENT HANDLERS ---
     async function handleUpdateSubmit(e) {
         e.preventDefault();
         const form = e.target;
         const belongsTo = form.querySelector('#update-employee-belongs-to').value;
-        
+
         const designation = form.querySelector('#update-employee-designation-select').value;
 
         const payload = {
@@ -581,13 +531,13 @@ window.EmployeeView = (function() {
             department_id: belongsTo === 'DEPARTMENT' ? state.modalState.departmentId : null,
             section: belongsTo === 'ADMINISTRATION' ? form.querySelector('#update-employee-section-select').value : null
         };
-        
+
         Object.keys(payload).forEach(key => {
             if (payload[key] === null || payload[key] === '') {
                 delete payload[key];
             }
         });
-        
+
         if (belongsTo === 'ADMINISTRATION' && !payload.section) {
              payload.section = form.querySelector('#update-employee-section-select').value;
         }
@@ -644,14 +594,14 @@ window.EmployeeView = (function() {
             if (!state.multiSelection) state.selectedRows = [];
             renderEmployeeTable();
         }, { signal });
-        
+
         document.getElementById('select-all-employee-checkbox')?.addEventListener('change', (e) => {
             if (state.multiSelection) {
                 state.selectedRows = e.target.checked ? state.filteredEmployees.map(emp => emp.id) : [];
                 renderEmployeeTable();
             }
         }, { signal });
-        
+
         document.getElementById('employee-details-body')?.addEventListener('change', (e) => {
             if (e.target.classList.contains('row-checkbox')) {
                 const row = e.target.closest('tr');
@@ -702,7 +652,7 @@ window.EmployeeView = (function() {
             }
         }, { signal });
     }
-    
+
     function cleanup() {
         if(abortController) abortController.abort();
         state = { allEmployees: [], filteredEmployees: [], allSchools: [], allDepartments: [], selectedRows: [], multiSelection: false, filters: defaultFilters(), modalState: {} };
@@ -715,7 +665,7 @@ window.EmployeeView = (function() {
         try {
             const data = await fetchEmployeeData();
             state.allEmployees = data;
-            
+
             await getSchoolsAndDepartments();
 
             applyFiltersAndRender();

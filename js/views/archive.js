@@ -1,7 +1,7 @@
 // Archive View Module
 window.ArchiveView = (function() {
-    
-    // --- STATE MANAGEMENT ---
+
+    // --- STATE MANAGEMENT (Unchanged) ---
     const defaultFilters = () => ({
         date: { from: '', to: '' },
         hall: { name: '', capacity: '' },
@@ -17,52 +17,15 @@ window.ArchiveView = (function() {
         multiSelection: false,
         filters: defaultFilters()
     };
-    
+
     let schoolsDataCache = null;
     let employeeDataCache = null;
     let abortController;
 
-    // --- API & DATA HANDLING ---
-    async function fetchFromAPI(endpoint, options = {}, isJson = true) {
-        const headers = getAuthHeaders();
-        if (!headers) {
-            logout();
-            throw new Error("User not authenticated");
-        }
-        const fullUrl = AppConfig.apiBaseUrl + endpoint;
-        const config = { ...options, headers };
-        const response = await fetch(fullUrl, config);
+    // --- API & DATA HANDLING (Updated to use ApiService) ---
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`API Error on ${endpoint}: ${response.status} - ${errorText}`);
-        }
-        if (isJson) {
-            const text = await response.text();
-            if (!text) return null;
-            const result = JSON.parse(text);
-            return result.data || result;
-        }
-        return response;
-    }
+    // The local fetchFromAPI, getSchoolsAndDepartments, and getEmployees functions have been REMOVED.
 
-    async function getSchoolsAndDepartments() {
-        if (schoolsDataCache) return schoolsDataCache;
-        const [schools, departments] = await Promise.all([
-            fetchFromAPI(AppConfig.endpoints.allschool),
-            fetchFromAPI(AppConfig.endpoints.alldept)
-        ]);
-        schoolsDataCache = { schools, departments };
-        return schoolsDataCache;
-    }
-
-    async function getEmployees() {
-        if (employeeDataCache) return employeeDataCache;
-        const employees = await fetchFromAPI(AppConfig.endpoints.allemp);
-        employeeDataCache = employees;
-        return employeeDataCache;
-    }
-    
     function getFeatures() {
         return [
             'AC', 'PROJECTOR', 'WIFI', 'SMART_BOARD', 'COMPUTER',
@@ -76,11 +39,13 @@ window.ArchiveView = (function() {
     }
 
     async function fetchAllFormattedHalls() {
-        const [rawHalls, { schools, departments }] = await Promise.all([
-            fetchFromAPI(AppConfig.endpoints.allHall),
-            getSchoolsAndDepartments()
+        // UPDATED: Now uses the centralized ApiService
+        const [rawHalls, schools, departments] = await Promise.all([
+            ApiService.halls.getAll(),
+            ApiService.organization.getSchools(),
+            ApiService.organization.getDepartments()
         ]);
-        
+
         const schoolMap = new Map(schools.map(s => [s.unique_id, s]));
         const departmentMap = new Map(departments.map(d => [d.unique_id, d]));
 
@@ -112,15 +77,10 @@ window.ArchiveView = (function() {
         const allHalls = await fetchAllFormattedHalls();
         return allHalls.filter(hall => !hall.displayStatus);
     }
-    
-    async function updateHall(hallId, payload) {
-        return await fetchFromAPI(`${AppConfig.endpoints.hall}/${hallId}`, { 
-            method: 'PUT', 
-            body: JSON.stringify(payload) 
-        });
-    }
-    
-    // --- FILTERING ---
+
+    // The local updateHall function has been REMOVED. It will be replaced by ApiService.halls.update().
+
+    // --- FILTERING (Unchanged) ---
     function applyFiltersAndRender() {
         const { date, hall, belongsTo, features, incharge } = state.filters;
 
@@ -137,7 +97,7 @@ window.ArchiveView = (function() {
             if (belongsTo.department && h.departmentName !== belongsTo.department) return false;
             if (incharge.name && h.inchargeName !== incharge.name) return false;
             if (features.length > 0 && !features.every(feature => h.features.includes(feature))) return false;
-            
+
             return true;
         });
 
@@ -145,7 +105,7 @@ window.ArchiveView = (function() {
     }
 
 
-    // --- RENDERING ---
+    // --- RENDERING (Unchanged) ---
     function renderArchivedHallTable() {
         const tableBody = document.getElementById('archived-hall-details-body');
         if (!tableBody) return;
@@ -154,7 +114,7 @@ window.ArchiveView = (function() {
             tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-slate-400">No archived details match the current filters.</td></tr>`;
             return;
         }
-        
+
         const tableHtml = state.filteredHalls.map(hall => {
             const isSelected = state.selectedRows.includes(hall.hallCode);
             return `
@@ -188,7 +148,7 @@ window.ArchiveView = (function() {
         updateFilterIcons();
         if (window.lucide) lucide.createIcons();
     }
-    
+
     function updateFilterIcons() {
         document.querySelectorAll('#archive-view .filter-icon').forEach(icon => {
             const column = icon.dataset.filterColumn;
@@ -205,12 +165,12 @@ window.ArchiveView = (function() {
         });
     }
 
-    
-    // --- UI & STATE UPDATES ---
+
+    // --- UI & STATE UPDATES (Unchanged) ---
     function updateActionButtonsState() {
         const selectedCount = state.selectedRows.length;
         document.getElementById('reactivate-btn').disabled = selectedCount === 0;
-        
+
         const selectAllCheckbox = document.getElementById('select-all-archive-checkbox');
         if (selectAllCheckbox) {
             selectAllCheckbox.disabled = !state.multiSelection;
@@ -230,8 +190,8 @@ window.ArchiveView = (function() {
         }
         renderArchivedHallTable();
     }
-    
-    // --- MODAL HANDLING ---
+
+    // --- MODAL HANDLING (Unchanged) ---
     function openModal(modalId) {
         const modal = document.getElementById(modalId);
         const backdrop = document.getElementById('modal-backdrop');
@@ -256,7 +216,7 @@ window.ArchiveView = (function() {
             }
         });
     }
-    
+
     function createFilterModal(column, title, contentHtml) {
         const container = document.getElementById('filter-modal-container');
         if (!container) return;
@@ -284,7 +244,7 @@ window.ArchiveView = (function() {
         `;
         container.insertAdjacentHTML('beforeend', modalHtml);
     }
-    
+
     function setupSearchableDropdown(inputId, optionsId, hiddenId, data) {
         const input = document.getElementById(inputId);
         const optionsContainer = document.getElementById(optionsId);
@@ -314,7 +274,7 @@ window.ArchiveView = (function() {
         });
 
         input.addEventListener('blur', () => setTimeout(() => optionsContainer.classList.add('hidden'), 150));
-        
+
         if (hiddenInput.value) {
             input.value = hiddenInput.value;
         }
@@ -397,14 +357,15 @@ window.ArchiveView = (function() {
                 break;
         }
         createFilterModal(column, title, contentHtml);
-        
-        // Setup dropdowns after modal is created
+
+        // UPDATED: Now uses the centralized ApiService
         if (column === 'hall') {
             const hallNames = [...new Set(state.allHalls.map(h => h.hallName))];
             setupSearchableDropdown('filter-hall-name-input', 'filter-hall-name-options', 'filter-hall-name', hallNames);
         }
         if (column === 'belongsTo') {
-            const { schools, departments } = await getSchoolsAndDepartments();
+            const schools = await ApiService.organization.getSchools();
+            const departments = await ApiService.organization.getDepartments();
             const schoolNames = schools.map(s => s.school_name);
             setupSearchableDropdown('filter-school-input', 'filter-school-options', 'filter-school', schoolNames);
 
@@ -416,7 +377,7 @@ window.ArchiveView = (function() {
 
             if (deptInput && deptOptionsContainer && deptHiddenInput && schoolInput && schoolHiddenInput) {
                 const departmentNames = departments.map(d => d.department_name);
-                
+
                 const populateDeptOptions = (term = '') => {
                     const filteredData = departmentNames.filter(item => item.toLowerCase().includes(term.toLowerCase()));
                     deptOptionsContainer.innerHTML = filteredData.map(item => `<div class="p-2 cursor-pointer hover:bg-slate-700" data-value="${item}">${item}</div>`).join('');
@@ -448,14 +409,14 @@ window.ArchiveView = (function() {
                 });
 
                 deptInput.addEventListener('blur', () => setTimeout(() => deptOptionsContainer.classList.add('hidden'), 150));
-                
+
                 if (deptHiddenInput.value) {
                     deptInput.value = deptHiddenInput.value;
                 }
             }
         }
         if (column === 'incharge') {
-            const employees = await getEmployees();
+            const employees = await ApiService.employees.getAll();
             const inchargeNames = [...new Set(employees.map(e => e.employee_name))];
             setupSearchableDropdown('filter-incharge-name-input', 'filter-incharge-name-options', 'filter-incharge-name', inchargeNames);
         }
@@ -530,14 +491,14 @@ window.ArchiveView = (function() {
             if (!state.multiSelection) state.selectedRows = [];
             renderArchivedHallTable();
         }, { signal });
-        
+
         document.getElementById('select-all-archive-checkbox')?.addEventListener('change', (e) => {
             if (state.multiSelection) {
                 state.selectedRows = e.target.checked ? state.filteredHalls.map(h => h.hallCode) : [];
                 renderArchivedHallTable();
             }
         }, { signal });
-        
+
         document.getElementById('archived-hall-details-body')?.addEventListener('change', (e) => {
             if (e.target.classList.contains('row-checkbox')) {
                 const hallCode = e.target.closest('tr').dataset.hallCode;
@@ -547,7 +508,8 @@ window.ArchiveView = (function() {
 
         document.getElementById('reactivate-btn')?.addEventListener('click', async () => {
             if (state.selectedRows.length === 0) return;
-
+            
+            // This function is assumed to be globally available now
             showConfirmationModal(`Are you sure you want to re-activate ${state.selectedRows.length} hall(s)?`, async () => {
                 try {
                     const updatePromises = state.selectedRows.map(hallCode => {
@@ -557,11 +519,12 @@ window.ArchiveView = (function() {
                             return Promise.resolve();
                         }
                         const payload = { ...hallToUpdate, availability: true };
-                        return updateHall(hallCode, payload);
+                        // UPDATED: Now uses the centralized ApiService
+                        return ApiService.halls.update(hallCode, payload);
                     });
 
                     await Promise.all(updatePromises);
-                    
+
                     state.selectedRows = [];
                     await initialize();
                 } catch (error) {

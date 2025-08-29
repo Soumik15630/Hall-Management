@@ -2,33 +2,13 @@
 
 // Semester Booking View Module
 window.SemesterBookingView = (function() {
-    // --- START: Simple API Cache ---
-    window.apiCache = window.apiCache || {
-        _data: {},
-        _promises: {},
-        fetch: async function(key, fetcherFn) {
-            if (this._data[key]) return this._data[key];
-            if (!this._promises[key]) {
-                this._promises[key] = fetcherFn().then(data => {
-                    this._data[key] = data;
-                    delete this._promises[key];
-                    return data;
-                }).catch(err => {
-                    delete this._promises[key];
-                    throw err;
-                });
-            }
-            return this._promises[key];
-        }
-    };
-    // --- END: Simple API Cache ---
+    // The local apiCache has been REMOVED as ApiService handles this implicitly.
 
-    // --- CONSTANTS ---
+    // --- CONSTANTS (Unchanged) ---
     const PERIOD_TIMES = {
         1: '09:30-10:30', 2: '10:30-11:30', 3: '11:30-12:30', 4: '12:30-01:30',
         5: '01:30-02:30', 6: '02:30-03:30', 7: '03:30-04:30', 8: '04:30-05:30'
     };
-    // Added a 24-hour format map to ensure time is sent to the backend unambiguously.
     const PERIOD_TIMES_24H = {
         1: { start: '09:30', end: '10:30' }, 2: { start: '10:30', end: '11:30' },
         3: { start: '11:30', end: '12:30' }, 4: { start: '12:30', end: '13:30' },
@@ -37,7 +17,7 @@ window.SemesterBookingView = (function() {
     };
     const SESSION_STORAGE_KEY = 'semesterBookingState';
 
-    // --- STATE MANAGEMENT ---
+    // --- STATE MANAGEMENT (Unchanged) ---
     let state = {
         semesterHallsData: {},
         employeeData: [], // Will be loaded lazily
@@ -46,47 +26,15 @@ window.SemesterBookingView = (function() {
     };
     let abortController;
 
-    // --- API & DATA HANDLING ---
-    async function fetchFromAPI(endpoint, options = {}, isJson = true) {
-        const headers = getAuthHeaders();
-        if (!headers) { 
-            logout(); 
-            throw new Error("User not authenticated"); 
-        }
-        const fullUrl = AppConfig.apiBaseUrl + endpoint;
-        const config = { ...options, headers };
-        
-        try {
-            const response = await fetch(fullUrl, config);
-            
-            if (!response.ok) { 
-                const errorText = await response.text();
-                throw new Error(`API Error on ${endpoint}: ${response.status} - ${errorText}`);
-            }
+    // --- API & DATA HANDLING (Updated to use ApiService) ---
 
-            if (isJson) {
-                const text = await response.text();
-                if (!text) return null;
-                try {
-                    const result = JSON.parse(text);
-                    return result.data || result;
-                } catch (e) {
-                    console.error(`Failed to parse JSON from ${endpoint}:`, text);
-                    throw new Error(`Invalid JSON response from server on endpoint ${endpoint}.`);
-                }
-            }
-            return response;
-        } catch (error) {
-            console.error(`Network or other error fetching from ${endpoint}:`, error);
-            throw error; // Re-throw the error to be caught by the calling function
-        }
-    }
-    
+    // The local fetchFromAPI, fetchRawSchools, fetchRawDepartments, and fetchRawEmployees functions have been REMOVED.
+
     function formatTitleCase(str) {
         if (!str) return 'N/A';
         return str.replace(/_/g, ' ').replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
     }
-    
+
     function mapHallType(apiType) {
         if (!apiType) return 'N/A';
         const type = apiType.toUpperCase();
@@ -99,23 +47,14 @@ window.SemesterBookingView = (function() {
         }
     }
 
-    async function fetchRawSchools() {
-        return await window.apiCache.fetch('schools', () => fetchFromAPI(AppConfig.endpoints.allschool));
-    }
-    async function fetchRawDepartments() {
-        return await window.apiCache.fetch('departments', () => fetchFromAPI(AppConfig.endpoints.alldept));
-    }
-    async function fetchRawEmployees() {
-        return await window.apiCache.fetch('employees', () => fetchFromAPI(AppConfig.endpoints.allemp));
-    }
-
     async function fetchHallsForView() {
+        // UPDATED: Now uses the centralized ApiService
         const [rawHalls, schools, departments] = await Promise.all([
-            fetchFromAPI(AppConfig.endpoints.allHall),
-            fetchRawSchools(),
-            fetchRawDepartments()
+            ApiService.halls.getAll(),
+            ApiService.organization.getSchools(),
+            ApiService.organization.getDepartments()
         ]);
-        
+
         const schoolMap = new Map(schools.map(s => [s.unique_id, s.school_name]));
         const departmentMap = new Map(departments.map(d => [d.unique_id, d.department_name]));
 
@@ -130,7 +69,7 @@ window.SemesterBookingView = (function() {
             department: departmentMap.get(hall.department_id) || 'N/A',
         }));
     }
-    
+
     async function fetchSemesterHalls() {
         const allHalls = await fetchHallsForView();
         const groupedHalls = { 'Seminar': [], 'Auditorium': [], 'Lecture Hall': [], 'Conference Hall': [], 'Other': [] };
@@ -147,7 +86,7 @@ window.SemesterBookingView = (function() {
     function processBookingsIntoTimetable(bookings) {
         const timetable = {};
         const dayMap = { 0: 'SUNDAY', 1: 'MONDAY', 2: 'TUESDAY', 3: 'WEDNESDAY', 4: 'THURSDAY', 5: 'FRIDAY', 6: 'SATURDAY' };
-        
+
         const periodTimeObjects = {
             1: { start: 9.5, end: 10.5 }, 2: { start: 10.5, end: 11.5 },
             3: { start: 11.5, end: 12.5 }, 4: { start: 12.5, end: 13.5 },
@@ -196,27 +135,29 @@ window.SemesterBookingView = (function() {
     async function fetchAndApplyTimetable(hallId) {
         const hall = findHallById(hallId);
         if (!hall) return;
-    
+
         try {
-            const bookings = await fetchFromAPI(`api/booking/hall/${hallId}`);
+            // UPDATED: Now uses the centralized ApiService
+            const bookings = await ApiService.bookings.getForHall(hallId);
             hall.timetable = bookings ? processBookingsIntoTimetable(bookings) : {};
         } catch (error) {
             console.error(`Failed to fetch timetable for hall ${hallId}:`, error);
             hall.timetable = { error: "Failed to load schedule" };
         }
     }
-    
+
     async function fetchEmployeeData() {
         if (state.employeeData && state.employeeData.length > 0) {
             return state.employeeData;
         }
         try {
+            // UPDATED: Now uses the centralized ApiService
             const [rawEmployees, schools, departments] = await Promise.all([
-                fetchRawEmployees(),
-                fetchRawSchools(),
-                fetchRawDepartments()
+                ApiService.employees.getAll(),
+                ApiService.organization.getSchools(),
+                ApiService.organization.getDepartments()
             ]);
-            
+
             const schoolMap = new Map(schools.map(s => [s.unique_id, s.school_name]));
             const departmentMap = new Map(departments.map(d => [d.unique_id, d.department_name]));
 
@@ -229,16 +170,17 @@ window.SemesterBookingView = (function() {
             return state.employeeData;
         } catch (error) {
             console.error("Failed to fetch employee data:", error);
-            return []; // Return empty array on failure
+            return [];
         }
     }
 
     async function addSemesterBooking(bookingDetails) {
-        return await fetchFromAPI(AppConfig.endpoints.bookingRequest, { 
-            method: 'POST', 
-            body: JSON.stringify(bookingDetails) 
-        });
+        // UPDATED: Now uses the centralized ApiService
+        return await ApiService.bookings.createRequest(bookingDetails);
     }
+
+    // --- All other functions (state management, rendering, event handlers, etc.) remain unchanged ---
+    // ... (The rest of your file's logic is preserved here) ...
 
     function saveStateToSession() {
         if (!state.selectedHallId) return;
@@ -276,7 +218,7 @@ window.SemesterBookingView = (function() {
             state.hallStates = {};
         }
     }
-    
+
     function clearCurrentHallState() {
         const hallId = state.selectedHallId;
         if (hallId && state.hallStates[hallId]) {
@@ -341,28 +283,28 @@ window.SemesterBookingView = (function() {
         const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
         const dayMap = { 'Mon': 'MONDAY', 'Tue': 'TUESDAY', 'Wed': 'WEDNESDAY', 'Thu': 'THURSDAY', 'Fri': 'FRIDAY' };
         const periods = Object.keys(PERIOD_TIMES).map(Number);
-    
+
         if (hall.timetable?.error) {
             return `<div class="p-4 text-center text-red-400">${hall.timetable.error}</div>`;
         }
-    
+
         let tableHTML = `<table class="w-full text-center"><thead><tr><th class="p-2 border border-slate-700 align-bottom">Day</th>`;
         periods.forEach(p => {
             tableHTML += `<th class="p-2 border border-slate-700 timetable-header-cell"><div>${p}</div><div class="text-xs font-normal text-slate-400">${PERIOD_TIMES[p]}</div></th>`;
         });
         tableHTML += `</tr></thead><tbody>`;
-    
+
         days.forEach(day => {
             tableHTML += `<tr><td class="p-2 border border-slate-700 font-semibold">${day}</td>`;
             const backendDayKey = dayMap[day];
-    
+
             periods.forEach(period => {
                 const courseCode = hall.timetable?.[backendDayKey]?.[period];
                 const isBooked = !!courseCode;
                 const isSelected = selectedSlots && selectedSlots.some(s => s.day === day && s.period === period);
-                
+
                 let cellClass, cellContent = '', cellTitle = '';
-    
+
                 if (isBooked) {
                     cellClass = 'booked';
                     cellContent = courseCode;
@@ -374,7 +316,7 @@ window.SemesterBookingView = (function() {
                     cellClass = 'available';
                     cellTitle = 'Click to select';
                 }
-    
+
                 tableHTML += `<td class="p-1 border border-slate-700 timetable-slot ${cellClass}" data-day="${day}" data-period="${period}" title="${cellTitle}">${cellContent}</td>`;
             });
             tableHTML += `</tr>`;
@@ -421,7 +363,7 @@ window.SemesterBookingView = (function() {
             </div>
         `;
     }
-    
+
     function populateFacultyDropdown(searchTerm = '') {
         const optionsContainer = document.getElementById('faculty-select-options');
         if (!optionsContainer) return;
@@ -451,14 +393,14 @@ window.SemesterBookingView = (function() {
             state.selectedHallId = hallId;
             document.querySelectorAll('.semester-hall-card').forEach(c => c.classList.remove('active'));
             card.classList.add('active');
-            
+
             const container = document.getElementById('booking-panel-container');
             if (container) {
                 container.innerHTML = `<div class="flex items-center justify-center h-full"><p class="text-center text-slate-400">Loading hall schedule...</p></div>`;
             }
-            
+
             await fetchAndApplyTimetable(hallId);
-            
+
             renderBookingPanel();
             saveStateToSession();
         }
@@ -468,8 +410,7 @@ window.SemesterBookingView = (function() {
         const hallId = state.selectedHallId;
         if (!hallId) return;
         if (!state.hallStates[hallId]) state.hallStates[hallId] = { selectedSlots: [], formDetails: {} };
-        
-        // Ensure selectedSlots is an array
+
         if (!Array.isArray(state.hallStates[hallId].selectedSlots)) {
             state.hallStates[hallId].selectedSlots = [];
         }
@@ -484,7 +425,7 @@ window.SemesterBookingView = (function() {
         saveStateToSession();
         renderBookingPanel();
     }
-    
+
     async function handleSubmit() {
         const hallId = state.selectedHallId;
         if (!hallId) { alert('Please select a hall.'); return; }
@@ -516,8 +457,7 @@ window.SemesterBookingView = (function() {
         const allPeriods = currentHallState.selectedSlots.map(s => s.period);
         const minPeriod = Math.min(...allPeriods);
         const maxPeriod = Math.max(...allPeriods);
-        
-        // FIX: Use 24-hour format to prevent time ambiguity on the backend
+
         const start_time = PERIOD_TIMES_24H[minPeriod].start;
         const end_time = PERIOD_TIMES_24H[maxPeriod].end;
 
@@ -532,7 +472,7 @@ window.SemesterBookingView = (function() {
             days_of_week: days_of_week,
             class_code: formDetails.title,
         };
-        
+
         if (formDetails.faculty) {
             const facultyMember = state.employeeData.find(e => e.email === formDetails.faculty);
             if (facultyMember) {
@@ -543,7 +483,7 @@ window.SemesterBookingView = (function() {
         const submitBtn = document.getElementById('submit-booking-btn');
         try {
             if(submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Submitting...'; }
-            const result = await addSemesterBooking(payload); 
+            const result = await addSemesterBooking(payload);
             alert(result.message || 'Semester booking request submitted successfully!');
             clearCurrentHallState();
         } catch (error) {
@@ -567,7 +507,7 @@ window.SemesterBookingView = (function() {
             } else if (error.message) {
                 alertMessage += `\nDetails: ${error.message}`;
             }
-            
+
             alert(alertMessage);
         } finally {
             if(submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit'; }
@@ -582,7 +522,7 @@ window.SemesterBookingView = (function() {
             panel.addEventListener('click', handleHallClick, { signal: abortController.signal });
         }
     }
-    
+
     function setupBookingPanelHandlers() {
         lucide.createIcons();
         const panel = document.getElementById('booking-panel-container');
@@ -619,7 +559,7 @@ window.SemesterBookingView = (function() {
                 }
             });
         }
-        
+
         const details = state.hallStates[state.selectedHallId]?.formDetails || {};
         const startDateEl = document.getElementById('start-date');
         if(startDateEl) startDateEl.value = details.startDate || new Date().toISOString().slice(0,10);
@@ -678,7 +618,7 @@ window.SemesterBookingView = (function() {
             renderSemesterHalls(state.semesterHallsData);
             renderBookingPanel();
             setupEventHandlers();
-            
+
             if (state.selectedHallId) {
                 const card = document.querySelector(`.semester-hall-card[data-hall-id="${state.selectedHallId}"]`);
                 if (card) {
