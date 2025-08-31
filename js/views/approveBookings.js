@@ -393,9 +393,9 @@ window.ApproveBookingsView = (function() {
             const bookingId = row ? row.dataset.bookingId : null;
             const action = button.dataset.action;
             if (bookingId && (action === 'approve' || action === 'reject')) {
-                 window.showConfirmationModal(`Are you sure you want to ${action} this booking?`, () => {
+                if (confirm(`Are you sure you want to ${action} this booking?`)) {
                     handleBookingAction(bookingId, action);
-                });
+                }
             }
         }, { signal });
     }
@@ -420,3 +420,4 @@ window.ApproveBookingsView = (function() {
 
     return { initialize, cleanup };
 })();
+
