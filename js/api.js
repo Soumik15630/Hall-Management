@@ -174,6 +174,7 @@ window.ApiService = (function() {
         getForHall: (hallId) => fetchWithAuth(`api/booking/hall/${hallId}`),
         getPendingForHall: (hallId) => fetchWithAuth(`api/booking/hall/pending/${hallId}`),
         getForApproval: () => fetchWithAuth('api/booking/approvals?filter=internal'),
+        getForApprovalExternal: () => fetchWithAuth('api/booking/approvals?filter=external'),
         getForForwarding: () => fetchWithAuth('api/booking/approvals?filter=forward'),
         createRequest: (bookingData) => fetchWithAuth('api/booking/request', {
             method: 'POST',

@@ -457,9 +457,16 @@
 
     <div id="approve-bookings-view" class="hidden flex-grow w-full p-2 sm:p-4 lg:p-6">
         <div class="bg-slate-800/50 rounded-xl shadow-2xl p-2 sm:p-4 lg:p-6 h-full flex flex-col">
-            <div class="flex justify-between items-center mb-2 flex-shrink-0">
-                <h1 class="text-3xl font-bold text-white" style="color: #60a5fa;">Approve / Reject Bookings</h1>
-                <button id="clear-approve-filters-btn" class="flex items-center px-3 py-1.5 text-sm font-semibold text-slate-300 bg-slate-700 hover:bg-slate-600 rounded-lg transition">
+            <div class="flex flex-col sm:flex-row justify-between items-center mb-4 flex-shrink-0">
+                <div class="flex items-center gap-4">
+                    <h1 class="text-3xl font-bold text-white" style="color: #60a5fa;">Approve / Reject Bookings</h1>
+                    <!-- New Switch Component -->
+                    <div id="booking-type-switch" class="flex items-center bg-slate-700/50 rounded-full p-1 cursor-pointer">
+                        <button data-type="internal" class="booking-type-btn bg-blue-600 text-white px-4 py-1.5 text-sm font-semibold rounded-full transition-all duration-300">My Department</button>
+                        <button data-type="external" class="booking-type-btn text-slate-300 px-4 py-1.5 text-sm font-semibold rounded-full transition-all duration-300">Other Departments</button>
+                    </div>
+                </div>
+                <button id="clear-approve-filters-btn" class="flex items-center px-3 py-1.5 text-sm font-semibold text-slate-300 bg-slate-700 hover:bg-slate-600 rounded-lg transition mt-3 sm:mt-0">
                     <i data-lucide="filter-x" class="w-4 h-4 mr-2"></i>Clear Filters
                 </button>
             </div>
@@ -786,35 +793,8 @@
     <div id="filter-organiser-modal" class="modal fixed inset-0 z-50 flex items-center justify-center p-4 hidden"></div>
     <div id="filter-status-modal" class="modal fixed inset-0 z-50 flex items-center justify-center p-4 hidden"></div>
 
-    <script>
-        // Inlined config to fix syntax errors in the original config.js file
-        const AppConfig = {
-            apiBaseUrl: 'https://hall-management.nirmaljyotib.workers.dev/',
-            endpoints: {
-                login: 'auth/login',
-                hall: 'api/hall',
-                allHall: 'api/hall/all-hall',
-                addHall: 'api/hall/create',
-                school: 'api/school',
-                allschool: 'api/school/all-schools',
-                addschool: 'api/school/create',
-                department: 'api/department',
-                alldept: 'api/department/all-department',
-                addDept: 'api/department/create',
-                emp:'api/employee',
-                allemp: 'api/employee/all-employees',
-                addemp: 'api/employee/create',
-                booking: 'api/booking',
-                bookingRequest: 'api/booking/request',
-                myBookings: 'api/booking/my-requests',
-                pendingApprovals: 'api/booking/pending-approval'
-            },
-            links: {
-                login: 'index.html'
-            }
-        };
-    </script>
-    <script src="js/config.js"></script>
+    
+    <script src="config.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/api.js"></script>
     

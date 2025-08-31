@@ -14,10 +14,11 @@ window.ApproveBookingsView = (function() {
         filteredBookings: [],
         filters: defaultFilters(),
         employeeDataCache: null,
+        bookingType: 'internal', // 'internal' or 'external'
     };
     let abortController;
 
-    // --- HELPER FUNCTIONS (Unchanged) ---
+    // --- HELPER FUNCTIONS ---
     function formatStatus(status) {
         if (!status) return { text: 'Unknown', className: 'text-yellow-400' };
         const text = status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
@@ -32,32 +33,55 @@ window.ApproveBookingsView = (function() {
         return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     }
 
-    // --- API & DATA HANDLING (Updated to use ApiService) ---
-
-    // The local fetchFromAPI function has been REMOVED.
-
+    // --- API & DATA HANDLING ---
     async function getEmployees() {
         if (state.employeeDataCache) return state.employeeDataCache;
-        // UPDATED: Now uses the centralized ApiService
         const employees = await ApiService.employees.getAll();
         state.employeeDataCache = employees;
         return employees;
     }
 
     /**
-     * Fetches booking requests that require direct approval by the HOD.
+     * Fetches booking requests for internal (same department) approval.
      */
-    async function fetchApprovalData() {
-        // UPDATED: Now uses the centralized ApiService
+    async function fetchInternalApprovalData() {
         return await ApiService.bookings.getForApproval();
     }
 
+    /**
+     * Fetches booking requests for external (other department) approval.
+     */
+    async function fetchExternalApprovalData() {
+        return await ApiService.bookings.getForApprovalExternal();
+    }
+    
+    async function loadBookings() {
+        const tableBody = document.getElementById('approve-bookings-body');
+        if (tableBody) tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10"><div class="spinner"></div></td></tr>`;
+
+        try {
+            const data = state.bookingType === 'internal'
+                ? await fetchInternalApprovalData()
+                : await fetchExternalApprovalData();
+
+            state.bookings = Array.isArray(data) ? data : [];
+            state.filters = defaultFilters(); // Reset filters when switching types
+            applyFiltersAndRender();
+        } catch (error) {
+            console.error(`Error loading ${state.bookingType} approval data:`, error);
+            if (tableBody) {
+                const errorMessage = `No ${state.bookingType} booking requests found or failed to load data.`;
+                tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-slate-400">${errorMessage}</td></tr>`;
+            }
+        }
+    }
+
+
     async function updateBookingStatus(bookingId, action) {
-        // UPDATED: Now uses the centralized ApiService
         return await ApiService.bookings.updateStatus(bookingId, action);
     }
 
-    // --- FILTERING (Unchanged) ---
+    // --- FILTERING ---
     function applyFiltersAndRender() {
         const { bookedOn, hall, purpose, dateTime, bookedBy } = state.filters;
 
@@ -84,7 +108,7 @@ window.ApproveBookingsView = (function() {
         renderApproveBookingsTable();
     }
 
-    // --- RENDERING (Unchanged) ---
+    // --- RENDERING ---
     function renderApproveBookingsTable() {
         const data = state.filteredBookings;
         const tableBody = document.getElementById('approve-bookings-body');
@@ -102,10 +126,6 @@ window.ApproveBookingsView = (function() {
             const endDateTime = new Date(`${booking.end_date.substring(0, 10)}T${booking.end_time}`);
             const statusInfo = formatStatus(booking.status);
 
-            const externalIndicator = booking.is_external_approval
-                ? `<span class="ml-2 text-xs font-semibold bg-purple-600 text-white px-2 py-1 rounded-full">External</span>`
-                : '';
-
             return `
             <tr class="hover:bg-slate-800/50 transition-colors" data-booking-id="${booking.unique_id}">
                 <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300">${formatDate(booking.created_at)}</td>
@@ -114,7 +134,7 @@ window.ApproveBookingsView = (function() {
                     <div class="text-slate-400 text-xs break-all">${booking.hall_id}</div>
                 </td>
                 <td class="px-3 py-4 text-sm">
-                    <div class="font-medium text-white">${booking.purpose}${externalIndicator}</div>
+                    <div class="font-medium text-white">${booking.purpose}</div>
                     <div class="text-slate-400">${booking.class_code || ''}</div>
                 </td>
                 <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300">${startDateTime.toLocaleString()} - ${endDateTime.toLocaleTimeString()}</td>
@@ -153,7 +173,7 @@ window.ApproveBookingsView = (function() {
         });
     }
 
-    // --- MODAL & EVENT HANDLING (Unchanged) ---
+    // --- MODAL & EVENT HANDLING ---
     function openModal(modalId) {
         const modal = document.getElementById(modalId);
         const backdrop = document.getElementById('modal-backdrop');
@@ -320,6 +340,34 @@ window.ApproveBookingsView = (function() {
         const view = document.getElementById('approve-bookings-view');
         if (!view) return;
 
+        // --- NEW: Event handler for the internal/external switch ---
+        const switchContainer = document.getElementById('booking-type-switch');
+        if (switchContainer) {
+            switchContainer.addEventListener('click', e => {
+                const button = e.target.closest('.booking-type-btn');
+                if (!button) return;
+
+                const type = button.dataset.type;
+                if (type === state.bookingType) return; // Do nothing if already active
+
+                state.bookingType = type;
+
+                // Update button styles
+                switchContainer.querySelectorAll('.booking-type-btn').forEach(btn => {
+                    if (btn.dataset.type === type) {
+                        btn.classList.add('bg-blue-600', 'text-white');
+                        btn.classList.remove('text-slate-300');
+                    } else {
+                        btn.classList.remove('bg-blue-600', 'text-white');
+                        btn.classList.add('text-slate-300');
+                    }
+                });
+                
+                loadBookings(); // Load data for the selected type
+            }, { signal });
+        }
+
+
         view.addEventListener('click', e => {
             const filterIcon = e.target.closest('.filter-icon');
             if (filterIcon) openFilterModalFor(filterIcon.dataset.filterColumn);
@@ -345,32 +393,28 @@ window.ApproveBookingsView = (function() {
             const bookingId = row ? row.dataset.bookingId : null;
             const action = button.dataset.action;
             if (bookingId && (action === 'approve' || action === 'reject')) {
-                if (confirm(`Are you sure you want to ${action} this booking?`)) {
+                 window.showConfirmationModal(`Are you sure you want to ${action} this booking?`, () => {
                     handleBookingAction(bookingId, action);
-                }
+                });
             }
         }, { signal });
     }
 
     async function initialize() {
-        const tableBody = document.getElementById('approve-bookings-body');
-        if (tableBody) tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10"><div class="spinner"></div></td></tr>`;
-        try {
-            // UPDATED: Now uses the centralized ApiService
-            const data = await fetchApprovalData();
-            state.bookings = Array.isArray(data) ? data : [];
-            await getEmployees(); // This now also uses ApiService
-            applyFiltersAndRender();
-            setupEventHandlers();
-        } catch (error) {
-            console.error('Error loading approval data:', error);
-            if (tableBody) tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-red-400">Failed to load approval data. ${error.message}</td></tr>`;
+        if (!state.employeeDataCache) {
+            try {
+                await getEmployees();
+            } catch (error) {
+                console.error('Failed to preload employee data:', error);
+            }
         }
+        await loadBookings(); // Initial data load
+        setupEventHandlers();
     }
 
     function cleanup() {
         if (abortController) abortController.abort();
-        state = { bookings: [], filteredBookings: [], filters: defaultFilters(), employeeDataCache: null };
+        state = { bookings: [], filteredBookings: [], filters: defaultFilters(), employeeDataCache: null, bookingType: 'internal' };
         closeModal();
     }
 
