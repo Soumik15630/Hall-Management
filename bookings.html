@@ -292,19 +292,15 @@
                 },
 
                 async fetchWithAuth(url, options = {}) {
-                    // This is a placeholder. Replace with your actual authentication logic.
-                    // const headers = getAuthHeaders();
-                    const headers = { 'Authorization': 'Bearer YOUR_TOKEN_HERE', 'Content-Type': 'application/json' };
+                    const headers = getAuthHeaders();
                     if (!headers) {
-                        // logout();
-                        console.error('User not authenticated');
+                        logout();
                         throw new Error('User not authenticated');
                     }
                     const config = { ...options, headers: {...headers, ...options.headers} };
                     const response = await fetch(url, config);
                     if (response.status === 401) {
-                        // logout();
-                        console.error('Authentication failed');
+                        logout();
                         throw new Error('Authentication failed');
                     }
                     if (!response.ok) {
@@ -318,20 +314,10 @@
                     this.isLoading = true;
                     try {
                         // NOTE: You need to replace this with your actual API endpoint from config.js
-                        // const bookingUrl = AppConfig.apiBaseUrl + AppConfig.endpoints.myBookings;
-                        
-                        // Using a dummy placeholder URL for this example.
-                        const bookingUrl = 'https://api.example.com/my-bookings'; // <-- REPLACE THIS
-                        
-                        // Faking the API call with the data you provided for demonstration
-                        const bookingResult = {
-                            "success": true,
-                            "data": [{"purpose": "test lecture","start_date": "2025-08-31T00:00:00.000Z","end_date": "2025-08-31T00:00:00.000Z","start_time": "12:30","end_time": "17:30","created_at": "2025-08-31T06:17:41.821Z","status": "PENDING_HOD_APPROVAL","hall": {"name": "104 -Ground Floor","type": "SEMINAR","belongs_to": "DEPARTMENT","section": null,"department": {"department_name": "Department of Computer Science"},"school": {"school_name": "School of Engineering and Technology"}},"user": {"employee": {"employee_name": "Soumik ","belongs_to": "DEPARTMENT","school": {"school_name": "Test_School"},"department": {"department_name": "Test"}}}},{"purpose": "testforfix","start_date": "2025-08-30T00:00:00.000Z","end_date": "2025-08-30T00:00:00.000Z","start_time": "09:30","end_time": "17:30","created_at": "2025-08-29T06:22:41.241Z","status": "PENDING_HOD_APPROVAL","hall": {"name": "Test_CSE_Hall","type": "SEMINAR","belongs_to": "DEPARTMENT","section": null,"department": {"department_name": "Test"},"school": {"school_name": "Test_School"}},"user": {"employee": {"employee_name": "Soumik ","belongs_to": "DEPARTMENT","school": {"school_name": "Test_School"},"department": {"department_name": "Test"}}}}
-                            ]
-                        };
+                        const bookingUrl = AppConfig.apiBaseUrl + AppConfig.endpoints.myBookings;
 
                         // Real API call (currently commented out)
-                        // const bookingResult = await this.fetchWithAuth(bookingUrl);
+                        const bookingResult = await this.fetchWithAuth(bookingUrl);
 
                         if (!bookingResult.success) throw new Error("Failed to fetch bookings.");
                         
