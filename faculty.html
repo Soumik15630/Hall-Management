@@ -20,7 +20,9 @@
             min-height: 600px;
         }
         .calendar-grid {
-            grid-template-columns: 70px repeat(7, 1fr);
+            grid-template-columns: 70px repeat(7, minmax(120px, auto));
+            overflow: hidden;
+            width: 100%;
         }
         .day-view-grid {
              grid-template-columns: 90px 1fr;

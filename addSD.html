@@ -6,7 +6,6 @@
     <title>Add School or Department</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <!-- Defer AlpineJS script to ensure it runs after the DOM is parsed -->
     <script src="config.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <style>
@@ -36,8 +35,7 @@
 </head>
 <body class="min-h-screen flex flex-col">
 
-     <!-- Placeholders for centralized header and navigation -->
-    <div id="header-placeholder"></div>
+     <div id="header-placeholder"></div>
     <div id="nav-placeholder"></div>
 
     <main class="flex-grow p-6 flex items-center justify-center">
@@ -52,7 +50,6 @@
                     </div>
 
                     <form x-ref="schoolDeptForm" @submit.prevent="submitForm()" novalidate>
-                        <!-- School Form -->
                         <div x-show="type === 'school'" x-transition class="space-y-6">
                             <div><label for="schoolName" class="block text-gray-600 text-sm font-medium mb-2">School Name:</label><input type="text" id="schoolName" name="school_name" placeholder="Enter School Name" class="block w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800" :required="type === 'school'"></div>
                             <div><label for="deanName" class="block text-gray-600 text-sm font-medium mb-2">Dean Name:</label><input type="text" id="deanName" name="incharge_name_school" placeholder="Enter Dean Name" class="block w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800" :required="type === 'school'"></div>
@@ -76,7 +73,6 @@
                             </div>
                         </div>
 
-                        <!-- Department Form -->
                         <div x-show="type === 'department'" x-transition class="space-y-6">
                             <div class="relative" @click.away="modals.schoolOpen = false">
                                 <label class="block text-gray-600 text-sm font-medium mb-2">School Name:</label>
@@ -157,9 +153,6 @@
                 deanStatus: 'PERMANENT',
                 hodStatus: 'PERMANENT',
 
-                // --- AUTHENTICATION LOGIC ---
-                 
-
                 async fetchWithAuth(url, options = {}) {
                     const headers = getAuthHeaders();
                     if (!headers) {
@@ -176,10 +169,8 @@
                     }
                     return response;
                 },
-                // --- END AUTHENTICATION LOGIC ---
 
                 init() {
-                    // Auth check on initialization
                     if (!getAuthHeaders()) {
                         console.error("No auth token found. Redirecting to login.");
                         logout();
@@ -232,6 +223,46 @@
                     this.deanStatus = 'PERMANENT';
                     this.hodStatus = 'PERMANENT';
                 },
+                
+                async createEmployeeFromIncharge(sd_result) {
+                    const inchargeData = sd_result.response;
+                    const isSchool = this.type === 'school';
+                
+                    const employeePayload = {
+                        employee_name: inchargeData.incharge_name,
+                        employee_email: inchargeData.incharge_email,
+                        employee_mobile: inchargeData.incharge_contact_number,
+                        designation: inchargeData.designation,
+                        belongs_to: isSchool ? 'SCHOOL' : 'DEPARTMENT',
+                        school_id: isSchool ? inchargeData.unique_id : inchargeData.school_id,
+                        department_id: isSchool ? null : inchargeData.unique_id,
+                        section: null
+                    };
+                
+                    try {
+                        const employeeEndpoint = AppConfig.apiBaseUrl + AppConfig.endpoints.addemp;
+                        const response = await this.fetchWithAuth(employeeEndpoint, {
+                            method: 'POST',
+                            body: JSON.stringify(employeePayload)
+                        });
+                
+                        const employeeResult = await response.json();
+                        if (!response.ok) {
+                            throw employeeResult;
+                        }
+                        
+                        return { success: true, message: `${isSchool ? 'Dean' : 'HoD'} also added as an employee.` };
+                
+                    } catch (error) {
+                        let errorMessage = `Could not add the ${isSchool ? 'Dean' : 'HoD'} as an employee.`;
+                        if (error && Array.isArray(error.errors) && error.errors.length > 0) {
+                            errorMessage += '<br>Reason: ' + error.errors.map(e => e.message).join('<br>');
+                        } else if (error && error.message) {
+                            errorMessage += `<br>Reason: ${error.message}`;
+                        }
+                        return { success: false, message: errorMessage };
+                    }
+                },
 
                 async submitForm() {
                     const form = this.$refs.schoolDeptForm;
@@ -259,7 +290,7 @@
                         data.incharge_email = formData.get('incharge_email_school');
                         data.incharge_intercom = this.deanIntercom;
                         data.incharge_status = this.deanStatus;
-                        data.designation = "DEAN"; // Static value
+                        data.designation = "DEAN";
                     } else {
                         endpoint = AppConfig.apiBaseUrl + AppConfig.endpoints.addDept;
                         data.department_name = formData.get('department_name');
@@ -269,7 +300,7 @@
                         data.incharge_email = formData.get('incharge_email_dept');
                         data.incharge_intercom = this.hodIntercom;
                         data.incharge_status = this.hodStatus;
-                        data.designation = "HOD"; // Static value
+                        data.designation = "HOD";
                     }
 
                     try {
@@ -282,24 +313,35 @@
                         if (!response.ok) {
                             throw result;
                         }
+                        
+                        // Automatically create employee from the successful response
+                        const employeeCreationResult = await this.createEmployeeFromIncharge(result);
+                        
+                        let finalMessage = `${this.type.charAt(0).toUpperCase() + this.type.slice(1)} added successfully!`;
 
-                        Alpine.store('modal').open(true, 'Entry added successfully!');
+                        // Append the result of the employee creation to the message
+                        if (employeeCreationResult.success) {
+                            finalMessage += `<br>${employeeCreationResult.message}`;
+                            Alpine.store('modal').open(true, finalMessage);
+                        } else {
+                            // Still show success for the main action, but with a warning for the failed secondary action
+                            finalMessage += `<br><strong class="text-red-600">Warning:</strong> ${employeeCreationResult.message}`;
+                            Alpine.store('modal').open(true, finalMessage);
+                        }
+
                         this.resetForm();
                         if (this.type === 'school') this.fetchSchools();
 
-                    }catch (error) {
+                    } catch (error) {
                         let errorMessage = 'An unexpected error occurred.';
 
-                        // Handle Prisma unique constraint errors (P2002)
                         if (error && error.error && error.error.code === 'P2002' && error.error.meta && Array.isArray(error.error.meta.target)) {
                             const fields = error.error.meta.target.join(', ');
                             errorMessage = `The value for '${fields}' is already in use. Please choose another.`;
                         }
-                        // Handle array of validation errors
                         else if (error && Array.isArray(error.errors) && error.errors.length > 0) {
                             errorMessage = error.errors.map(e => e.message).join('<br>');
                         }
-                        // Handle general errors with a 'message' property
                         else if (error && error.message) {
                             errorMessage = `Entry not added. Reason: ${error.message}`;
                         }
