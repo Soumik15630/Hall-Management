@@ -6,7 +6,6 @@
     <title>Manage Employees</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <!-- config.js and layout.js are assumed to be present and contain necessary AppConfig and authentication functions -->
     <script src="config.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <style>
@@ -45,7 +44,6 @@
 
     <main class="flex-grow p-2 sm:p-6">
         <div class="container mx-auto" x-data="manageEmployees">
-            <!-- Desktop Header -->
             <div class="hidden md:flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                       <div>
                           <h2 class="text-3xl font-bold text-white">Manage Employees</h2>
@@ -62,7 +60,6 @@
                       </div>
             </div>
 
-            <!-- Mobile Header -->
             <div class="md:hidden mb-4">
                 <h2 class="text-2xl font-bold text-white mb-2">Manage Employees</h2>
                 <p class="text-sm text-gray-300" x-text="selectionCountText"></p>
@@ -78,7 +75,6 @@
                 </div>
             </div>
             
-            <!-- Desktop Filter Bar -->
             <div class="hidden md:block bg-white/10 p-4 rounded-lg mb-6">
                      <div class="flex flex-wrap items-center justify-between gap-4 text-white">
                          <div class="flex items-center gap-4 flex-wrap">
@@ -117,14 +113,12 @@
                      </div>
             </div>
 
-            <!-- Floating Action Button (Mobile Only) -->
             <div class="fixed bottom-24 right-4 z-30 md:hidden">
                 <a href="addEmployee.html" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform transform hover:scale-110 active:scale-95">
                     <i class="fas fa-plus text-xl"></i>
                 </a>
             </div>
 
-            <!-- Mobile Bottom Action Bar (Mobile Only) -->
             <div class="fixed bottom-0 left-0 right-0 bg-gray-900/80 backdrop-blur-sm p-2 z-40 md:hidden border-t border-white/20 shadow-t-2xl">
                 <div class="flex justify-around items-center max-w-md mx-auto">
                     <button @click="modifySelectedItem()" :disabled="selectedItems.length !== 1" class="flex flex-col items-center justify-center w-20 h-14 rounded-lg transition-all" :class="selectedItems.length === 1 ? 'text-blue-400 hover:bg-blue-400/20' : 'text-gray-500 cursor-not-allowed'">
@@ -149,7 +143,6 @@
                 </div>
             </div>
 
-            <!-- Desktop Filter Modal -->
             <div x-show="modals.filter" @click.away="modals.filter = false" style="display: none;" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                 <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md relative">
                     <button @click="modals.filter = false" class="absolute top-2 right-2 text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
@@ -204,7 +197,6 @@
                 </div>
             </div>
             
-            <!-- Mobile Filter Overlay -->
             <div x-show="modals.filterOverlayOpen" class="fixed inset-0 bg-black/60 z-50 md:hidden" x-cloak>
                 <div @click="modals.filterOverlayOpen = false" class="absolute inset-0"></div>
                 <div class="absolute bottom-0 left-0 right-0 max-h-[85vh] bg-gradient-to-t from-[#0B1940] to-[#14555F] rounded-t-2xl shadow-2xl flex flex-col">
@@ -359,15 +351,13 @@
     document.addEventListener('alpine:init', () => {
         Alpine.data('manageEmployees', () => ({
             employees: [],
-            schoolOptions: [], // Will be populated when filter is opened
-            departmentOptions: [], // Will be populated when filter is opened
-            // The 'sectionOptions' are loaded directly from the AppConfig file for the 'Administration' filter
+            schoolOptions: [],
+            departmentOptions: [],
             sectionOptions: AppConfig.formOptions.generalSections,
             designationOptions: AppConfig.formOptions.designations,
             selectedItems: [],
             multipleSelectionEnabled: false,
-            isLoading: true, // Main loading state for employees
-            isLoadingFilters: { schools: false, departments: false }, // Separate loading states for filter options
+            isLoading: true,
             errorMessage: '',
             viewMode: 'card',
             modals: { filter: false, schoolFilterOpen: false, departmentFilterOpen: false, sectionFilterOpen: false, confirmDelete: false, employeeFilterOpen: false, sortOptionsOpen: false, filterOverlayOpen: false },
@@ -402,38 +392,18 @@
                     logout();
                     return;
                 }
-                this.loadEmployees(); // Only load employees initially
+                this.loadEmployees();
                 this.$watch('multipleSelectionEnabled', (value) => { if (!value) this.selectedItems = []; });
                 
-                // Watch for desktop filter modal to open and fetch schools/departments
-                this.$watch('modals.filter', (value) => {
-                    if (value) {
-                        this.loadFilterOptions();
-                    }
-                });
-
-                // Watch for mobile filter overlay to open and fetch schools/departments
                 this.$watch('modals.filterOverlayOpen', (value) => {
                     if (value) {
                         document.body.style.overflow = 'hidden';
-                        this.loadFilterOptions();
                     } else {
                         document.body.style.overflow = '';
                     }
                 });
             },
 
-            // New function to lazy-load filter options
-            loadFilterOptions() {
-                if (this.schoolOptions.length === 0 && !this.isLoadingFilters.schools) {
-                    this.fetchSchoolsForFilter();
-                }
-                if (this.departmentOptions.length === 0 && !this.isLoadingFilters.departments) {
-                    this.fetchDepartmentsForFilter();
-                }
-            },
-
-            // Updated to only load employees and use nested data
             async loadEmployees() { 
                 this.isLoading = true;
                 this.errorMessage = '';
@@ -446,20 +416,36 @@
                     }
 
                     const employeeData = await employeeResponse.json();
+
+                    const uniqueSchools = new Map();
+                    const uniqueDepartments = new Map();
+
+                    employeeData.forEach(emp => {
+                        if (emp.school && emp.school.school_name && emp.school_id) {
+                            if (!uniqueSchools.has(emp.school_id)) {
+                                uniqueSchools.set(emp.school_id, { value: emp.school_id, label: emp.school.school_name });
+                            }
+                        }
+                        if (emp.department && emp.department.department_name && emp.department_id) {
+                            if (!uniqueDepartments.has(emp.department_id)) {
+                                uniqueDepartments.set(emp.department_id, { value: emp.department_id, label: emp.department.department_name, schoolId: emp.school_id });
+                            }
+                        }
+                    });
+
+                    this.schoolOptions = Array.from(uniqueSchools.values());
+                    this.departmentOptions = Array.from(uniqueDepartments.values());
                     
                     this.employees = employeeData.map(emp => {
                         let primaryOwner = 'N/A', secondaryOwner = '';
 
                         if (emp.belongs_to === 'ADMINISTRATION') {
                             primaryOwner = 'Administration';
-                            // Here, we map the section value (e.g., 'ENGINEERING_WING') to its display label (e.g., 'Engineering Wing')
                             const section = this.sectionOptions.find(s => s.value === emp.section);
                             secondaryOwner = section ? section.label : (emp.section || '');
                         } else if (emp.belongs_to === 'SCHOOL') {
-                            // Use nested school data directly from the response
                             primaryOwner = emp.school ? emp.school.school_name : 'Unknown School'; 
                         } else if (emp.belongs_to === 'DEPARTMENT') {
-                            // Use nested school and department data directly
                             primaryOwner = emp.school ? emp.school.school_name : 'Unknown School'; 
                             secondaryOwner = emp.department ? emp.department.department_name : 'Unknown Department'; 
                         }
@@ -477,43 +463,6 @@
                 } finally {
                     this.isLoading = false;
                 }
-            },
-
-            // New function to fetch all schools for filter dropdown
-            async fetchSchoolsForFilter() { 
-                this.isLoadingFilters.schools = true; 
-                try { 
-                    const response = await this.fetchWithAuth(AppConfig.apiBaseUrl + AppConfig.endpoints.allschool);
-                    if (!response.ok) {
-                        const errorBody = await response.json();
-                        throw new Error(`Network error: ${errorBody.message || response.statusText}`); 
-                    }
-                    const d = await response.json(); 
-                    this.schoolOptions = d.filter(s => s && s.unique_id && s.school_name).map(s => ({ value: s.unique_id, label: s.school_name })); 
-                } catch (e) { 
-                    // Do not show a blocking error message for filter data
-                    console.error('Could not load school filter data:', e.message);
-                } finally { 
-                    this.isLoadingFilters.schools = false; 
-                } 
-            },
-
-            // New function to fetch all departments for filter dropdown
-            async fetchDepartmentsForFilter() { 
-                this.isLoadingFilters.departments = true; 
-                try { 
-                    const response = await this.fetchWithAuth(AppConfig.apiBaseUrl + AppConfig.endpoints.alldept);
-                    if (!response.ok) {
-                        const errorBody = await response.json();
-                        throw new Error(`Network error: ${errorBody.message || response.statusText}`); 
-                    }
-                    const d = await response.json(); 
-                    this.departmentOptions = d.filter(t => t && t.unique_id && t.department_name && t.school_id).map(t => ({ value: t.unique_id, label: t.department_name, schoolId: t.school_id })); 
-                } catch (e) { 
-                    console.error('Could not load department filter data:', e.message);
-                } finally { 
-                    this.isLoadingFilters.departments = false; 
-                } 
             },
 
             toggleItemSelection(itemId) {
@@ -559,7 +508,7 @@
                     
                     this.showNotification(true, 'Success', `${this.selectedItems.length} item(s) deleted successfully.`);
                     this.selectedItems = [];
-                    await this.loadEmployees(); // Reload employees after successful deletion
+                    await this.loadEmployees();
                 } catch (error) {
                     console.error('Deletion error:', error);
                     this.showNotification(false, 'Deletion Failed', error.message);
@@ -572,7 +521,6 @@
                     if (f.employeeName && emp.employee_name.toLowerCase() !== f.employeeName.toLowerCase()) return false;
                     if (f.designation && emp.designation !== f.designation) return false;
                     
-                    // Match the 'belongs_to' field with the selected ownerType
                     if (f.ownerType) {
                         const belongsToMapping = {
                             'administration': 'ADMINISTRATION',
@@ -659,18 +607,19 @@
                 this.filters.schoolId = schoolId;
                 const school = this.schoolOptions.find(s => s.value === schoolId);
                 if (school) this.filters.schoolSearchTerm = school.label;
-                this.filters.departmentId = ''; // Reset department filter if school changes
+                this.filters.departmentId = '';
                 this.filters.departmentSearchTerm = '';
                 this.modals.schoolFilterOpen = false;
             },
             selectDepartmentForFilter(deptId) {
-                this.filters.departmentId = deptId;
                 const dept = this.departmentOptions.find(d => d.value === deptId);
                 if (dept) {
+                    this.filters.departmentId = dept.value;
                     this.filters.departmentSearchTerm = dept.label;
-                    // Automatically select the associated school if not already selected
-                    if (!this.filters.schoolId && dept.schoolId) {
-                        this.selectSchoolForFilter(dept.schoolId);
+                    const school = this.schoolOptions.find(s => s.value === dept.schoolId);
+                    if (school) {
+                        this.filters.schoolId = school.value;
+                        this.filters.schoolSearchTerm = school.label;
                     }
                 }
                 this.modals.departmentFilterOpen = false;

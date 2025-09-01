@@ -59,7 +59,6 @@
 
     <main class="flex-grow p-2 sm:p-6" x-data="manageHalls">
         <div class="container mx-auto">
-            <!-- Desktop Header -->
             <div class="hidden md:flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <h2 class="text-3xl font-bold text-white">Manage Halls</h2>
                 <div class="flex flex-wrap items-center justify-end gap-3 bg-[rgba(0,0,0,0.2)] p-2 rounded-lg">
@@ -73,7 +72,6 @@
                 </div>
             </div>
 
-            <!-- Simplified Mobile Header -->
             <div class="md:hidden mb-4">
                 <div class="flex justify-between items-center">
                     <h2 class="text-2xl font-bold text-white">Manage Halls</h2>
@@ -90,7 +88,6 @@
                 </div>
             </div>
 
-            <!-- Desktop Filter Bar -->
             <div class="hidden md:block bg-white/10 p-4 rounded-lg mb-6">
                 <div class="flex flex-col lg:flex-row items-center justify-between gap-4 text-white">
                     <div class="flex items-center gap-4 flex-wrap justify-center">
@@ -150,14 +147,12 @@
                 </div>
             </div>
 
-            <!-- Floating Action Button for Add Hall (Mobile Only) -->
             <div class="fixed bottom-24 right-4 z-30 md:hidden">
                 <a href="addHall.html" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform transform hover:scale-110 active:scale-95">
                     <i class="fas fa-plus text-xl"></i>
                 </a>
             </div>
 
-            <!-- Mobile Bottom Action Bar (Mobile Only) -->
             <div class="fixed bottom-0 left-0 right-0 bg-gray-900/80 backdrop-blur-sm p-2 z-40 md:hidden border-t border-white/20 shadow-t-2xl">
                 <div class="flex justify-around items-center max-w-md mx-auto">
                     <button @click="modifySelectedItem()" :disabled="selectedItems.length !== 1" class="flex flex-col items-center justify-center w-20 h-14 rounded-lg transition-all" :class="selectedItems.length === 1 ? 'text-blue-400 hover:bg-blue-400/20' : 'text-gray-500 cursor-not-allowed'">
@@ -182,7 +177,6 @@
                 </div>
             </div>
 
-            <!-- Mobile Filter & Sort Overlay (Mobile Only) -->
             <div x-show="modals.filterOverlayOpen" class="fixed inset-0 bg-black/60 z-50 md:hidden" x-cloak>
                 <div @click="modals.filterOverlayOpen = false" class="absolute inset-0"></div>
                 <div class="absolute bottom-0 left-0 right-0 max-h-[85vh] bg-gradient-to-t from-[#0B1940] to-[#14555F] rounded-t-2xl shadow-2xl flex flex-col">
@@ -291,7 +285,6 @@
                 </div>
             </div>
 
-            <!-- Modal Dialogs for Desktop -->
             <div x-show="modals.hallDetails" @click.away="modals.hallDetails = false" style="display: none;" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                 <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-lg relative max-h-[90vh] overflow-y-auto">
                     <div class="flex justify-between items-center mb-4 border-b pb-2">
@@ -671,16 +664,17 @@
                     const f = this.filters;
                     if (f.name && hall.name !== f.name) return false;
                     if (f.type && hall.type.toUpperCase() !== f.type) return false;
-                    if (f.floor && hall.floor.toUpperCase().split(' ')[0] !== f.floor) return false;
-                    if (f.zone && hall.zone.toUpperCase().split(' ')[0] !== f.zone) return false;
+                    if (f.floor && !hall.floor.toUpperCase().startsWith(f.floor)) return false;
+                    if (f.zone && !hall.zone.toUpperCase().startsWith(f.zone)) return false;
                     if (f.capacity) {
                         if (f.capacity === '<50' && hall.capacity >= 50) return false;
                         if (f.capacity === '50-100' && (hall.capacity < 50 || hall.capacity > 100)) return false;
                         if (f.capacity === '>100' && hall.capacity <= 100) return false;
                     }
-                    if (f.ownerType === 'administration' && hall.primaryOwner !== 'Administration') return false;
-                    if (f.ownerType === 'school' && !hall.school_id) return false;
-                    if (f.ownerType === 'department' && !hall.department_id) return false;
+                    if (f.ownerType === 'administration' && hall.belongs_to !== 'ADMINISTRATION') return false;
+                    if (f.ownerType === 'school' && hall.belongs_to !== 'SCHOOL' && hall.belongs_to !== 'DEPARTMENT') return false;
+                    if (f.ownerType === 'department' && hall.belongs_to !== 'DEPARTMENT') return false;
+
                     if (f.schoolId && hall.school_id !== f.schoolId) return false;
                     if (f.departmentId && hall.department_id !== f.departmentId) return false;
                     if (f.features.length > 0 && !f.features.every(feature => hall.features.includes(feature))) return false;
@@ -753,19 +747,30 @@
                 this.filters.schoolId = schoolId;
                 const school = this.schoolOptions.find(s => s.value === schoolId);
                 if (school) this.filters.schoolSearchTerm = school.label;
+                // This function should clear the department when a school is chosen independently
                 this.filters.departmentId = '';
                 this.filters.departmentSearchTerm = '';
                 this.modals.schoolFilterOpen = false;
             },
+
+            // CORRECTED FUNCTION
             selectDepartmentForFilter(deptId) {
-                this.filters.departmentId = deptId;
                 const dept = this.departmentOptions.find(d => d.value === deptId);
                 if (dept) {
+                    // Set the department filter
+                    this.filters.departmentId = dept.value;
                     this.filters.departmentSearchTerm = dept.label;
-                    if (!this.filters.schoolId) this.selectSchoolForFilter(dept.schoolId);
+                    
+                    // Also find and set the corresponding school filter directly
+                    const school = this.schoolOptions.find(s => s.value === dept.schoolId);
+                    if (school) {
+                        this.filters.schoolId = school.value;
+                        this.filters.schoolSearchTerm = school.label;
+                    }
                 }
-                this.modals.departmentFilterOpen = false;
+                this.modals.departmentFilterOpen = false; // Close the department dropdown
             },
+
             selectHallNameForFilter(name) {
                 this.filters.name = name;
                 this.filters.nameSearchTerm = name;
@@ -808,29 +813,17 @@
                 this.isLoading = true;
                 this.errorMessage = '';
                 try {
-                    const [hallResponse, schoolResponse, departmentResponse] = await Promise.all([
-                        this.fetchWithAuth(AppConfig.apiBaseUrl + AppConfig.endpoints.allHall),
-                        this.fetchWithAuth(AppConfig.apiBaseUrl + AppConfig.endpoints.allschool),
-                        this.fetchWithAuth(AppConfig.apiBaseUrl + AppConfig.endpoints.alldept)
-                    ]);
+                    const hallResponse = await this.fetchWithAuth(AppConfig.apiBaseUrl + AppConfig.endpoints.allHall);
 
-                    if (!hallResponse.ok) throw new Error(`Halls API Error: ${hallResponse.statusText}`);
-                    if (!schoolResponse.ok) throw new Error(`Schools API Error: ${schoolResponse.statusText}`);
-                    if (!departmentResponse.ok) throw new Error(`Departments API Error: ${departmentResponse.statusText}`);
+                    if (!hallResponse.ok) {
+                        throw new Error(`API Error: ${hallResponse.statusText}`);
+                    }
 
                     const hallData = await hallResponse.json();
-                    const schoolData = await schoolResponse.json();
-                    const departmentData = await departmentResponse.json();
-
-                    const hallList = (Array.isArray(hallData) ? hallData : hallData.halls || hallData.data || []).filter(h => h && h.unique_id && h.name);
-                    const schoolList = (Array.isArray(schoolData) ? schoolData : schoolData.schools || schoolData.data || []).filter(s => s && s.unique_id && s.school_name);
-                    const departmentList = (Array.isArray(departmentData) ? departmentData : departmentData.departments || departmentData.data || []).filter(d => d && d.unique_id && d.department_name);
-
-                    const schoolMap = new Map(schoolList.map(s => [s.unique_id, s]));
-                    const departmentMap = new Map(departmentList.map(d => [d.unique_id, d]));
+                    const hallList = (hallData.data || []).filter(h => h && h.unique_id && h.name);
                     
-                    this.schoolOptions = schoolList.map(s => ({ value: s.unique_id, label: s.school_name }));
-                    this.departmentOptions = departmentList.map(d => ({ value: d.unique_id, label: d.department_name, schoolId: d.school_id }));
+                    const uniqueSchools = new Map();
+                    const uniqueDepartments = new Map();
 
                     this.halls = hallList.map(hall => {
                         let status = 'Available';
@@ -838,34 +831,42 @@
                         if (!hall.availability) {
                             const reason = this.unavailabilityOptions.find(r => r.value === hall.unavailability_reason);
                             status = reason ? reason.label : 'Unavailable';
-                            
-                            if (hall.unavailability_reason === 'AWAITING_INAUGURATION') {
-                                statusColor = 'bg-yellow-100 text-yellow-800';
-                            } else {
-                                statusColor = 'bg-red-100 text-red-800';
-                            }
+                            statusColor = (hall.unavailability_reason === 'AWAITING_INAUGURATION') ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800';
                         }
 
                         let primaryOwner = 'Administration';
                         let secondaryOwner = hall.section || '';
                         let incharge_name = 'N/A', incharge_email = 'N/A', incharge_contact_number = 'N/A';
 
-                        if (hall.department_id && departmentMap.has(hall.department_id)) {
-                            const dept = departmentMap.get(hall.department_id);
-                            secondaryOwner = dept.department_name;
-                            incharge_name = dept.incharge_name;
-                            incharge_email = dept.incharge_email;
-                            incharge_contact_number = dept.incharge_contact_number;
-                            if (dept.school_id && schoolMap.has(dept.school_id)) {
-                                primaryOwner = schoolMap.get(dept.school_id).school_name;
+                        if (hall.department && hall.department.department_name) {
+                            secondaryOwner = hall.department.department_name;
+                            incharge_name = hall.department.incharge_name || 'N/A';
+                            incharge_email = hall.department.incharge_email || 'N/A';
+                            incharge_contact_number = hall.department.incharge_intercom || 'N/A';
+                            if (!uniqueDepartments.has(hall.department_id)) {
+                                uniqueDepartments.set(hall.department_id, { 
+                                    value: hall.department_id, 
+                                    label: hall.department.department_name, 
+                                    schoolId: hall.school_id 
+                                });
                             }
-                        } else if (hall.school_id && schoolMap.has(hall.school_id)) {
-                            const school = schoolMap.get(hall.school_id);
-                            primaryOwner = school.school_name;
-                            secondaryOwner = '';
-                            incharge_name = school.incharge_name;
-                            incharge_email = school.incharge_email;
-                            incharge_contact_number = school.incharge_contact_number;
+                        }
+
+                        if (hall.school && hall.school.school_name) {
+                            primaryOwner = hall.school.school_name;
+                            if (hall.belongs_to === 'SCHOOL') {
+                                // The provided JSON doesn't have school-level incharge info, but this handles it if added later
+                                incharge_name = hall.school.incharge_name || 'N/A';
+                                incharge_email = hall.school.incharge_email || 'N/A';
+                                incharge_contact_number = hall.school.incharge_intercom || 'N/A';
+                            }
+                            if (!uniqueSchools.has(hall.school_id)) {
+                                uniqueSchools.set(hall.school_id, { value: hall.school_id, label: hall.school.school_name });
+                            }
+                        }
+                        
+                        if (hall.belongs_to === 'ADMINISTRATION') {
+                            primaryOwner = 'Administration';
                         }
 
                         return {
@@ -879,6 +880,9 @@
                             features: Array.isArray(hall.features) ? hall.features.map(f => f.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())).sort() : []
                         };
                     });
+                    
+                    this.schoolOptions = Array.from(uniqueSchools.values());
+                    this.departmentOptions = Array.from(uniqueDepartments.values());
                     this.isLoading = false;
 
                 } catch (error) {
