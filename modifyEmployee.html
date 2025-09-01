@@ -378,7 +378,7 @@
                 try {
                     const url = `${AppConfig.apiBaseUrl}${AppConfig.endpoints.emp}/${this.employeeId}`;
                     const response = await this.fetchWithAuth(url, { 
-                        method: 'PUT', 
+                        method: 'PATCH', 
                         body: JSON.stringify(payload) 
                     });
 
