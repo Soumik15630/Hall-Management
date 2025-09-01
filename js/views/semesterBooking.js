@@ -58,7 +58,10 @@ window.SemesterBookingView = (function() {
         const schoolMap = new Map(schools.map(s => [s.unique_id, s.school_name]));
         const departmentMap = new Map(departments.map(d => [d.unique_id, d.department_name]));
 
-        return rawHalls.map(hall => ({
+        // MODIFIED: Filter out unavailable halls before mapping them to the view model.
+        const availableHalls = rawHalls.filter(hall => hall.availability !== false);
+
+        return availableHalls.map(hall => ({
             ...hall,
             id: hall.unique_id,
             name: hall.name,
@@ -71,8 +74,10 @@ window.SemesterBookingView = (function() {
     }
 
     async function fetchSemesterHalls() {
+        // This function now receives only available halls from fetchHallsForView
         const allHalls = await fetchHallsForView();
         const groupedHalls = { 'Seminar': [], 'Auditorium': [], 'Lecture Hall': [], 'Conference Hall': [], 'Other': [] };
+        
         allHalls.forEach(hall => {
             if (groupedHalls.hasOwnProperty(hall.type)) {
                 groupedHalls[hall.type].push(hall);

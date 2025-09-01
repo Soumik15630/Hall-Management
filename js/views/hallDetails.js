@@ -104,15 +104,24 @@ window.HallDetailsView = (function() {
         const departmentMap = new Map(departments.map(d => [d.unique_id, d]));
 
         return rawHalls.map(hall => {
-             let incharge = { name: 'N/A', role: 'N/A', email: 'N/A', phone: 'N/A' };
-             const dept = departmentMap.get(hall.department_id);
-             const school = schoolMap.get(hall.school_id);
+            const dept = departmentMap.get(hall.department_id);
+            const school = schoolMap.get(hall.school_id);
 
-             if (dept) {
-                 incharge = { name: dept.incharge_name, role: 'HOD', email: dept.incharge_email, phone: dept.incharge_contact_number };
-             } else if (school) {
-                 incharge = { name: school.incharge_name, role: 'Dean', email: school.incharge_email, phone: school.incharge_contact_number };
-             }
+            let schoolName = 'N/A';
+            let departmentName = 'N/A';
+            let incharge = { name: 'N/A', role: 'N/A', email: 'N/A', phone: 'N/A' };
+
+            if (hall.belongs_to === 'DEPARTMENT' && dept) {
+                schoolName = school ? school.school_name : 'N/A';
+                departmentName = dept.department_name;
+                incharge = { name: dept.incharge_name, role: 'HOD', email: dept.incharge_email, phone: dept.incharge_contact_number };
+            } else if (hall.belongs_to === 'SCHOOL' && school) {
+                schoolName = school.school_name;
+                incharge = { name: school.incharge_name, role: 'Dean', email: school.incharge_email, phone: school.incharge_contact_number };
+            } else if (hall.belongs_to === 'ADMINISTRATION') {
+                schoolName = 'Administration';
+                departmentName = hall.section ? formatTitleCase(hall.section) : 'N/A';
+            }
 
             return {
                 ...hall,
@@ -120,16 +129,15 @@ window.HallDetailsView = (function() {
                 hallCode: hall.unique_id,
                 hallName: hall.name,
                 displayType: mapHallType(hall.type),
-                location: `${school ? school.school_name : 'Administration'}${dept ? ' - ' + dept.department_name : ''}`,
                 displayFloor: formatTitleCase(hall.floor) + ' Floor',
                 displayZone: formatTitleCase(hall.zone) + ' Zone',
-                schoolName: school ? school.school_name : 'N/A',
-                departmentName: dept ? dept.department_name : 'N/A',
+                schoolName: schoolName,
+                departmentName: departmentName,
                 displayFeatures: Array.isArray(hall.features) ? hall.features.sort().map(formatTitleCase).join(', ') : '',
-                inchargeName: incharge.name,
-                inchargeRole: incharge.role,
-                inchargeEmail: incharge.email,
-                inchargePhone: incharge.phone,
+                inchargeName: incharge.name || 'N/A',
+                inchargeRole: incharge.role || 'N/A',
+                inchargeEmail: incharge.email || 'N/A',
+                inchargePhone: incharge.phone || 'N/A',
                 displayStatus: hall.availability,
                 displayDate: new Date(hall.created_at).toLocaleDateString(),
             };
@@ -741,3 +749,4 @@ window.HallDetailsView = (function() {
         cleanup
     };
 })();
+

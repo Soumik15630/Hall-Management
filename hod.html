@@ -76,6 +76,90 @@
         #hall-details-view th:nth-child(7) { width: 12%; } /* Status */
 
 
+        /* --- NEW: Aesthetically Pleasing Calendar Event Styles --- */
+        .fc-event {
+            border-radius: 6px !important;
+            padding: 4px 8px !important;
+            cursor: pointer;
+            font-weight: 500 !important;
+            border: none !important;
+            overflow: hidden;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .fc-event:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .fc-event-main {
+            color: #fff !important;
+        }
+        .fc-event-approved {
+            background-color: rgba(34, 197, 94, 0.2) !important;
+            border-left: 4px solid #22c55e !important;
+        }
+        .fc-event-rejected {
+            background-color: rgba(239, 68, 68, 0.2) !important;
+            border-left: 4px solid #ef4444 !important;
+        }
+        .fc-event-pending {
+            background-color: rgba(245, 158, 11, 0.2) !important;
+            border-left: 4px solid #f59e0b !important;
+        }
+
+        /* List View Customization */
+        .fc .fc-list-event-dot {
+            border-color: transparent !important; /* We use our own status colors */
+        }
+        .fc-list-event:hover td {
+            background-color: rgba(30, 41, 59, 0.7) !important;
+        }
+
+        /* Custom Event Content Styling */
+        .event-content {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8rem;
+            line-height: 1.2;
+            width: 100%;
+            overflow: hidden;
+        }
+        .event-time {
+            font-weight: 600;
+            color: #e2e8f0;
+        }
+        .event-title {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: #cbd5e1;
+        }
+
+        /* Stat Card Hover Effect */
+        .stat-card {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+        }
+
+        /* --- NEW: Animation Styles --- */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .animate-fade-in-up {
+            animation: fadeInUp 0.5s ease-out forwards;
+            opacity: 0;
+        }
+
     </style>
 </head>
 <body class="min-h-screen flex flex-col bg-slate-900 text-slate-200">
@@ -85,9 +169,9 @@
         <div class="cursor-outline"></div>
     </div>
 
-    <div id="top-bars-container" class="sticky top-0 z-30 transition-transform duration-300">
+    <div id="top-bars-container" class="sticky top-0 z-30 transition-transform duration-300 flex-shrink-0">
         <header class="bg-slate-900/80 backdrop-blur-sm shadow-lg">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex items-center justify-between h-16">
                     <div class="flex items-center space-x-4">
                         <img src="download.png" alt="University Logo" class="h-10 w-10 rounded-full bg-white p-1">
@@ -105,20 +189,70 @@
         </header>
 
         <nav class="bg-slate-800/60 backdrop-blur-sm shadow-md">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div id="main-nav" class="flex items-center justify-center flex-wrap gap-x-1 md:gap-x-4 gap-y-2 py-3">
                     </div>
             </div>
         </nav>
     </div>
 
-    <main id="dashboard-view" class="hidden flex-grow max-w-7xl w-full mx-auto p-2 sm:p-4 lg:p-6">
-        <div class="bg-slate-800/50 rounded-xl shadow-2xl p-2 sm:p-4 lg:p-6 h-full flex flex-col">
-            <div class="flex flex-col sm:flex-row justify-between items-center mb-4 flex-shrink-0">
-                <h1 class="text-2xl sm:text-3xl font-bold text-white mb-2 sm:mb-0">Hall Booking Calendar</h1>
-
+    <main id="dashboard-view" class="hidden flex-grow max-w-screen-2xl w-full mx-auto p-2 sm:p-4 lg:p-6">
+        <div id="dashboard-content" class="h-full flex flex-col gap-6">
+            <!-- Stat Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 flex-shrink-0">
+                <div class="stat-card bg-slate-800/50 p-6 rounded-2xl flex items-center gap-6 shadow-lg border border-slate-700/50 animate-fade-in-up" style="animation-delay: 0.1s;">
+                    <div class="bg-blue-500/20 p-4 rounded-xl"><i data-lucide="calendar-check" class="w-8 h-8 text-blue-400"></i></div>
+                    <div>
+                        <p class="text-3xl font-bold text-white" id="stat-upcoming">0</p>
+                        <p class="text-sm text-slate-400">Upcoming Bookings</p>
+                    </div>
+                </div>
+                <div class="stat-card bg-slate-800/50 p-6 rounded-2xl flex items-center gap-6 shadow-lg border border-slate-700/50 animate-fade-in-up" style="animation-delay: 0.2s;">
+                    <div class="bg-yellow-500/20 p-4 rounded-xl"><i data-lucide="clock-3" class="w-8 h-8 text-yellow-400"></i></div>
+                    <div>
+                        <p class="text-3xl font-bold text-white" id="stat-pending">0</p>
+                        <p class="text-sm text-slate-400">Pending Approval</p>
+                    </div>
+                </div>
+                 <div class="stat-card bg-slate-800/50 p-6 rounded-2xl flex items-center gap-6 shadow-lg border border-slate-700/50 animate-fade-in-up" style="animation-delay: 0.3s;">
+                    <div class="bg-green-500/20 p-4 rounded-xl"><i data-lucide="check-check" class="w-8 h-8 text-green-400"></i></div>
+                    <div>
+                        <p class="text-3xl font-bold text-white" id="stat-total">0</p>
+                        <p class="text-sm text-slate-400">Total Bookings</p>
+                    </div>
+                </div>
+                <div class="stat-card bg-slate-800/50 p-6 rounded-2xl flex items-center gap-6 shadow-lg border border-slate-700/50 animate-fade-in-up" style="animation-delay: 0.4s;">
+                    <div class="bg-red-500/20 p-4 rounded-xl"><i data-lucide="calendar-x" class="w-8 h-8 text-red-400"></i></div>
+                    <div>
+                        <p class="text-3xl font-bold text-white" id="stat-rejected">0</p>
+                        <p class="text-sm text-slate-400">Rejected Bookings</p>
+                    </div>
+                </div>
             </div>
-            <div id='calendar' class="w-full flex-grow"></div>
+    
+            <!-- Main Content Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-grow min-h-0">
+                <!-- Left Panel: Upcoming Bookings -->
+                <div class="lg:col-span-1 bg-slate-800/50 p-6 rounded-2xl shadow-lg border border-slate-700/50 flex flex-col animate-fade-in-up min-h-0" style="animation-delay: 0.5s;">
+                    <h2 class="text-xl font-bold text-white mb-4 flex-shrink-0">Upcoming Bookings</h2>
+                    <div id="upcoming-bookings-list" class="space-y-4 overflow-y-auto flex-grow pr-2 -mr-4 pb-4">
+                        <!-- Content will be injected by JS -->
+                    </div>
+                </div>
+    
+                <!-- Middle Panel: Calendar -->
+                <div class="lg:col-span-2 bg-slate-800/50 p-6 rounded-2xl shadow-lg border border-slate-700/50 flex flex-col animate-fade-in-up min-h-0" style="animation-delay: 0.6s;">
+                     <div id='calendar' class="w-full h-full"></div>
+                </div>
+
+                <!-- Right Panel: Recent Activity -->
+                <div class="lg:col-span-1 bg-slate-800/50 p-6 rounded-2xl shadow-lg border border-slate-700/50 flex flex-col animate-fade-in-up min-h-0" style="animation-delay: 0.7s;">
+                    <h2 class="text-xl font-bold text-white mb-4 flex-shrink-0">Recent Activity</h2>
+                    <div id="activity-feed-list" class="space-y-5 overflow-y-auto flex-grow pr-2 -mr-4 pb-4">
+                        <!-- Activity items injected by JS -->
+                    </div>
+                </div>
+            </div>
         </div>
     </main>
 
@@ -501,32 +635,7 @@
         </div>
     </div>
 
-    <div id="booking-conflicts-view" class="hidden flex-grow w-full p-2 sm:p-4 lg:p-6">
-        <div class="bg-slate-800/50 rounded-xl shadow-2xl p-2 sm:p-4 lg:p-6 h-full flex flex-col">
-            <div class="flex justify-between items-center mb-2 flex-shrink-0">
-                <h1 class="text-3xl font-bold text-white" style="color: #60a5fa;">Booking Conflicts</h1>
-                <button id="clear-conflicts-filters-btn" class="flex items-center px-3 py-1.5 text-sm font-semibold text-slate-300 bg-slate-700 hover:bg-slate-600 rounded-lg transition">
-                    <i data-lucide="filter-x" class="w-4 h-4 mr-2"></i>Clear Filters
-                </button>
-            </div>
-            <div class="table-container flex-grow min-h-0 min-w-0 overflow-x-auto">
-                <table class="min-w-full divide-y divide-slate-700">
-                    <thead class="bg-slate-900/50 sticky top-0">
-                        <tr>
-                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Booked On <i data-filter-column="bookedOn" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
-                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Hall Details <i data-filter-column="hall" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
-                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Purpose <i data-filter-column="purpose" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
-                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Date & Time <i data-filter-column="dateTime" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
-                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Booked By <i data-filter-column="bookedBy" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
-                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white"><span class="flex items-center gap-2">Status <i data-filter-column="status" class="filter-icon cursor-pointer text-slate-400 hover:text-white" data-lucide="filter"></i></span></th>
-                            <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="booking-conflicts-body" class="divide-y divide-slate-800 bg-slate-900/30"></tbody>
-                </table>
-            </div>
-        </div>
-    </div>
+    <!-- REMOVED: The entire booking-conflicts-view div has been deleted -->
 
     <div id="forward-bookings-view" class="hidden flex-grow w-full p-2 sm:p-4 lg:p-6">
         <div class="bg-slate-800/50 rounded-xl shadow-2xl p-2 sm:p-4 lg:p-6 h-full flex flex-col">
@@ -631,6 +740,22 @@
     </footer>
 
     <div id="modal-backdrop" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 hidden opacity-0 transition-opacity duration-300"></div>
+    
+    <!-- NEW: Conflict Resolution Modal -->
+    <div id="conflict-resolution-modal" class="modal fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
+        <div class="modal-content relative bg-slate-800 rounded-lg shadow-xl max-w-4xl w-full p-6 transform transition-all">
+            <h3 class="text-xl font-bold text-red-400 mb-4">Booking Conflict Detected</h3>
+            <p class="text-slate-300 mb-4">The following booking requests clash for the same time slot. Please choose one to approve (which will automatically reject the others) or reject them all.</p>
+            
+            <div id="conflict-list-container" class="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
+                <!-- Conflict items will be injected here by JS -->
+            </div>
+
+            <div class="mt-6 flex justify-end gap-4">
+                <button class="modal-close-btn px-4 py-2 text-sm font-semibold text-slate-300 bg-slate-600 hover:bg-slate-700 rounded-lg transition">Cancel</button>
+            </div>
+        </div>
+    </div>
 
     <div id="confirmation-modal" class="modal fixed inset-0 z-50 flex items-center justify-center p-4 hidden opacity-0 transition-opacity duration-300">
         <div class="modal-content relative bg-slate-800 rounded-lg shadow-xl max-w-sm w-full p-6 transform transition-all duration-300 scale-95">
@@ -793,8 +918,40 @@
     <div id="filter-organiser-modal" class="modal fixed inset-0 z-50 flex items-center justify-center p-4 hidden"></div>
     <div id="filter-status-modal" class="modal fixed inset-0 z-50 flex items-center justify-center p-4 hidden"></div>
 
-    
-    <script src="config.js"></script>
+    <script>
+        // Inlined config to fix syntax errors in the original config.js file
+        const AppConfig = {
+            apiBaseUrl: 'https://hall-management.nirmaljyotib.workers.dev/',
+            endpoints: {
+                login: 'auth/login',
+                hall: 'api/hall',
+                allHall: 'api/hall/all-hall',
+                addHall: 'api/hall/create',
+                school: 'api/school',
+                allschool: 'api/school/all-schools',
+                addschool: 'api/school/create',
+                department: 'api/department',
+                alldept: 'api/department/all-department',
+                addDept: 'api/department/create',
+                emp:'api/employee',
+                allemp: 'api/employee/all-employees',
+                addemp: 'api/employee/create',
+                booking: 'api/booking',
+                bookingRequest: 'api/booking/request',
+                myBookings: 'api/booking/my-requests',
+                pendingApprovals: 'api/booking/pending-approval',
+                pendingExternalApprovals: 'api/booking/pending-approval/external', // Added for external requests
+                // NOTE: The following new endpoints are assumed to exist based on the new logic.
+                // You will need to implement them in your backend API.
+                bookingConflicts: 'api/booking/{id}/conflicts', 
+                resolveConflict: 'api/booking/resolve-conflict'
+            },
+            links: {
+                login: 'index.html'
+            }
+        };
+    </script>
+    <script src="js/config.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/api.js"></script>
     
@@ -808,7 +965,7 @@
     <script src="js/views/semesterBooking.js"></script>
     <script src="js/views/myBookings.js"></script>
     <script src="js/views/approveBookings.js"></script>
-    <script src="js/views/conflicts.js"></script>
+    <!-- REMOVED: The script for conflicts.js has been deleted -->
     <script src="js/views/forward.js"></script>
     <script src="js/views/viewBookings.js"></script>
     <script src="js/views/hallBookingDetails.js"></script>

@@ -21,22 +21,7 @@ window.CalendarModule = (function() {
                 right: '' // This was previously showing the default month, week, day buttons
             },
             editable: true,
-            events: [
-                { 
-                    title: 'CS Dept. Seminar', 
-                    start: '2025-07-28T10:00:00', 
-                    end: '2025-07-28T12:00:00', 
-                    backgroundColor: '#3b82f6', 
-                    borderColor: '#2563eb' 
-                },
-                { 
-                    title: 'Annual Tech Fest', 
-                    start: '2025-07-29', 
-                    end: '2025-07-31', 
-                    backgroundColor: '#ef4444', 
-                    borderColor: '#dc2626' 
-                },
-            ]
+           
         });
         
         calendar.render();

@@ -117,7 +117,7 @@ window.BrowseBookView = (function() {
             const schoolMap = new Map(schools.map(s => [s.unique_id, s]));
             const departmentMap = new Map(departments.map(d => [d.unique_id, d]));
 
-            allHalls = hallsArray.map((hall, index) => {
+            const processedHalls = hallsArray.map((hall, index) => {
                 const dept = hall.department_id ? departmentMap.get(hall.department_id) : null;
                 const school = hall.school_id ? schoolMap.get(hall.school_id) : null;
                 const incharge = dept
@@ -146,9 +146,12 @@ window.BrowseBookView = (function() {
                     ...hall
                 };
             });
+            
+            // MODIFIED: Filter out unavailable halls immediately after processing
+            allHalls = processedHalls.filter(hall => hall.availability === true);
 
             window.allHallsCache = allHalls;
-            console.log("Final processed halls:", allHalls);
+            console.log("Final processed and available halls:", allHalls);
             return allHalls;
 
         } catch (error) {
@@ -164,6 +167,7 @@ window.BrowseBookView = (function() {
         if (!allHalls || !allHalls.length) return [];
 
         return allHalls.filter(hall => {
+            // The check for availability is no longer needed here as `allHalls` is pre-filtered.
             const apiType = HALL_TYPE_MAPPING[state.hallType];
             if (apiType && hall.type !== apiType) return false;
 

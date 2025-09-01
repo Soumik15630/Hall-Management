@@ -1,4 +1,4 @@
-// Approve Bookings View Module
+// Approve Bookings View Module (Updated with Conflict Resolution)
 window.ApproveBookingsView = (function() {
     // --- STATE MANAGEMENT ---
     const defaultFilters = () => ({
@@ -41,16 +41,10 @@ window.ApproveBookingsView = (function() {
         return employees;
     }
 
-    /**
-     * Fetches booking requests for internal (same department) approval.
-     */
     async function fetchInternalApprovalData() {
         return await ApiService.bookings.getForApproval();
     }
 
-    /**
-     * Fetches booking requests for external (other department) approval.
-     */
     async function fetchExternalApprovalData() {
         return await ApiService.bookings.getForApprovalExternal();
     }
@@ -144,8 +138,10 @@ window.ApproveBookingsView = (function() {
                 </td>
                 <td class="px-3 py-4 text-sm font-semibold ${statusInfo.className}">${statusInfo.text}</td>
                 <td class="px-3 py-4 text-sm">
+                    <!-- UPDATED: Action buttons now include a conflict check -->
                     <div class="flex flex-col sm:flex-row gap-2">
                         <button data-action="approve" class="px-2 py-1 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-md transition">Approve</button>
+                        <button data-action="check-conflicts" class="px-2 py-1 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition">Conflicts</button>
                         <button data-action="reject" class="px-2 py-1 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-md transition">Reject</button>
                     </div>
                 </td>
@@ -192,6 +188,38 @@ window.ApproveBookingsView = (function() {
             if (modal.id.startsWith('filter-modal-')) modal.remove();
             else modal.classList.add('hidden');
         });
+    }
+
+    // --- NEW: Conflict Resolution Modal Logic ---
+    function displayConflictModal(originalRequest, conflictingRequests) {
+        const container = document.getElementById('conflict-list-container');
+        const modal = document.getElementById('conflict-resolution-modal');
+        if (!container || !modal) return;
+        
+        const allRequests = [originalRequest, ...conflictingRequests];
+        const allRequestIds = allRequests.map(r => r.unique_id);
+
+        container.innerHTML = allRequests.map(booking => {
+            const rejectIds = allRequestIds.filter(id => id !== booking.unique_id);
+            const userName = booking.user?.employee?.employee_name || 'N/A';
+            const department = booking.user?.employee?.department_name || 'N/A';
+            
+            return `
+            <div class="bg-slate-900/50 p-4 rounded-lg border border-slate-700 flex flex-col md:flex-row justify-between items-center gap-4">
+                <div>
+                    <p class="font-bold text-white">${booking.purpose}</p>
+                    <p class="text-sm text-slate-400">By: ${userName} (${department})</p>
+                    <p class="text-xs text-slate-500">Booked On: ${formatDate(booking.created_at)}</p>
+                </div>
+                <div class="flex-shrink-0 flex gap-2">
+                    <button data-action="resolve-approve" data-approve-id="${booking.unique_id}" data-reject-ids="${rejectIds.join(',')}" class="glowing-btn px-3 py-1.5 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-md">Approve This</button>
+                    <button data-action="resolve-reject" data-reject-id="${booking.unique_id}" class="glowing-btn px-3 py-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-md">Reject</button>
+                </div>
+            </div>
+            `;
+        }).join('');
+
+        openModal('conflict-resolution-modal');
     }
 
     function createFilterModal(column, title, contentHtml) {
@@ -320,7 +348,6 @@ window.ApproveBookingsView = (function() {
         }
         try {
             await updateBookingStatus(bookingId, action);
-            // Remove the booking from the local state to update the UI instantly
             state.bookings = state.bookings.filter(b => b.unique_id !== bookingId);
             applyFiltersAndRender();
         } catch (error) {
@@ -333,6 +360,29 @@ window.ApproveBookingsView = (function() {
         }
     }
 
+    // --- NEW: Function to check for conflicts ---
+    async function handleCheckConflicts(bookingId) {
+        const originalRequest = state.bookings.find(b => b.unique_id === bookingId);
+        if (!originalRequest) {
+            alert('Could not find the original booking request.');
+            return;
+        }
+
+        try {
+            // Assumes a new ApiService method: ApiService.bookings.getConflictsFor(bookingId)
+            const conflicts = await ApiService.bookings.getConflictsFor(bookingId);
+
+            if (conflicts && conflicts.length > 0) {
+                displayConflictModal(originalRequest, conflicts);
+            } else {
+                alert('No conflicts found for this booking. It is safe to approve.');
+            }
+        } catch (error) {
+            console.error('Error checking for conflicts:', error);
+            alert('Failed to check for conflicts. Please try again.');
+        }
+    }
+
     function setupEventHandlers() {
         if (abortController) abortController.abort();
         abortController = new AbortController();
@@ -340,33 +390,22 @@ window.ApproveBookingsView = (function() {
         const view = document.getElementById('approve-bookings-view');
         if (!view) return;
 
-        // --- NEW: Event handler for the internal/external switch ---
         const switchContainer = document.getElementById('booking-type-switch');
         if (switchContainer) {
             switchContainer.addEventListener('click', e => {
                 const button = e.target.closest('.booking-type-btn');
                 if (!button) return;
-
                 const type = button.dataset.type;
-                if (type === state.bookingType) return; // Do nothing if already active
-
+                if (type === state.bookingType) return;
                 state.bookingType = type;
-
-                // Update button styles
                 switchContainer.querySelectorAll('.booking-type-btn').forEach(btn => {
-                    if (btn.dataset.type === type) {
-                        btn.classList.add('bg-blue-600', 'text-white');
-                        btn.classList.remove('text-slate-300');
-                    } else {
-                        btn.classList.remove('bg-blue-600', 'text-white');
-                        btn.classList.add('text-slate-300');
-                    }
+                    btn.classList.toggle('bg-blue-600', btn.dataset.type === type);
+                    btn.classList.toggle('text-white', btn.dataset.type === type);
+                    btn.classList.toggle('text-slate-300', btn.dataset.type !== type);
                 });
-                
-                loadBookings(); // Load data for the selected type
+                loadBookings();
             }, { signal });
         }
-
 
         view.addEventListener('click', e => {
             const filterIcon = e.target.closest('.filter-icon');
@@ -391,11 +430,53 @@ window.ApproveBookingsView = (function() {
             if (!button || button.disabled) return;
             const row = e.target.closest('tr[data-booking-id]');
             const bookingId = row ? row.dataset.bookingId : null;
+            if (!bookingId) return;
+
             const action = button.dataset.action;
-            if (bookingId && (action === 'approve' || action === 'reject')) {
+            if (action === 'check-conflicts') {
+                handleCheckConflicts(bookingId);
+            } else if (action === 'approve' || action === 'reject') {
                 if (confirm(`Are you sure you want to ${action} this booking?`)) {
                     handleBookingAction(bookingId, action);
                 }
+            }
+        }, { signal });
+        
+        // --- NEW: Event listener for the conflict resolution modal ---
+        document.getElementById('conflict-resolution-modal')?.addEventListener('click', async e => {
+            const button = e.target.closest('button');
+            if (!button) return;
+            
+            const action = button.dataset.action;
+
+            if (action === 'resolve-approve') {
+                const approveId = button.dataset.approveId;
+                const rejectIds = button.dataset.rejectIds.split(',').filter(Boolean);
+                
+                try {
+                    // Assumes a new ApiService method to handle bulk resolution
+                    await ApiService.bookings.resolveConflict({ approveId, rejectIds });
+                    alert('Conflict resolved successfully.');
+                    
+                    const idsToRemove = [approveId, ...rejectIds];
+                    state.bookings = state.bookings.filter(b => !idsToRemove.includes(b.unique_id));
+                    applyFiltersAndRender();
+                    closeModal();
+                } catch (error) {
+                    console.error('Failed to resolve conflict:', error);
+                    alert(`Failed to resolve conflict: ${error.message}`);
+                }
+            }
+
+            if (action === 'resolve-reject') {
+                const rejectId = button.dataset.rejectId;
+                await handleBookingAction(rejectId, 'reject');
+                // For better UX, remove the rejected item from the modal instantly
+                button.closest('.flex-col.md\\:flex-row').remove();
+            }
+
+            if (button.classList.contains('modal-close-btn')) {
+                closeModal();
             }
         }, { signal });
     }
@@ -408,7 +489,7 @@ window.ApproveBookingsView = (function() {
                 console.error('Failed to preload employee data:', error);
             }
         }
-        await loadBookings(); // Initial data load
+        await loadBookings();
         setupEventHandlers();
     }
 
@@ -420,4 +501,3 @@ window.ApproveBookingsView = (function() {
 
     return { initialize, cleanup };
 })();
-

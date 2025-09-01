@@ -1000,22 +1000,21 @@ window.FinalBookingFormView = (function() {
     function handleTimeSlotClick(button) {
         const time = button.dataset.time;
         const date = state.currentSelectedDate;
-        
-        if (!date || !time || button.disabled) return;
-        
-        const isAvailable = isSlotAvailable(date, time);
-        const isSelected = state.selectedSlots.some(s => s.date === date && s.time === time);
 
-        if (!isAvailable && !isSelected) {
-            const booking = getBookingForSlot(date, time);
-            if (booking) {
-                showBookingDetails(booking);
-                return;
-            }
+        if (!date || !time || button.disabled) return;
+
+        const isSelected = state.selectedSlots.some(s => s.date === date && s.time === time);
+        const booking = getBookingForSlot(date, time);
+
+        // If the slot is definitively booked (red), show details on click and stop.
+        if (booking && booking.status !== 'PENDING' && !isSelected) {
+            showBookingDetails(booking);
+            return;
         }
 
+        // For available and pending slots, proceed with selection logic.
         const existingIndex = state.selectedSlots.findIndex(s => s.date === date && s.time === time);
-        
+
         if (existingIndex > -1) {
             const slotsForDate = state.selectedSlots
                 .filter(s => s.date === date)
@@ -1047,15 +1046,18 @@ window.FinalBookingFormView = (function() {
 
     function handleSlotClick(slotEl) {
         const { date, time } = slotEl.dataset;
-        
-        if (slotEl.classList.contains('slot-booked') || slotEl.classList.contains('slot-pending')) {
-            const booking = getBookingForSlot(date, time);
-            if (booking) showBookingDetails(booking);
+        const booking = getBookingForSlot(date, time);
+
+        // If the slot is definitively booked (red), show details on click and stop.
+        if (booking && booking.status !== 'PENDING') {
+            showBookingDetails(booking);
             return;
         }
         
+        // If the slot is in the past or disabled, do nothing.
         if (slotEl.disabled || slotEl.classList.contains('slot-past')) return;
         
+        // For available and pending slots, proceed with selection logic.
         if (state.selectedSlots.length > 0) {
             const existingDate = state.selectedSlots[0].date;
             if (existingDate !== date) {
@@ -1105,10 +1107,8 @@ window.FinalBookingFormView = (function() {
         const dateString = cell.dataset.date;
         const time = cell.dataset.time;
         
-        if (cell.disabled || 
-            cell.classList.contains('slot-booked') || 
-            cell.classList.contains('slot-pending') ||
-            cell.classList.contains('slot-past')) {
+        const booking = getBookingForSlot(dateString, time);
+        if (cell.disabled || (booking && booking.status !== 'PENDING') || cell.classList.contains('slot-past')) {
             return;
         }
         
@@ -1131,10 +1131,9 @@ window.FinalBookingFormView = (function() {
         if (!state.isDragging) return;
         const cell = e.target.closest('.slot');
         if (cell && cell.dataset.date === state.dragDate) {
-            if (!cell.disabled && 
-                !cell.classList.contains('slot-booked') && 
-                !cell.classList.contains('slot-pending') &&
-                !cell.classList.contains('slot-past')) {
+            
+            const booking = getBookingForSlot(cell.dataset.date, cell.dataset.time);
+            if (!cell.disabled && (!booking || booking.status === 'PENDING') && !cell.classList.contains('slot-past')) {
                 
                 const { date, time } = cell.dataset;
                 const hasSlot = state.selectedSlots.some(s => s.date === date && s.time === time);
