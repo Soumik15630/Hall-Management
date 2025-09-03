@@ -1,4 +1,4 @@
-// Approve Bookings View Module (Updated with Conflict Resolution)
+// Approve Bookings View Module (Updated to use FilterManager)
 window.ApproveBookingsView = (function() {
     // --- STATE MANAGEMENT ---
     const defaultFilters = () => ({
@@ -138,7 +138,6 @@ window.ApproveBookingsView = (function() {
                 </td>
                 <td class="px-3 py-4 text-sm font-semibold ${statusInfo.className}">${statusInfo.text}</td>
                 <td class="px-3 py-4 text-sm">
-                    <!-- UPDATED: Action buttons now include a conflict check -->
                     <div class="flex flex-col sm:flex-row gap-2">
                         <button data-action="approve" class="px-2 py-1 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-md transition">Approve</button>
                         <button data-action="check-conflicts" class="px-2 py-1 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition">Conflicts</button>
@@ -178,19 +177,35 @@ window.ApproveBookingsView = (function() {
         modal.classList.remove('hidden');
     }
 
-    function closeModal() {
-        const backdrop = document.getElementById('modal-backdrop');
-        if(backdrop) {
-            backdrop.classList.add('opacity-0');
-            setTimeout(() => backdrop.classList.add('hidden'), 300);
+    function closeModal(modalId) {
+        // If a specific modalId is given (like the conflict modal), close it.
+        if (modalId) {
+            const modal = document.getElementById(modalId);
+            if(modal) modal.classList.add('hidden');
+        } else {
+            // Otherwise, close all non-filter modals
+            document.querySelectorAll('.modal').forEach(modal => {
+                if (!modal.id.startsWith('filter-modal-')) {
+                    modal.classList.add('hidden');
+                }
+            });
         }
-        document.querySelectorAll('.modal').forEach(modal => {
-            if (modal.id.startsWith('filter-modal-')) modal.remove();
-            else modal.classList.add('hidden');
-        });
+
+        // Always hide the main backdrop if no other modals are visible
+        const anyModalVisible = document.querySelector('.modal:not(.hidden)');
+        if (!anyModalVisible) {
+            const backdrop = document.getElementById('modal-backdrop');
+            if(backdrop) {
+                backdrop.classList.add('opacity-0');
+                setTimeout(() => backdrop.classList.add('hidden'), 300);
+            }
+        }
+        
+        // Let FilterManager handle its own modals
+        FilterManager.close();
     }
 
-    // --- NEW: Conflict Resolution Modal Logic ---
+    // --- Conflict Resolution Modal Logic ---
     function displayConflictModal(originalRequest, conflictingRequests) {
         const container = document.getElementById('conflict-list-container');
         const modal = document.getElementById('conflict-resolution-modal');
@@ -215,130 +230,54 @@ window.ApproveBookingsView = (function() {
                     <button data-action="resolve-approve" data-approve-id="${booking.unique_id}" data-reject-ids="${rejectIds.join(',')}" class="glowing-btn px-3 py-1.5 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-md">Approve This</button>
                     <button data-action="resolve-reject" data-reject-id="${booking.unique_id}" class="glowing-btn px-3 py-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-md">Reject</button>
                 </div>
-            </div>
-            `;
+            </div>`;
         }).join('');
 
         openModal('conflict-resolution-modal');
     }
 
-    function createFilterModal(column, title, contentHtml) {
-        const container = document.getElementById('filter-modal-container');
-        if (!container) return;
-        const modalId = `filter-modal-${column}`;
-        if (document.getElementById(modalId)) document.getElementById(modalId).remove();
-        const modalHtml = `
-        <div id="${modalId}" class="modal fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div class="modal-content relative bg-slate-800 rounded-lg shadow-xl max-w-md w-full p-6">
-                <h3 class="text-lg font-bold text-white mb-4">${title}</h3>
-                <div id="filter-form-${column}" class="space-y-4 text-slate-300">${contentHtml}</div>
-                <div class="mt-6 flex justify-between gap-4">
-                    <button data-action="clear-filter" data-column="${column}" class="px-4 py-2 text-sm font-semibold text-blue-400 hover:text-blue-300">Clear Filter</button>
-                    <div class="flex gap-4">
-                        <button class="modal-close-btn px-4 py-2 text-sm font-semibold text-slate-300 bg-slate-600 hover:bg-slate-700 rounded-lg">Cancel</button>
-                        <button data-action="apply-filter" data-column="${column}" class="glowing-btn px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg">Apply</button>
-                    </div>
-                </div>
-            </div>
-        </div>`;
-        container.insertAdjacentHTML('beforeend', modalHtml);
-    }
-
-    function setupSearchableDropdown(inputId, optionsId, hiddenId, data) {
-        const input = document.getElementById(inputId);
-        const optionsContainer = document.getElementById(optionsId);
-        const hiddenInput = document.getElementById(hiddenId);
-        if (!input || !optionsContainer || !hiddenInput) return;
-
-        const populateOptions = (term = '') => {
-            const filteredData = data.filter(item => item.toLowerCase().includes(term.toLowerCase()));
-            optionsContainer.innerHTML = filteredData.map(item => `<div class="p-2 cursor-pointer hover:bg-slate-700" data-value="${item}">${item}</div>`).join('');
-        };
-        input.addEventListener('focus', () => { populateOptions(input.value); optionsContainer.classList.remove('hidden'); });
-        input.addEventListener('input', () => populateOptions(input.value));
-        optionsContainer.addEventListener('mousedown', e => {
-            const { value } = e.target.dataset;
-            if (value) {
-                hiddenInput.value = value;
-                input.value = value;
-                optionsContainer.classList.add('hidden');
-            }
-        });
-        input.addEventListener('blur', () => setTimeout(() => optionsContainer.classList.add('hidden'), 150));
-        if (hiddenInput.value) input.value = hiddenInput.value;
-    }
-
+    // --- REFACTORED: Integration with FilterManager ---
+    
+    /**
+     * Opens a filter modal using the centralized FilterManager.
+     * It constructs a context object with current filters and all necessary data.
+     * @param {string} column - The filter column to open (e.g., 'hall', 'bookedBy').
+     */
     async function openFilterModalFor(column) {
-        let title, contentHtml;
-        switch (column) {
-            case 'bookedOn':
-                title = 'Filter by Booked On Date';
-                contentHtml = `<div class="grid grid-cols-2 gap-4"><div><label for="filter-booked-from" class="block text-sm font-medium mb-1">From</label><input type="date" id="filter-booked-from" value="${state.filters.bookedOn.from}" class="glowing-input w-full bg-slate-700 border-slate-600 rounded-lg px-3 py-2 text-white"></div><div><label for="filter-booked-to" class="block text-sm font-medium mb-1">To</label><input type="date" id="filter-booked-to" value="${state.filters.bookedOn.to}" class="glowing-input w-full bg-slate-700 border-slate-600 rounded-lg px-3 py-2 text-white"></div></div>`;
-                break;
-            case 'hall':
-                title = 'Filter by Hall';
-                contentHtml = `<div><label for="filter-hall-name-input" class="block text-sm font-medium mb-1">Hall Name</label><div class="relative"><input type="text" id="filter-hall-name-input" class="glowing-input w-full bg-slate-700 border-slate-600 rounded-lg px-3 py-2 text-white" placeholder="Search..." autocomplete="off"><div id="filter-hall-name-options" class="absolute z-20 w-full bg-slate-900 border-slate-600 rounded-lg mt-1 hidden max-h-48 overflow-y-auto"></div></div><input type="hidden" id="filter-hall-name" value="${state.filters.hall.name}"></div>`;
-                break;
-            case 'purpose':
-                title = 'Filter by Purpose';
-                contentHtml = `<div><label for="filter-purpose" class="block text-sm font-medium mb-1">Purpose contains</label><input type="text" id="filter-purpose" value="${state.filters.purpose}" placeholder="e.g., Meeting" class="glowing-input w-full bg-slate-700 border-slate-600 rounded-lg px-3 py-2 text-white"></div>`;
-                break;
-            case 'dateTime':
-                title = 'Filter by Booking Date';
-                contentHtml = `<div class="grid grid-cols-2 gap-4"><div><label for="filter-datetime-from" class="block text-sm font-medium mb-1">From</label><input type="date" id="filter-datetime-from" value="${state.filters.dateTime.from}" class="glowing-input w-full bg-slate-700 border-slate-600 rounded-lg px-3 py-2 text-white"></div><div><label for="filter-datetime-to" class="block text-sm font-medium mb-1">To</label><input type="date" id="filter-datetime-to" value="${state.filters.dateTime.to}" class="glowing-input w-full bg-slate-700 border-slate-600 rounded-lg px-3 py-2 text-white"></div></div>`;
-                break;
-            case 'bookedBy':
-                title = 'Filter by User';
-                contentHtml = `<div><label for="filter-user-name-input" class="block text-sm font-medium mb-1">User Name</label><div class="relative"><input type="text" id="filter-user-name-input" class="glowing-input w-full bg-slate-700 border-slate-600 rounded-lg px-3 py-2 text-white" placeholder="Search..." autocomplete="off"><div id="filter-user-name-options" class="absolute z-20 w-full bg-slate-900 border-slate-600 rounded-lg mt-1 hidden max-h-48 overflow-y-auto"></div></div><input type="hidden" id="filter-user-name" value="${state.filters.bookedBy.name}"></div>`;
-                break;
-        }
-        createFilterModal(column, title, contentHtml);
-
-        if (column === 'hall') {
-            const hallNames = [...new Set(state.bookings.map(b => b.hall?.name).filter(Boolean))].sort();
-            setupSearchableDropdown('filter-hall-name-input', 'filter-hall-name-options', 'filter-hall-name', hallNames);
-        }
-        if (column === 'bookedBy') {
-            const employees = await getEmployees();
-            const userNames = [...new Set(employees.map(e => e.employee_name))].sort();
-            setupSearchableDropdown('filter-user-name-input', 'filter-user-name-options', 'filter-user-name', userNames);
-        }
-
-        openModal(`filter-modal-${column}`);
+        const employees = await getEmployees();
+        const context = {
+            currentFilters: state.filters,
+            allData: {
+                bookings: state.bookings,
+                employees: employees
+            }
+        };
+        FilterManager.openFilterModalFor(column, context);
     }
-
-    function handleApplyFilter(column) {
-        const form = document.getElementById(`filter-form-${column}`);
-        if (!form) return;
-
-        switch (column) {
-            case 'bookedOn':
-                state.filters.bookedOn.from = form.querySelector('#filter-booked-from').value;
-                state.filters.bookedOn.to = form.querySelector('#filter-booked-to').value;
-                break;
-            case 'hall':
-                state.filters.hall.name = form.querySelector('#filter-hall-name').value;
-                break;
-            case 'purpose':
-                state.filters.purpose = form.querySelector('#filter-purpose').value;
-                break;
-            case 'dateTime':
-                state.filters.dateTime.from = form.querySelector('#filter-datetime-from').value;
-                state.filters.dateTime.to = form.querySelector('#filter-datetime-to').value;
-                break;
-            case 'bookedBy':
-                state.filters.bookedBy.name = form.querySelector('#filter-user-name').value;
-                break;
-        }
+    
+    /**
+     * Callback for when a filter is applied via FilterManager.
+     * Merges the new filter values into the component's state.
+     * @param {object} newValues - The filter values from the modal.
+     */
+    function handleApplyFilter(newValues) {
+        state.filters = { ...state.filters, ...newValues };
         applyFiltersAndRender();
-        closeModal();
     }
 
+    /**
+     * Callback for when a filter is cleared via FilterManager.
+     * Resets the specified filter column to its default state.
+     * @param {string} column - The filter column to clear.
+     */
     function handleClearFilter(column) {
-        state.filters[column] = defaultFilters()[column];
-        applyFiltersAndRender();
-        closeModal();
+        // The 'column' parameter directly corresponds to the key in the state.filters object.
+        if (state.filters.hasOwnProperty(column)) {
+            state.filters[column] = defaultFilters()[column];
+            applyFiltersAndRender();
+        }
     }
+
 
     async function handleBookingAction(bookingId, action) {
         const row = document.querySelector(`tr[data-booking-id="${bookingId}"]`);
@@ -360,7 +299,6 @@ window.ApproveBookingsView = (function() {
         }
     }
 
-    // --- NEW: Function to check for conflicts ---
     async function handleCheckConflicts(bookingId) {
         const originalRequest = state.bookings.find(b => b.unique_id === bookingId);
         if (!originalRequest) {
@@ -369,9 +307,7 @@ window.ApproveBookingsView = (function() {
         }
 
         try {
-            // Assumes a new ApiService method: ApiService.bookings.getConflictsFor(bookingId)
             const conflicts = await ApiService.bookings.getConflictsFor(bookingId);
-
             if (conflicts && conflicts.length > 0) {
                 displayConflictModal(originalRequest, conflicts);
             } else {
@@ -389,6 +325,12 @@ window.ApproveBookingsView = (function() {
         const { signal } = abortController;
         const view = document.getElementById('approve-bookings-view');
         if (!view) return;
+
+        // --- Initialize FilterManager for this view ---
+        FilterManager.initialize({
+            onApply: handleApplyFilter,
+            onClear: handleClearFilter,
+        });
 
         const switchContainer = document.getElementById('booking-type-switch');
         if (switchContainer) {
@@ -409,7 +351,9 @@ window.ApproveBookingsView = (function() {
 
         view.addEventListener('click', e => {
             const filterIcon = e.target.closest('.filter-icon');
-            if (filterIcon) openFilterModalFor(filterIcon.dataset.filterColumn);
+            if (filterIcon) {
+                openFilterModalFor(filterIcon.dataset.filterColumn);
+            }
 
             if (e.target.closest('#clear-approve-filters-btn')) {
                 state.filters = defaultFilters();
@@ -417,13 +361,7 @@ window.ApproveBookingsView = (function() {
             }
         }, { signal });
 
-        document.getElementById('filter-modal-container')?.addEventListener('click', e => {
-            const button = e.target.closest('button');
-            if (!button) return;
-            if (button.dataset.action === 'apply-filter') handleApplyFilter(button.dataset.column);
-            if (button.dataset.action === 'clear-filter') handleClearFilter(button.dataset.column);
-            if (button.classList.contains('modal-close-btn')) closeModal();
-        }, { signal });
+        // REMOVED: The listener for 'filter-modal-container' is now handled by FilterManager.
 
         document.getElementById('approve-bookings-body')?.addEventListener('click', e => {
             const button = e.target.closest('button[data-action]');
@@ -442,7 +380,6 @@ window.ApproveBookingsView = (function() {
             }
         }, { signal });
         
-        // --- NEW: Event listener for the conflict resolution modal ---
         document.getElementById('conflict-resolution-modal')?.addEventListener('click', async e => {
             const button = e.target.closest('button');
             if (!button) return;
@@ -454,14 +391,13 @@ window.ApproveBookingsView = (function() {
                 const rejectIds = button.dataset.rejectIds.split(',').filter(Boolean);
                 
                 try {
-                    // Assumes a new ApiService method to handle bulk resolution
                     await ApiService.bookings.resolveConflict({ approveId, rejectIds });
                     alert('Conflict resolved successfully.');
                     
                     const idsToRemove = [approveId, ...rejectIds];
                     state.bookings = state.bookings.filter(b => !idsToRemove.includes(b.unique_id));
                     applyFiltersAndRender();
-                    closeModal();
+                    closeModal('conflict-resolution-modal');
                 } catch (error) {
                     console.error('Failed to resolve conflict:', error);
                     alert(`Failed to resolve conflict: ${error.message}`);
@@ -471,12 +407,11 @@ window.ApproveBookingsView = (function() {
             if (action === 'resolve-reject') {
                 const rejectId = button.dataset.rejectId;
                 await handleBookingAction(rejectId, 'reject');
-                // For better UX, remove the rejected item from the modal instantly
                 button.closest('.flex-col.md\\:flex-row').remove();
             }
 
             if (button.classList.contains('modal-close-btn')) {
-                closeModal();
+                closeModal('conflict-resolution-modal');
             }
         }, { signal });
     }
@@ -496,8 +431,9 @@ window.ApproveBookingsView = (function() {
     function cleanup() {
         if (abortController) abortController.abort();
         state = { bookings: [], filteredBookings: [], filters: defaultFilters(), employeeDataCache: null, bookingType: 'internal' };
-        closeModal();
+        closeModal(); // Close any open modals
     }
 
     return { initialize, cleanup };
 })();
+
