@@ -119,7 +119,7 @@ window.DashboardView = (function() {
                 }
                 const timeAgo = moment(b.created_at).fromNow();
                 
-                return `<div class="relative pl-10 pb-4 border-l border-slate-700/50">
+                return `<div class="relative pl-12 pb-4 border-l border-slate-700/50">
                             <div class="absolute -left-3.5 top-0.5 flex items-center justify-center w-7 h-7 bg-slate-800 rounded-full">
                                 ${icon}
                             </div>
@@ -225,7 +225,7 @@ window.DashboardView = (function() {
             events: events,
             editable: false,
             dayMaxEvents: 2, // Limit events shown per day in month view
-            height: '100%',
+            height: 'auto',
             eventContent: function(arg) {
                 const props = arg.event.extendedProps;
                 const timeFormat = { hour: 'numeric', minute: '2-digit', hour12: false };

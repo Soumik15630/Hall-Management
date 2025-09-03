@@ -24,35 +24,6 @@ window.HallDetailsView = (function() {
     let abortController;
 
     // --- UTILITY FUNCTIONS ---
-    function createCleanPayload(hall) {
-        const expectedKeys = [
-            'name', 'type', 'capacity', 'floor', 'zone',
-            'school_id', 'department_id', 'features', 'availability',
-            'unavailability_reason', 'belongs_to'
-        ];
-
-        const payload = {};
-        for (const key of expectedKeys) {
-            if (hall.hasOwnProperty(key)) {
-                payload[key] = hall[key];
-            }
-        }
-
-        if (hall.department_id) {
-            payload.belongs_to = 'DEPARTMENT';
-        } else if (hall.school_id) {
-            payload.belongs_to = 'SCHOOL';
-        } else {
-            payload.belongs_to = 'ADMINISTRATION';
-        }
-
-        payload.latitude = Number(hall.latitude) || 0;
-        payload.longitude = Number(hall.longitude) || 0;
-
-        return payload;
-    }
-
-
     function formatTitleCase(str) {
         if (!str) return 'N/A';
         return str.replace(/_/g, ' ').replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
@@ -80,13 +51,6 @@ window.HallDetailsView = (function() {
         return schoolsDataCache;
     }
 
-    async function getEmployees() {
-        if (employeeDataCache) return employeeDataCache;
-        const employees = await ApiService.employees.getAll();
-        employeeDataCache = employees;
-        return employees;
-    }
-
     function getFeatures() {
         return [
             'AC', 'PROJECTOR', 'WIFI', 'SMART_BOARD', 'COMPUTER',
@@ -105,7 +69,7 @@ window.HallDetailsView = (function() {
 
         return rawHalls.map(hall => {
             const dept = departmentMap.get(hall.department_id);
-            const school = schoolMap.get(hall.school_id);
+            const school = schoolMap.get(hall.school_id) || schoolMap.get(dept?.school_id);
 
             let schoolName = 'N/A';
             let departmentName = 'N/A';
@@ -656,28 +620,27 @@ window.HallDetailsView = (function() {
 
         document.getElementById('submit-status-update')?.addEventListener('click', async () => {
             const newStatus = document.querySelector('input[name="status-option"]:checked').value === 'true';
-            const updates = { availability: newStatus };
+            const payload = { availability: newStatus };
 
             if (!newStatus) {
-                updates.unavailability_reason = document.getElementById('status-reason-select').value;
+                payload.unavailability_reason = document.getElementById('status-reason-select').value;
                 const fromDate = document.getElementById('status-from-date').value;
                 const toDate = document.getElementById('status-to-date').value;
-                if (!updates.unavailability_reason || !fromDate || !toDate) {
-                    console.error("Reason and dates are required for unavailability.");
+                if (!payload.unavailability_reason || !fromDate || !toDate) {
+                    alert("Reason and dates are required for unavailability.");
                     return;
                 }
+                // These date fields may or may not be in the API, add if they are
+                // payload.unavailability_from_date = fromDate;
+                // payload.unavailability_to_date = toDate;
+            } else {
+                 payload.unavailability_reason = null; // Explicitly clear reason when available
             }
 
             try {
-                const updatePromises = state.selectedRows.map(hallId => {
-                    const originalHall = state.allHalls.find(h => h.id === hallId);
-                    if (!originalHall) return Promise.reject(`Hall with ID ${hallId} not found.`);
-
-                    const payload = { ...createCleanPayload(originalHall), ...updates };
-
-                    // UPDATED: Now uses the centralized ApiService
-                    return ApiService.halls.update(hallId, payload);
-                });
+                const updatePromises = state.selectedRows.map(hallId => 
+                    ApiService.halls.update(hallId, payload)
+                );
 
                 await Promise.all(updatePromises);
 
@@ -687,6 +650,7 @@ window.HallDetailsView = (function() {
                 updateActionButtonsState();
             } catch (error) {
                 console.error('Failed to update status:', error);
+                alert(`Failed to update status: ${error.message}`);
             }
         }, { signal });
 
@@ -696,16 +660,9 @@ window.HallDetailsView = (function() {
 
             const selectedFeatures = Array.from(document.querySelectorAll('#features-checkbox-container input:checked')).map(cb => cb.value);
 
-            const originalHall = state.allHalls.find(h => h.id === selectedHallCode);
-            if (!originalHall) {
-                console.error(`Hall with ID ${selectedHallCode} not found.`);
-                return;
-            }
-
-            const payload = { ...createCleanPayload(originalHall), features: selectedFeatures };
+            const payload = { features: selectedFeatures };
 
             try {
-                // UPDATED: Now uses the centralized ApiService
                 await ApiService.halls.update(selectedHallCode, payload);
                 closeModal();
                 await initialize();
@@ -713,6 +670,7 @@ window.HallDetailsView = (function() {
                 updateActionButtonsState();
             } catch (error) {
                 console.error('Failed to update features:', error);
+                alert(`Failed to update features: ${error.message}`);
             }
         }, { signal });
     }
@@ -749,4 +707,3 @@ window.HallDetailsView = (function() {
         cleanup
     };
 })();
-

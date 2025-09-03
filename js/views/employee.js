@@ -1,9 +1,7 @@
 // Employee View Module
 window.EmployeeView = (function() {
 
-    // The local API Cache has been REMOVED as ApiService handles this implicitly.
-
-    // --- STATE MANAGEMENT (Unchanged) ---
+    // --- STATE MANAGEMENT ---
     const defaultFilters = () => ({
         employee: { name: '', email: '', phone: '' },
         designation: '',
@@ -32,15 +30,11 @@ window.EmployeeView = (function() {
     let abortController;
     let confirmationCallback = null;
 
-    // --- API & DATA HANDLING (Updated to use ApiService) ---
-
-    // The local fetchFromAPI, fetchRawSchools, and fetchRawDepartments functions have been REMOVED.
-
+    // --- API & DATA HANDLING ---
     async function getSchoolsAndDepartments() {
         if (state.allSchools.length > 0 && state.allDepartments.length > 0) {
             return { schools: state.allSchools, departments: state.allDepartments };
         }
-        // UPDATED: Now uses the centralized ApiService
         const [schools, depts] = await Promise.all([
             ApiService.organization.getSchools(),
             ApiService.organization.getDepartments()
@@ -51,7 +45,6 @@ window.EmployeeView = (function() {
     }
 
     async function fetchEmployeeData() {
-        // UPDATED: Now uses the centralized ApiService
         const [rawEmployees, schools, departments] = await Promise.all([
             ApiService.employees.getAll(),
             ApiService.organization.getSchools(),
@@ -77,20 +70,14 @@ window.EmployeeView = (function() {
         }));
     }
 
-    async function updateEmployee(id, employeeData) {
-        // UPDATED: Now uses the centralized ApiService
-        return await ApiService.employees.update(id, employeeData);
-    }
-
     async function deleteEmployees(employeeIds) {
-        // UPDATED: Now uses the centralized ApiService
         const deletePromises = employeeIds.map(id =>
             ApiService.employees.delete(id)
         );
         return await Promise.all(deletePromises);
     }
 
-    // --- FILTERING (Unchanged) ---
+    // --- FILTERING ---
     function applyFiltersAndRender() {
         const { employee, designation, office, status } = state.filters;
 
@@ -109,7 +96,7 @@ window.EmployeeView = (function() {
     }
 
 
-    // --- RENDERING (Unchanged) ---
+    // --- RENDERING ---
     function renderEmployeeTable() {
         const tableBody = document.getElementById('employee-details-body');
         if (!tableBody) return;
@@ -165,7 +152,7 @@ window.EmployeeView = (function() {
         });
     }
 
-    // --- UI & STATE UPDATES (Unchanged) ---
+    // --- UI & STATE UPDATES ---
     function updateActionButtonsState() {
         const selectedCount = state.selectedRows.length;
         const modifyBtn = document.getElementById('modify-employee-btn');
@@ -194,7 +181,7 @@ window.EmployeeView = (function() {
         renderEmployeeTable();
     }
 
-    // --- MODAL HANDLING (Unchanged) ---
+    // --- MODAL HANDLING ---
     function openModal(modalId) {
         const modal = document.getElementById(modalId);
         const backdrop = document.getElementById('modal-backdrop');
@@ -398,7 +385,7 @@ window.EmployeeView = (function() {
                 }
             });
 
-            const updateSchoolDropdown = setupSearchableDropdown('filter-school-input', 'filter-school-options', 'filter-school', schoolNames, (selectedSchoolName) => {
+            setupSearchableDropdown('filter-school-input', 'filter-school-options', 'filter-school', schoolNames, (selectedSchoolName) => {
                 deptInput.value = '';
                 deptHidden.value = '';
 
@@ -516,34 +503,55 @@ window.EmployeeView = (function() {
     async function handleUpdateSubmit(e) {
         e.preventDefault();
         const form = e.target;
-        const belongsTo = form.querySelector('#update-employee-belongs-to').value;
-
-        const designation = form.querySelector('#update-employee-designation-select').value;
-
-        const payload = {
-            employee_name: form.querySelector('#update-employee-name').value,
-            employee_email: form.querySelector('#update-employee-email').value,
-            employee_mobile: form.querySelector('#update-employee-phone').value,
-            designation: designation,
-            status: form.querySelector('input[name="update-employee-status"]:checked')?.value || 'ACTIVE',
-            belongs_to: belongsTo,
-            school_id: (belongsTo === 'SCHOOL' || belongsTo === 'DEPARTMENT') ? state.modalState.schoolId : null,
-            department_id: belongsTo === 'DEPARTMENT' ? state.modalState.departmentId : null,
-            section: belongsTo === 'ADMINISTRATION' ? form.querySelector('#update-employee-section-select').value : null
-        };
-
-        Object.keys(payload).forEach(key => {
-            if (payload[key] === null || payload[key] === '') {
-                delete payload[key];
-            }
-        });
-
-        if (belongsTo === 'ADMINISTRATION' && !payload.section) {
-             payload.section = form.querySelector('#update-employee-section-select').value;
+    
+        const originalEmployee = state.allEmployees.find(emp => emp.id === state.modalState.employeeId);
+        if (!originalEmployee) {
+            alert('Error: Could not find original employee data for comparison.');
+            return;
         }
-
+    
+        const payload = {};
+    
+        // Helper to compare and add to payload
+        const addIfChanged = (key, newValue, originalValue) => {
+            if (newValue !== originalValue) {
+                payload[key] = newValue;
+            }
+        };
+    
+        // Compare basic fields
+        addIfChanged('employee_name', form.querySelector('#update-employee-name').value, originalEmployee.name);
+        addIfChanged('employee_email', form.querySelector('#update-employee-email').value, originalEmployee.email);
+        addIfChanged('employee_mobile', form.querySelector('#update-employee-phone').value || '', originalEmployee.phone || '');
+        addIfChanged('designation', form.querySelector('#update-employee-designation-select').value, originalEmployee.designation);
+        addIfChanged('status', form.querySelector('input[name="update-employee-status"]:checked')?.value || 'ACTIVE', originalEmployee.status);
+    
+        const newBelongsTo = form.querySelector('#update-employee-belongs-to').value;
+        addIfChanged('belongs_to', newBelongsTo, originalEmployee.raw_belongs_to);
+    
+        // Compare conditional fields based on the *new* belongs_to value
+        if (newBelongsTo === 'ADMINISTRATION') {
+            addIfChanged('section', form.querySelector('#update-employee-section-select').value, originalEmployee.raw_section);
+            if (originalEmployee.raw_school_id) payload.school_id = null;
+            if (originalEmployee.raw_department_id) payload.department_id = null;
+        } else if (newBelongsTo === 'SCHOOL') {
+            addIfChanged('school_id', state.modalState.schoolId, originalEmployee.raw_school_id);
+            if (originalEmployee.raw_section) payload.section = null;
+            if (originalEmployee.raw_department_id) payload.department_id = null;
+        } else if (newBelongsTo === 'DEPARTMENT') {
+            addIfChanged('school_id', state.modalState.schoolId, originalEmployee.raw_school_id);
+            addIfChanged('department_id', state.modalState.departmentId, originalEmployee.raw_department_id);
+            if (originalEmployee.raw_section) payload.section = null;
+        }
+    
+        if (Object.keys(payload).length === 0) {
+            alert("No changes were made.");
+            closeModal();
+            return;
+        }
+    
         try {
-            await updateEmployee(state.modalState.employeeId, payload);
+            await ApiService.employees.update(state.modalState.employeeId, payload);
             alert('Employee updated successfully!');
             closeModal();
             await initialize();

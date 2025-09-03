@@ -145,7 +145,7 @@ window.ApiService = (function() {
         getAll: () => fetchWithAuth('api/hall/all-hall'),
         getById: (hallId) => fetchWithAuth(`api/hall/${hallId}`),
         update: (hallId, hallData) => fetchWithAuth(`api/hall/${hallId}`, {
-            method: 'PUT',
+            method: 'PATCH',
             body: JSON.stringify(hallData)
         })
     };
@@ -160,7 +160,7 @@ window.ApiService = (function() {
     const employees = {
         getAll: () => fetchWithAuth('api/employee/all-employees'),
         update: (employeeId, employeeData) => fetchWithAuth(`api/employee/${employeeId}`, {
-            method: 'PUT',
+            method: 'PATCH',
             body: JSON.stringify(employeeData)
         }),
         delete: (employeeId) => fetchWithAuth(`api/employee/${employeeId}`, {
