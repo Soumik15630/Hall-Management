@@ -287,11 +287,12 @@ window.ApproveBookingsView = (function() {
         }
         try {
             await updateBookingStatus(bookingId, action);
+            showToast(`Booking ${action}ed successfully.`, 'success');
             state.bookings = state.bookings.filter(b => b.unique_id !== bookingId);
             applyFiltersAndRender();
         } catch (error) {
             console.error(`Failed to ${action} booking:`, error);
-            alert(`Error: Could not ${action} the booking.`);
+            showToast(`Error: Could not ${action} the booking.`, 'error');
             if (row) {
                 row.style.opacity = '1';
                 row.querySelectorAll('button').forEach(btn => btn.disabled = false);
@@ -302,7 +303,7 @@ window.ApproveBookingsView = (function() {
     async function handleCheckConflicts(bookingId) {
         const originalRequest = state.bookings.find(b => b.unique_id === bookingId);
         if (!originalRequest) {
-            alert('Could not find the original booking request.');
+            showToast('Could not find the original booking request.', 'error');
             return;
         }
 
@@ -311,11 +312,11 @@ window.ApproveBookingsView = (function() {
             if (conflicts && conflicts.length > 0) {
                 displayConflictModal(originalRequest, conflicts);
             } else {
-                alert('No conflicts found for this booking. It is safe to approve.');
+                showToast('No conflicts found for this booking. It is safe to approve.', 'info');
             }
         } catch (error) {
             console.error('Error checking for conflicts:', error);
-            alert('Failed to check for conflicts. Please try again.');
+            showToast('Failed to check for conflicts. Please try again.', 'error');
         }
     }
 
@@ -361,8 +362,6 @@ window.ApproveBookingsView = (function() {
             }
         }, { signal });
 
-        // REMOVED: The listener for 'filter-modal-container' is now handled by FilterManager.
-
         document.getElementById('approve-bookings-body')?.addEventListener('click', e => {
             const button = e.target.closest('button[data-action]');
             if (!button || button.disabled) return;
@@ -374,9 +373,11 @@ window.ApproveBookingsView = (function() {
             if (action === 'check-conflicts') {
                 handleCheckConflicts(bookingId);
             } else if (action === 'approve' || action === 'reject') {
-                if (confirm(`Are you sure you want to ${action} this booking?`)) {
-                    handleBookingAction(bookingId, action);
-                }
+                showConfirmationModal(
+                    `Confirm ${action.charAt(0).toUpperCase() + action.slice(1)}`,
+                    `Are you sure you want to ${action} this booking?`,
+                    () => handleBookingAction(bookingId, action)
+                );
             }
         }, { signal });
         
@@ -392,7 +393,7 @@ window.ApproveBookingsView = (function() {
                 
                 try {
                     await ApiService.bookings.resolveConflict({ approveId, rejectIds });
-                    alert('Conflict resolved successfully.');
+                    showToast('Conflict resolved successfully.', 'success');
                     
                     const idsToRemove = [approveId, ...rejectIds];
                     state.bookings = state.bookings.filter(b => !idsToRemove.includes(b.unique_id));
@@ -400,7 +401,7 @@ window.ApproveBookingsView = (function() {
                     closeModal('conflict-resolution-modal');
                 } catch (error) {
                     console.error('Failed to resolve conflict:', error);
-                    alert(`Failed to resolve conflict: ${error.message}`);
+                    showToast(`Failed to resolve conflict: ${error.message}`, 'error');
                 }
             }
 
@@ -436,4 +437,3 @@ window.ApproveBookingsView = (function() {
 
     return { initialize, cleanup };
 })();
-

@@ -206,7 +206,7 @@ window.ArchiveView = (function() {
     // --- EVENT HANDLERS ---
     function setupEventHandlers() {
         if (abortController) abortController.abort();
-        abortController = new AbortController();
+        abortController = new AbController();
         const { signal } = abortController;
         const view = document.getElementById('archive-view');
         if (!view) return;
@@ -251,20 +251,26 @@ window.ArchiveView = (function() {
         document.getElementById('reactivate-btn')?.addEventListener('click', async () => {
             if (state.selectedRows.length === 0) return;
             
-            showConfirmationModal(`Are you sure you want to re-activate ${state.selectedRows.length} hall(s)?`, async () => {
-                try {
-                    const updatePromises = state.selectedRows.map(hallCode => 
-                        ApiService.halls.update(hallCode, { availability: true })
-                    );
+            showConfirmationModal(
+                'Re-activate Halls?',
+                `Are you sure you want to re-activate ${state.selectedRows.length} hall(s)?`, 
+                async () => {
+                    try {
+                        const updatePromises = state.selectedRows.map(hallCode => 
+                            ApiService.halls.update(hallCode, { availability: true })
+                        );
 
-                    await Promise.all(updatePromises);
-                    state.selectedRows = [];
-                    await initialize(); // Re-initialize to refresh data
-                } catch (error) {
-                    console.error("Failed to reactivate halls:", error);
-                    alert("An error occurred while reactivating halls.");
-                }
-            });
+                        await Promise.all(updatePromises);
+                        showToast(`${state.selectedRows.length} hall(s) re-activated successfully.`, 'success');
+                        state.selectedRows = [];
+                        await initialize(); // Re-initialize to refresh data
+                    } catch (error) {
+                        console.error("Failed to reactivate halls:", error);
+                        showToast("An error occurred while reactivating halls.", 'error');
+                    }
+                },
+                { confirmText: 'Re-activate', confirmButtonClass: 'bg-green-600 hover:bg-green-700' }
+            );
         }, { signal });
     }
 

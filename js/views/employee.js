@@ -20,7 +20,6 @@ window.EmployeeView = (function() {
         modalState: { /* ... state for the update modal ... */ }
     };
     let abortController;
-    let confirmationCallback = null;
 
     // --- API & DATA HANDLING ---
     async function getSchoolsAndDepartments() {
@@ -171,14 +170,6 @@ window.EmployeeView = (function() {
             modal.querySelector('.modal-content')?.classList.add('scale-95');
         });
         FilterManager.close();
-        confirmationCallback = null;
-    }
-
-    function showConfirmation(title, message, onConfirm) {
-        document.getElementById('confirmation-title').textContent = title;
-        document.getElementById('confirmation-message').textContent = message;
-        confirmationCallback = onConfirm;
-        openModal('confirmation-modal');
     }
     
     // --- FILTER MANAGER INTEGRATION ---
@@ -239,22 +230,22 @@ window.EmployeeView = (function() {
         // ... logic to build payload ...
         try {
             await ApiService.employees.update(state.modalState.employeeId, payload);
-            alert('Employee updated successfully!');
+            showToast('Employee updated successfully!', 'success');
             closeModal();
             await initialize();
         } catch (error) {
-            alert(`Update failed: ${error.message}`);
+            showToast(`Update failed: ${error.message}`, 'error');
         }
     }
 
     async function handleDeleteConfirm() {
         try {
             await deleteEmployees(state.selectedRows);
-            alert('Employee(s) deleted successfully.');
+            showToast('Employee(s) deleted successfully.', 'success');
             state.selectedRows = [];
             await initialize();
         } catch (error) {
-            alert(`Deletion failed: ${error.message}`);
+            showToast(`Deletion failed: ${error.message}`, 'error');
         }
     }
 
@@ -308,19 +299,15 @@ window.EmployeeView = (function() {
 
         document.getElementById('delete-employee-btn')?.addEventListener('click', () => {
             if (state.selectedRows.length > 0) {
-                showConfirmation('Confirm Deletion', `Are you sure you want to delete ${state.selectedRows.length} employee(s)?`, handleDeleteConfirm);
+                showConfirmationModal('Confirm Deletion', `Are you sure you want to delete ${state.selectedRows.length} employee(s)?`, handleDeleteConfirm);
             }
         }, { signal });
 
         // Event handlers for non-filter modals remain
-        document.querySelectorAll('.modal-close-btn, #confirmation-cancel-btn').forEach(btn => {
+        document.querySelectorAll('.modal-close-btn').forEach(btn => {
             btn.addEventListener('click', closeModal, { signal });
         });
         document.getElementById('modal-backdrop')?.addEventListener('click', closeModal, { signal });
-        document.getElementById('confirmation-confirm-btn')?.addEventListener('click', () => {
-            if (confirmationCallback) confirmationCallback();
-            closeModal();
-        }, { signal });
         document.getElementById('update-employee-form')?.addEventListener('submit', handleUpdateSubmit, { signal });
         document.getElementById('update-employee-belongs-to')?.addEventListener('change', (e) => {
             // ... logic for update modal ...

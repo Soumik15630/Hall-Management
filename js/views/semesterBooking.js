@@ -2,8 +2,6 @@
 
 // Semester Booking View Module
 window.SemesterBookingView = (function() {
-    // The local apiCache has been REMOVED as ApiService handles this implicitly.
-
     // --- CONSTANTS (Unchanged) ---
     const PERIOD_TIMES = {
         1: '09:30-10:30', 2: '10:30-11:30', 3: '11:30-12:30', 4: '12:30-01:30',
@@ -27,9 +25,6 @@ window.SemesterBookingView = (function() {
     let abortController;
 
     // --- API & DATA HANDLING (Updated to use ApiService) ---
-
-    // The local fetchFromAPI, fetchRawSchools, fetchRawDepartments, and fetchRawEmployees functions have been REMOVED.
-
     function formatTitleCase(str) {
         if (!str) return 'N/A';
         return str.replace(/_/g, ' ').replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
@@ -48,7 +43,6 @@ window.SemesterBookingView = (function() {
     }
 
     async function fetchHallsForView() {
-        // UPDATED: Now uses the centralized ApiService
         const [rawHalls, schools, departments] = await Promise.all([
             ApiService.halls.getAll(),
             ApiService.organization.getSchools(),
@@ -58,7 +52,6 @@ window.SemesterBookingView = (function() {
         const schoolMap = new Map(schools.map(s => [s.unique_id, s.school_name]));
         const departmentMap = new Map(departments.map(d => [d.unique_id, d.department_name]));
 
-        // MODIFIED: Filter out unavailable halls before mapping them to the view model.
         const availableHalls = rawHalls.filter(hall => hall.availability !== false);
 
         return availableHalls.map(hall => ({
@@ -74,7 +67,6 @@ window.SemesterBookingView = (function() {
     }
 
     async function fetchSemesterHalls() {
-        // This function now receives only available halls from fetchHallsForView
         const allHalls = await fetchHallsForView();
         const groupedHalls = { 'Seminar': [], 'Auditorium': [], 'Lecture Hall': [], 'Conference Hall': [], 'Other': [] };
         
@@ -142,7 +134,6 @@ window.SemesterBookingView = (function() {
         if (!hall) return;
 
         try {
-            // UPDATED: Now uses the centralized ApiService
             const bookings = await ApiService.bookings.getForHall(hallId);
             hall.timetable = bookings ? processBookingsIntoTimetable(bookings) : {};
         } catch (error) {
@@ -156,7 +147,6 @@ window.SemesterBookingView = (function() {
             return state.employeeData;
         }
         try {
-            // UPDATED: Now uses the centralized ApiService
             const [rawEmployees, schools, departments] = await Promise.all([
                 ApiService.employees.getAll(),
                 ApiService.organization.getSchools(),
@@ -180,13 +170,10 @@ window.SemesterBookingView = (function() {
     }
 
     async function addSemesterBooking(bookingDetails) {
-        // UPDATED: Now uses the centralized ApiService
         return await ApiService.bookings.createRequest(bookingDetails);
     }
 
     // --- All other functions (state management, rendering, event handlers, etc.) remain unchanged ---
-    // ... (The rest of your file's logic is preserved here) ...
-
     function saveStateToSession() {
         if (!state.selectedHallId) return;
         try {
@@ -433,11 +420,11 @@ window.SemesterBookingView = (function() {
 
     async function handleSubmit() {
         const hallId = state.selectedHallId;
-        if (!hallId) { alert('Please select a hall.'); return; }
+        if (!hallId) { showToast('Please select a hall.', 'warning'); return; }
 
         const currentHallState = state.hallStates[hallId];
         if (!currentHallState || !currentHallState.selectedSlots || currentHallState.selectedSlots.length === 0) {
-            alert('Please select at least one time slot.'); return;
+            showToast('Please select at least one time slot.', 'warning'); return;
         }
 
         const formDetails = {
@@ -449,10 +436,10 @@ window.SemesterBookingView = (function() {
         };
 
         if (!formDetails.startDate || !formDetails.endDate || !formDetails.purpose || !formDetails.title) {
-            alert('Please fill out all booking detail fields.'); return;
+            showToast('Please fill out all booking detail fields.', 'warning'); return;
         }
         if (new Date(formDetails.startDate) > new Date(formDetails.endDate)) {
-            alert('Start date cannot be after the end date.'); return;
+            showToast('Start date cannot be after the end date.', 'warning'); return;
         }
 
         const dayMap = { 'Mon': 'MONDAY', 'Tue': 'TUESDAY', 'Wed': 'WEDNESDAY', 'Thu': 'THURSDAY', 'Fri': 'FRIDAY' };
@@ -489,7 +476,7 @@ window.SemesterBookingView = (function() {
         try {
             if(submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Submitting...'; }
             const result = await addSemesterBooking(payload);
-            alert(result.message || 'Semester booking request submitted successfully!');
+            showToast(result.message || 'Semester booking request submitted successfully!', 'success');
             clearCurrentHallState();
         } catch (error) {
             console.error('Booking submission error:', error);
@@ -513,7 +500,7 @@ window.SemesterBookingView = (function() {
                 alertMessage += `\nDetails: ${error.message}`;
             }
 
-            alert(alertMessage);
+            showToast(alertMessage, 'error');
         } finally {
             if(submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit'; }
         }

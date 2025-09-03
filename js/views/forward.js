@@ -53,11 +53,11 @@ window.ForwardView = (function() {
         }
         try {
             const response = await ApiService.bookings.updateStatus(bookingId, action);
-            alert(response.message || `Booking action '${action}' completed successfully.`);
+            showToast(response.message || `Booking action '${action}' completed successfully.`, 'success');
             await initialize(); // Refresh the list
         } catch (error) {
             console.error(`Failed to ${action} booking ${bookingId}:`, error);
-            alert(`Error: Could not complete the '${action}' action. ${error.message}`);
+            showToast(`Error: Could not complete the '${action}' action. ${error.message}`, 'error');
             if (row) {
                 row.style.opacity = '1';
                 row.querySelectorAll('button').forEach(btn => btn.disabled = false);
@@ -206,9 +206,12 @@ window.ForwardView = (function() {
             const row = e.target.closest('tr[data-booking-id]');
             const bookingId = row ? row.dataset.bookingId : null;
             if (bookingId && (action === 'forward' || action === 'reject')) {
-                 if (confirm(`Are you sure you want to ${action} this booking?`)) {
-                    handleBookingAction(bookingId, action);
-                }
+                const capitalizedAction = action.charAt(0).toUpperCase() + action.slice(1);
+                 showConfirmationModal(
+                     `Confirm ${capitalizedAction}`,
+                     `Are you sure you want to ${action} this booking?`,
+                     () => handleBookingAction(bookingId, action)
+                 );
             }
         }, { signal });
     }

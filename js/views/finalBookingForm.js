@@ -777,16 +777,16 @@ window.FinalBookingFormView = (function() {
         const classCodeInput = document.getElementById('class_code');
 
         if (!state.hallIdFromUrl) {
-            alert('Hall ID is missing.');
+            showToast('Hall ID is missing.', 'error');
             return;
         }
         if (!purposeInput?.value.trim()) {
-            alert('Please provide a purpose for the booking.');
+            showToast('Please provide a purpose for the booking.', 'warning');
             purposeInput?.focus();
             return;
         }
         if (state.selectedSlots.length === 0) {
-            alert('Please select at least one time slot.');
+            showToast('Please select at least one time slot.', 'warning');
             return;
         }
 
@@ -850,15 +850,15 @@ window.FinalBookingFormView = (function() {
             
             const successfulBookings = results.filter(r => r.success).length;
             if (successfulBookings === bookingGroups.length) {
-                alert('All booking requests submitted successfully!');
+                showToast('All booking requests submitted successfully!', 'success');
             } else {
-                alert(`${successfulBookings} of ${bookingGroups.length} booking requests were successful. Please check the schedule for conflicts.`);
+                showToast(`${successfulBookings} of ${bookingGroups.length} booking requests were successful.`, 'info');
             }
             
-            window.location.hash = 'browsebook';
+            window.location.hash = '#my-bookings-view';
 
         } catch (error) {
-            alert(error.message || 'Failed to submit one or more booking requests. Please try again.');
+            showToast(error.message || 'Failed to submit one or more booking requests. Please try again.', 'error');
             console.error('Booking submission error:', error);
         } finally {
             submitBtn.textContent = originalText;
@@ -893,6 +893,7 @@ window.FinalBookingFormView = (function() {
                     }
                 }, { signal });
 
+                // BUG FIX: Added mouseout listener to hide tooltip when leaving a slot
                 calendarGrid.addEventListener('mouseout', (e) => {
                     if (e.target.closest('.slot[data-tooltip-content]')) {
                         handleTooltipHide();
@@ -919,6 +920,29 @@ window.FinalBookingFormView = (function() {
         const target = e.target.closest('button');
         if (!target) return;
         
+        const navigateWeek = (days) => {
+            if (state.currentSelectedDate) {
+                const newDate = new Date(state.currentSelectedDate + 'T00:00:00');
+                newDate.setDate(newDate.getDate() + days);
+                const year = newDate.getFullYear();
+                const month = String(newDate.getMonth() + 1).padStart(2, '0');
+                const day = String(newDate.getDate()).padStart(2, '0');
+                const newDateString = `${year}-${month}-${day}`;
+                
+                const proceed = () => {
+                    state.currentSelectedDate = newDateString;
+                    state.currentDate = newDate;
+                    updateUI();
+                };
+                
+                if (state.selectedSlots.length > 0) {
+                    showConfirmationModal('Change Week?', 'Changing the week will keep your selected time slots, but the focused date will move to the new week. Continue?', proceed);
+                } else {
+                    proceed();
+                }
+            }
+        };
+
         if (target.id === 'prev-month-btn') { 
             state.currentDate.setMonth(state.currentDate.getMonth() - 1); 
             updateUI(); 
@@ -928,57 +952,28 @@ window.FinalBookingFormView = (function() {
             updateUI(); 
         }
         else if (target.id === 'prev-week-btn') {
-            if (state.currentSelectedDate) {
-                const newDate = new Date(state.currentSelectedDate + 'T00:00:00');
-                newDate.setDate(newDate.getDate() - 7);
-                const year = newDate.getFullYear();
-                const month = String(newDate.getMonth() + 1).padStart(2, '0');
-                const day = String(newDate.getDate()).padStart(2, '0');
-                const newDateString = `${year}-${month}-${day}`;
-                
-                if (state.selectedSlots.length > 0) {
-                    const confirmChange = confirm('Changing the week will keep your selected time slots. The date selection will move to the new week. Continue?');
-                    if (!confirmChange) return;
-                }
-                
-                state.currentSelectedDate = newDateString;
-                state.currentDate = newDate;
-                updateUI();
-            }
+            navigateWeek(-7);
         }
         else if (target.id === 'next-week-btn') {
-            if (state.currentSelectedDate) {
-                const newDate = new Date(state.currentSelectedDate + 'T00:00:00');
-                newDate.setDate(newDate.getDate() + 7);
-                const year = newDate.getFullYear();
-                const month = String(newDate.getMonth() + 1).padStart(2, '0');
-                const day = String(newDate.getDate()).padStart(2, '0');
-                const newDateString = `${year}-${month}-${day}`;
-                
-                if (state.selectedSlots.length > 0) {
-                    const confirmChange = confirm('Changing the week will keep your selected time slots. The date selection will move to the new week. Continue?');
-                    if (!confirmChange) return;
-                }
-                
-                state.currentSelectedDate = newDateString;
-                state.currentDate = newDate;
-                updateUI();
-            }
+            navigateWeek(7);
         }
         else if (target.classList.contains('day-header') || target.classList.contains('day-selector-btn')) {
             const selectedDate = target.dataset.date;
             if (selectedDate && !target.disabled) {
-                if (state.selectedSlots.length > 0) {
-                    const existingDate = state.selectedSlots[0].date;
-                    if (existingDate !== selectedDate) {
-                        const confirmChange = confirm(`You have selected time slots for ${formatDateForDisplay(existingDate)}. Selecting a different date will clear your current selection. Continue?`);
-                        if (!confirmChange) return;
-                        state.selectedSlots = [];
-                    }
+                const proceed = () => {
+                    state.selectedSlots = [];
+                    state.currentSelectedDate = selectedDate;
+                    state.currentDate = new Date(selectedDate + 'T00:00:00');
+                    updateUI();
+                };
+
+                if (state.selectedSlots.length > 0 && state.selectedSlots[0].date !== selectedDate) {
+                    showConfirmationModal('Clear Selection?', `You have selected time slots for ${formatDateForDisplay(state.selectedSlots[0].date)}. Selecting a new date will clear your current selection. Continue?`, proceed);
+                } else {
+                    state.currentSelectedDate = selectedDate;
+                    state.currentDate = new Date(selectedDate + 'T00:00:00');
+                    updateUI();
                 }
-                state.currentSelectedDate = selectedDate;
-                state.currentDate = new Date(selectedDate + 'T00:00:00');
-                updateUI();
             }
         }
         else if (target.classList.contains('time-slot-btn')) {
@@ -988,8 +983,7 @@ window.FinalBookingFormView = (function() {
             handleSlotClick(target);
         }
         else if (target.id === 'reset-btn') {
-            const confirmReset = confirm('Are you sure you want to clear all selections?');
-            if (confirmReset) resetForm();
+            showConfirmationModal('Clear Selections?', 'Are you sure you want to clear all selections and form data?', resetForm);
         }
         else if (target.closest('form')?.id === 'bookingForm' && target.type === 'submit') { 
             e.preventDefault(); 
@@ -1006,41 +1000,28 @@ window.FinalBookingFormView = (function() {
         const isSelected = state.selectedSlots.some(s => s.date === date && s.time === time);
         const booking = getBookingForSlot(date, time);
 
-        // If the slot is definitively booked (red), show details on click and stop.
         if (booking && booking.status !== 'PENDING' && !isSelected) {
             showBookingDetails(booking);
             return;
         }
 
-        // For available and pending slots, proceed with selection logic.
         const existingIndex = state.selectedSlots.findIndex(s => s.date === date && s.time === time);
 
         if (existingIndex > -1) {
-            const slotsForDate = state.selectedSlots
-                .filter(s => s.date === date)
-                .sort((a, b) => timeSlots.indexOf(a.time) - timeSlots.indexOf(b.time));
-            
+            const slotsForDate = state.selectedSlots.filter(s => s.date === date).sort((a, b) => timeSlots.indexOf(a.time) - timeSlots.indexOf(b.time));
             const clickedSlotIndex = slotsForDate.findIndex(s => s.time === time);
-
             const slotsToRemove = slotsForDate.slice(clickedSlotIndex);
-            
-            state.selectedSlots = state.selectedSlots.filter(s => {
-                return !slotsToRemove.some(r => r.date === s.date && r.time === s.time);
-            });
-
+            state.selectedSlots = state.selectedSlots.filter(s => !slotsToRemove.some(r => r.date === s.date && r.time === s.time));
         } else {
             const newSlot = { date, time };
-            
             const singleDayValidation = validateSingleDayBooking(newSlot);
             if (!singleDayValidation.valid) {
-                alert(singleDayValidation.message);
+                showToast(singleDayValidation.message, 'warning');
                 return;
             }
-            
             state.selectedSlots.push(newSlot);
             autoFillContiguousSlots(newSlot);
         }
-        
         updateUI();
     }
 
@@ -1048,48 +1029,40 @@ window.FinalBookingFormView = (function() {
         const { date, time } = slotEl.dataset;
         const booking = getBookingForSlot(date, time);
 
-        // If the slot is definitively booked (red), show details on click and stop.
         if (booking && booking.status !== 'PENDING') {
             showBookingDetails(booking);
             return;
         }
         
-        // If the slot is in the past or disabled, do nothing.
         if (slotEl.disabled || slotEl.classList.contains('slot-past')) return;
         
-        // For available and pending slots, proceed with selection logic.
-        if (state.selectedSlots.length > 0) {
-            const existingDate = state.selectedSlots[0].date;
-            if (existingDate !== date) {
-                const confirmChange = confirm(`You have selected time slots for ${formatDateForDisplay(existingDate)}. Selecting a different date will clear your current selection. Continue?`);
-                if (!confirmChange) return;
-                state.selectedSlots = [];
-            }
+        const proceed = () => {
+            // BUG FIX: The state must be updated to the new date *before* handling the slot click.
+            state.selectedSlots = [];
+            state.currentSelectedDate = date; 
+            state.currentDate = new Date(date + 'T00:00:00');
+            // Now that the state is correct, handle the time slot selection.
+            handleTimeSlotClick(slotEl);
+        };
+        
+        if (state.selectedSlots.length > 0 && state.selectedSlots[0].date !== date) {
+            showConfirmationModal('Clear Selection?', `You have selected time slots for ${formatDateForDisplay(state.selectedSlots[0].date)}. Selecting a new date will clear your current selection. Continue?`, proceed);
+            return;
         }
-        
+
         const existingIndex = state.selectedSlots.findIndex(s => s.date === date && s.time === time);
-        
         if (existingIndex > -1) {
-             const slotsForDate = state.selectedSlots
-                .filter(s => s.date === date)
-                .sort((a, b) => timeSlots.indexOf(a.time) - timeSlots.indexOf(b.time));
-            
+            const slotsForDate = state.selectedSlots.filter(s => s.date === date).sort((a, b) => timeSlots.indexOf(a.time) - timeSlots.indexOf(b.time));
             const clickedSlotIndex = slotsForDate.findIndex(s => s.time === time);
             const slotsToRemove = slotsForDate.slice(clickedSlotIndex);
-            
-            state.selectedSlots = state.selectedSlots.filter(s => {
-                return !slotsToRemove.some(r => r.date === s.date && r.time === s.time);
-            });
-
+            state.selectedSlots = state.selectedSlots.filter(s => !slotsToRemove.some(r => r.date === s.date && r.time === s.time));
         } else {
             const newSlot = { date, time };
-            
             const singleDayValidation = validateSingleDayBooking(newSlot);
             if (!singleDayValidation.valid) {
-                alert(singleDayValidation.message);
+                showToast(singleDayValidation.message, 'warning');
                 return;
             }
-            
             state.selectedSlots.push(newSlot);
             autoFillContiguousSlots(newSlot);
         }

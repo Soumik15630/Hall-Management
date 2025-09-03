@@ -316,7 +316,7 @@ window.HallDetailsView = (function() {
                 const fromDate = document.getElementById('status-from-date').value;
                 const toDate = document.getElementById('status-to-date').value;
                 if (!payload.unavailability_reason || !fromDate || !toDate) {
-                    alert("Reason and dates are required for unavailability.");
+                    showToast("Reason and dates are required for unavailability.", 'warning');
                     return;
                 }
             } else {
@@ -328,13 +328,14 @@ window.HallDetailsView = (function() {
                     ApiService.halls.update(hallId, payload)
                 );
                 await Promise.all(updatePromises);
+                showToast('Hall status updated successfully.', 'success');
                 closeModal();
                 await initialize();
                 state.selectedRows = [];
                 updateActionButtonsState();
             } catch (error) {
                 console.error('Failed to update status:', error);
-                alert(`Failed to update status: ${error.message}`);
+                showToast(`Failed to update status: ${error.message}`, 'error');
             }
         }, { signal });
 
@@ -344,13 +345,14 @@ window.HallDetailsView = (function() {
             const selectedFeatures = Array.from(document.querySelectorAll('#features-checkbox-container input:checked')).map(cb => cb.value);
             try {
                 await ApiService.halls.update(selectedHallCode, { features: selectedFeatures });
+                showToast('Hall features updated successfully.', 'success');
                 closeModal();
                 await initialize();
                 state.selectedRows = [];
                 updateActionButtonsState();
             } catch (error) {
                 console.error('Failed to update features:', error);
-                alert(`Failed to update features: ${error.message}`);
+                showToast(`Failed to update features: ${error.message}`, 'error');
             }
         }, { signal });
     }
@@ -379,4 +381,3 @@ window.HallDetailsView = (function() {
 
     return { initialize, cleanup };
 })();
-
