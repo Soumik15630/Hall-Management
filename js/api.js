@@ -16,12 +16,12 @@ window.ApiService = (function() {
             'api/booking/my-requests',
             'api/booking/approvals?filter=internal',
             'api/booking/approvals?filter=forward'
-            // Note: Specific hall booking caches are handled separately.
+         
         ]
     };
 
     /**
-     * Intelligently clears relevant parts of the cache after a data modification.
+     * Intelliogently clears relevant parts of the cache after a data modification.
      * @param {string} modifiedEndpoint - The endpoint that was written to (e.g., PUT 'api/hall/123').
      */
     function invalidateCache(modifiedEndpoint) {
