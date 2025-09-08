@@ -28,19 +28,15 @@
 </head>
 <body class="min-h-screen flex flex-col">
 
-    <!-- Header -->
     <div id="nav-placeholder"></div>
     
-    <!-- Main Content -->
     <main class="flex-grow p-6" x-data="browseAndBook()">
         <div class="container mx-auto bg-white p-6 rounded-lg shadow-xl">
             <h2 class="text-3xl font-bold text-gray-800 mb-6">Browse & Book Hall</h2>
             
             <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                <!-- Filters Column -->
                 <aside class="lg:col-span-1">
                     <div class="space-y-6">
-                        <!-- Clear Filters Button -->
                         <div>
                             <button @click="clearFilters()" 
                                     :disabled="!isAnyFilterActive"
@@ -50,7 +46,6 @@
                             </button>
                         </div>
 
-                        <!-- Hall Type -->
                         <div>
                             <label class="font-semibold text-gray-700">Hall Type:</label>
                             <div class="grid grid-cols-2 gap-2 mt-2">
@@ -61,7 +56,6 @@
                             </div>
                         </div>
 
-                        <!-- School & Department with Search -->
                         <div class="relative" @click.away="dropdowns.school = false">
                             <label for="schoolSearch" class="font-semibold text-gray-700">School:</label>
                             <input type="text" id="schoolSearch" x-model="searchTerms.school" @focus="dropdowns.school = true" @input.debounce.300ms="selectedSchoolId = null" placeholder="Search for a school..." class="w-full border-gray-300 rounded-md mt-1 p-2">
@@ -105,7 +99,6 @@
                             </select>
                         </div>
 
-                        <!-- Capacity -->
                         <div>
                             <div class="flex justify-between items-center">
                                 <label class="font-semibold text-gray-700">Capacity</label>
@@ -118,7 +111,6 @@
                             </div>
                         </div>
 
-                        <!-- Features -->
                         <div>
                             <div class="flex justify-between items-center mb-2">
                                 <label class="font-semibold text-gray-700">Features</label>
@@ -141,9 +133,7 @@
                     </div>
                 </aside>
 
-                <!-- Main Content Column -->
                 <div class="lg:col-span-3">
-                    <!-- Results -->
                     <div>
                         <div class="flex justify-between items-center mb-4">
                             <h3 class="text-2xl font-bold text-gray-800">
@@ -151,7 +141,6 @@
                             </h3>
                         </div>
 
-                        <!-- Halls Grid View -->
                         <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                             <template x-if="isLoading.halls"><div class="col-span-full text-center py-10">Loading halls...</div></template>
                             <template x-for="hall in filteredHalls" :key="hall.id">
@@ -180,7 +169,6 @@
         </div>
     </main>
 
-    <!-- Footer -->
     <div id="footer-placeholder"></div>
 
     <script>
@@ -188,7 +176,7 @@
             return {
                 // UI State
                 filters: {
-                    type: 'SEMINAR',
+                    type: '', // CORRECTED: No default filter
                     capacity: null,
                     features: [],
                     floor: '',
@@ -257,31 +245,36 @@
                     return response.json();
                 },
 
+                // CORRECTED FUNCTION
                 async fetchSchools() { 
                     this.isLoading.schools = true; 
                     try {
                         const url = AppConfig.apiBaseUrl + AppConfig.endpoints.allschool;
-                        const data = await this.fetchWithAuth(url);
-                        this.schoolOptions = data.map(s => ({ value: s.unique_id, label: s.school_name }));
+                        const response = await this.fetchWithAuth(url);
+                        this.schoolOptions = response.data.map(s => ({ value: s.unique_id, label: s.school_name }));
                     } catch (e) { console.error("Could not load schools:", e.message); } 
                     finally { this.isLoading.schools = false; } 
                 },
+                
+                // CORRECTED FUNCTION
                 async fetchDepartments() { 
                     this.isLoading.departments = true; 
                     try {
                         const url = AppConfig.apiBaseUrl + AppConfig.endpoints.alldept;
-                        const data = await this.fetchWithAuth(url);
-                        this.departmentOptions = data.map(d => ({ value: d.unique_id, label: d.department_name, schoolId: d.school_id }));
+                        const response = await this.fetchWithAuth(url);
+                        this.departmentOptions = response.data.map(d => ({ value: d.unique_id, label: d.department_name, schoolId: d.school_id }));
                     } catch (e) { console.error("Could not load departments:", e.message); } 
                     finally { this.isLoading.departments = false; } 
                 },
+
+                // CORRECTED FUNCTION
                 async fetchHalls() {
                     this.isLoading.halls = true;
                     try {
                         const url = AppConfig.apiBaseUrl + AppConfig.endpoints.allHall;
-                        const data = await this.fetchWithAuth(url);
+                        const response = await this.fetchWithAuth(url);
                         
-                        this.allHalls = data
+                        this.allHalls = response.data
                             .filter(hall => hall.availability === true) // Only include available halls
                             .map(hall => {
                                 let ownerName = 'Administration'; // Default
@@ -318,7 +311,7 @@
 
                 // --- Computed Properties for Filtering ---
                 get isAnyFilterActive() {
-                    return this.filters.type !== 'SEMINAR' || 
+                    return this.filters.type !== '' || 
                            this.filters.capacity !== null || 
                            this.filters.features.length > 0 || 
                            this.filters.floor !== '' || 
@@ -364,7 +357,7 @@
                 // --- UI Actions ---
                 clearFilters() {
                     this.filters = {
-                        type: 'SEMINAR',
+                        type: '',
                         capacity: null,
                         features: [],
                         floor: '',
