@@ -335,7 +335,7 @@ window.SemesterBookingView = (function() {
                 <div class="grid grid-cols-2 gap-4">
                     <div><label for="start-date" class="block text-sm font-medium text-slate-300 mb-1">Start Date</label><input type="date" id="start-date" class="${inputClasses}"></div>
                     <div><label for="end-date" class="block text-sm font-medium text-slate-300 mb-1">End Date</label><input type="date" id="end-date" class="${inputClasses}"></div>
-                </div>
+                </div> 
                 <div><label for="booking-purpose" class="block text-sm font-medium text-slate-300 mb-1">Booking Purpose</label><select id="booking-purpose" class="${inputClasses}"><option>Class</option><option>Seminar</option><option>Workshop</option><option>Meeting</option></select></div>
                 <div><label for="course-title" class="block text-sm font-medium text-slate-300 mb-1">Course / Event Title</label><input type="text" id="course-title" class="${inputClasses}" placeholder="e.g., Advanced Algorithms"></div>
                 <div>

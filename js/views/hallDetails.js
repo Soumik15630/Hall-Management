@@ -309,6 +309,7 @@ window.HallDetailsView = (function() {
 
         document.getElementById('submit-status-update')?.addEventListener('click', async () => {
             const newStatus = document.querySelector('input[name="status-option"]:checked').value === 'true';
+            
             const payload = { availability: newStatus };
 
             if (!newStatus) {
@@ -319,8 +320,6 @@ window.HallDetailsView = (function() {
                     showToast("Reason and dates are required for unavailability.", 'warning');
                     return;
                 }
-            } else {
-                 payload.unavailability_reason = null;
             }
 
             try {
@@ -330,9 +329,20 @@ window.HallDetailsView = (function() {
                 await Promise.all(updatePromises);
                 showToast('Hall status updated successfully.', 'success');
                 closeModal();
-                await initialize();
+                
+                // Update state locally for faster UI refresh
+                state.selectedRows.forEach(hallId => {
+                    const hall = state.allHalls.find(h => h.id === hallId);
+                    if (hall) {
+                        hall.availability = newStatus;
+                        hall.displayStatus = newStatus;
+                    }
+                });
+
                 state.selectedRows = [];
+                applyFiltersAndRender();
                 updateActionButtonsState();
+
             } catch (error) {
                 console.error('Failed to update status:', error);
                 showToast(`Failed to update status: ${error.message}`, 'error');
@@ -381,3 +391,4 @@ window.HallDetailsView = (function() {
 
     return { initialize, cleanup };
 })();
+

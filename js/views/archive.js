@@ -25,9 +25,9 @@ window.ArchiveView = (function() {
     let abortController;
 
     // --- API & DATA HANDLING ---
-    async function fetchAllFormattedHalls() {
-        const [rawHalls, schools, departments] = await Promise.all([
-            ApiService.halls.getAll(),
+    async function fetchAllFormattedHalls(halls) {
+        // This function now receives the halls to format, instead of fetching them.
+        const [schools, departments] = await Promise.all([
             ApiService.organization.getSchools(),
             ApiService.organization.getDepartments()
         ]);
@@ -35,7 +35,7 @@ window.ArchiveView = (function() {
         const schoolMap = new Map(schools.map(s => [s.unique_id, s]));
         const departmentMap = new Map(departments.map(d => [d.unique_id, d]));
 
-        return rawHalls.map(hall => {
+        return halls.map(hall => {
              let incharge = { name: 'N/A', role: 'N/A' };
              const dept = departmentMap.get(hall.department_id);
              const school = schoolMap.get(hall.school_id);
@@ -59,9 +59,12 @@ window.ArchiveView = (function() {
         });
     }
 
+    // --- FIXED: fetchArchivedHallData now uses the correct, filtered endpoint ---
     async function fetchArchivedHallData() {
-        const allHalls = await fetchAllFormattedHalls();
-        return allHalls.filter(hall => !hall.displayStatus);
+        // Directly fetch only the archived halls from the server
+        const archivedHalls = await ApiService.halls.getAll({ filter: 'archived' });
+        // Format the fetched halls for display
+        return await fetchAllFormattedHalls(archivedHalls);
     }
 
     // --- FILTERING ---
@@ -206,7 +209,7 @@ window.ArchiveView = (function() {
     // --- EVENT HANDLERS ---
     function setupEventHandlers() {
         if (abortController) abortController.abort();
-        abortController = new AbController();
+        abortController = new AbortController();
         const { signal } = abortController;
         const view = document.getElementById('archive-view');
         if (!view) return;
@@ -255,6 +258,9 @@ window.ArchiveView = (function() {
                 'Re-activate Halls?',
                 `Are you sure you want to re-activate ${state.selectedRows.length} hall(s)?`, 
                 async () => {
+                    const reactivateBtn = document.getElementById('reactivate-btn');
+                    if(reactivateBtn) reactivateBtn.disabled = true;
+
                     try {
                         const updatePromises = state.selectedRows.map(hallCode => 
                             ApiService.halls.update(hallCode, { availability: true })
@@ -262,11 +268,17 @@ window.ArchiveView = (function() {
 
                         await Promise.all(updatePromises);
                         showToast(`${state.selectedRows.length} hall(s) re-activated successfully.`, 'success');
+                        
+                        // --- FIX ---
+                        // The filter now correctly uses hall.hallCode to find and remove the reactivated halls from the local state.
+                        state.allHalls = state.allHalls.filter(hall => !state.selectedRows.includes(hall.hallCode));
                         state.selectedRows = [];
-                        await initialize(); // Re-initialize to refresh data
+                        applyFiltersAndRender();
+
                     } catch (error) {
                         console.error("Failed to reactivate halls:", error);
                         showToast("An error occurred while reactivating halls.", 'error');
+                        if(reactivateBtn) reactivateBtn.disabled = false;
                     }
                 },
                 { confirmText: 'Re-activate', confirmButtonClass: 'bg-green-600 hover:bg-green-700' }
@@ -319,3 +331,4 @@ window.ArchiveView = (function() {
         cleanup
     };
 })();
+

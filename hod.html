@@ -56,15 +56,16 @@
             word-wrap: break-word;
         }
 
-        /* Give more space to columns with potentially long content */
-        #approve-bookings-view th:nth-child(2),
-        #approve-bookings-view th:nth-child(5) {
-            width: 20%; 
-        }
+        /* --- UPDATED: Column widths for approve bookings view --- */
+        #approve-bookings-view th:nth-child(1) { width: 10%; } /* Booked On */
+        #approve-bookings-view th:nth-child(2) { width: 15%; } /* Hall */
+        #approve-bookings-view th:nth-child(3) { width: 18%; } /* Purpose */
+        #approve-bookings-view th:nth-child(4) { width: 18%; } /* Date & Time */
+        #approve-bookings-view th:nth-child(5) { width: 15%; } /* Booked By */
+        #approve-bookings-view th:nth-child(6) { width: 8%; }  /* Status */
+        #approve-bookings-view th:nth-child(7) { width: 12%; } /* Action */
+        #approve-bookings-view th:nth-child(8) { width: 4%; }  /* Expander */
 
-        #approve-bookings-view th:nth-child(4) {
-            width: 22%;
-        }
 
         /* FIX: Defined explicit widths for ALL columns to ensure proper alignment */
         #hall-details-view th:nth-child(1) { width: 4%; }  /* Checkbox */
@@ -627,6 +628,8 @@
                                 Status
                             </th>
                             <th scope="col" class="px-3 py-2.5 text-left text-sm font-semibold text-white">Action</th>
+                            <!-- NEW: Header for expander icon -->
+                            <th scope="col" class="relative py-3.5 pl-3 pr-4 sm:pr-6"><span class="sr-only">Details</span></th>
                         </tr>
                     </thead>
                     <tbody id="approve-bookings-body" class="divide-y divide-slate-800 bg-slate-900/30"></tbody>

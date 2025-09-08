@@ -12,11 +12,15 @@ window.ApiService = (function() {
     const cacheInvalidationMap = {
         'api/hall/': ['api/hall/all-hall'],
         'api/employee/': ['api/employee/all-employees'],
+        'api/school/': ['api/school/all-schools'],
+        'api/department/': ['api/department/all-department'],
         'api/booking/': [
             'api/booking/my-requests',
+            'api/booking/approvals?filter=all',
             'api/booking/approvals?filter=internal',
-            'api/booking/approvals?filter=forward'
-         
+            'api/booking/approvals?filter=forward',
+            'api/booking/approvals?filter=external',
+            'api/booking/conflicts'
         ]
     };
 
@@ -28,7 +32,7 @@ window.ApiService = (function() {
         console.log(`ApiService Cache: Invalidating cache due to modification on: ${modifiedEndpoint}`);
         let invalidated = false;
 
-        // Invalidate list-based caches (e.g., 'api/hall/all-hall')
+        // Invalidate list-based caches
         for (const prefix in cacheInvalidationMap) {
             if (modifiedEndpoint.startsWith(prefix)) {
                 cacheInvalidationMap[prefix].forEach(keyToClear => {
@@ -41,18 +45,17 @@ window.ApiService = (function() {
             }
         }
 
-        // Special handling for bookings: also clear individual hall availability caches
+        // Special handling for bookings: also clear individual hall/user conflict caches
         if (modifiedEndpoint.startsWith('api/booking/')) {
             for (const key of cache.keys()) {
-                if (key.startsWith('api/booking/hall/')) {
+                if (key.startsWith('api/booking/hall/') || key.startsWith('api/booking/conflicts/')) {
                     cache.delete(key);
-                    console.log(`ApiService Cache: Cleared specific hall booking cache '${key}'`);
+                    console.log(`ApiService Cache: Cleared specific booking-related cache '${key}'`);
                     invalidated = true;
                 }
             }
         }
 
-        // As a fallback, if no specific rule was found, clear the entire cache to ensure data consistency.
         if (!invalidated) {
             console.warn("ApiService Cache: No specific invalidation rule found. Clearing entire cache as a fallback.");
             cache.clear();
@@ -76,63 +79,61 @@ window.ApiService = (function() {
         }
 
         const authHeaders = getAuthHeaders();
-        if (!authHeaders) {
+        // Allow login to proceed without auth headers
+        if (!authHeaders && endpoint !== 'api/auth/login') {
             logout();
             return Promise.reject(new Error("User not authenticated."));
         }
 
-        options.headers = new Headers(authHeaders);
+        options.headers = new Headers(authHeaders || {});
         if (options.body && !options.headers.has('Content-Type')) {
             options.headers.set('Content-Type', 'application/json');
         }
 
-        // Retry logic: Attempt the fetch call up to 3 times with exponential backoff.
         for (let attempt = 0; attempt < 3; attempt++) {
             try {
                 const response = await fetch(fullUrl, options);
 
-                // For server errors (5xx), we throw to trigger a retry.
                 if (response.status >= 500) {
                     throw new Error(`Server error: ${response.status}`);
                 }
 
-                if (response.status === 401) {
+                if (response.status === 401 && endpoint !== 'api/auth/login') {
                     console.error("Unauthorized (401) detected by ApiService. Logging out.");
                     logout();
-                    throw new Error('Unauthorized'); // Do not retry on auth failure
+                    throw new Error('Unauthorized');
                 }
 
                 if (!response.ok) {
                     const errorText = await response.text();
                     console.error(`API Error Response on ${endpoint}:`, errorText);
-                    // Do not retry on client errors (4xx), throw immediately.
                     throw new Error(`API Error: ${response.status} - ${errorText}`);
                 }
 
-                // If the request was successful, handle cache and response.
                 if (!isReadOperation) {
                     invalidateCache(endpoint);
                 }
-                if (response.status === 204) {
+
+                if (response.status === 204) { // No Content
                     return null;
                 }
+
                 const result = await response.json();
                 const dataToReturn = result.data || result;
+
                 if (isReadOperation) {
                     console.log(`ApiService Cache: Caching response for: ${endpoint}`);
                     cache.set(endpoint, JSON.parse(JSON.stringify(dataToReturn)));
                 }
 
-                return dataToReturn; // Success, exit the retry loop.
+                return dataToReturn;
 
             } catch (error) {
-                // If it's the last attempt, or not a retry-able error, throw.
                 if (attempt === 2 || error.message.includes('Unauthorized') || error.message.startsWith('API Error')) {
                     console.error(`API call failed permanently for endpoint: ${endpoint}`, error);
                     throw error;
                 }
                 
-                // Wait before retrying with exponential backoff (500ms, 1000ms).
                 const delay = Math.pow(2, attempt) * 500;
                 console.warn(`API call for ${endpoint} failed. Retrying in ${delay}ms...`);
                 await new Promise(res => setTimeout(res, delay));
@@ -140,17 +141,24 @@ window.ApiService = (function() {
         }
     }
 
-    // --- Hall Management Functions ---
-    const halls = {
-        getAll: () => fetchWithAuth('api/hall/all-hall'),
-        getById: (hallId) => fetchWithAuth(`api/hall/${hallId}`),
-        update: (hallId, hallData) => fetchWithAuth(`api/hall/${hallId}`, {
-            method: 'PATCH',
-            body: JSON.stringify(hallData)
+    // --- Authentication Functions ---
+    const auth = {
+        login: (credentials) => fetchWithAuth('api/auth/login', {
+            method: 'POST',
+            body: JSON.stringify(credentials)
         })
     };
 
-    // --- School & Department Functions ---
+    // --- Hall Management Functions ---
+    const halls = {
+        getAll: (filter = 'all') => fetchWithAuth(`api/hall/all-hall?filter=${filter}`),
+        getById: (hallId) => fetchWithAuth(`api/hall/${hallId}`),
+        create: (hallData) => fetchWithAuth('api/hall/create', { method: 'POST', body: JSON.stringify(hallData) }),
+        update: (hallId, hallData) => fetchWithAuth(`api/hall/${hallId}`, { method: 'PATCH', body: JSON.stringify(hallData) }),
+        delete: (hallId) => fetchWithAuth(`api/hall/${hallId}`, { method: 'DELETE' })
+    };
+
+    // --- School & Department Functions (Old Structure) ---
     const organization = {
         getSchools: () => fetchWithAuth('api/school/all-schools'),
         getDepartments: () => fetchWithAuth('api/department/all-department')
@@ -159,42 +167,47 @@ window.ApiService = (function() {
     // --- Employee Management Functions ---
     const employees = {
         getAll: () => fetchWithAuth('api/employee/all-employees'),
-        update: (employeeId, employeeData) => fetchWithAuth(`api/employee/${employeeId}`, {
-            method: 'PATCH',
-            body: JSON.stringify(employeeData)
-        }),
-        delete: (employeeId) => fetchWithAuth(`api/employee/${employeeId}`, {
-            method: 'DELETE'
-        })
+        getById: (employeeId) => fetchWithAuth(`api/employee/${employeeId}`),
+        create: (employeeData) => fetchWithAuth('api/employee/create', { method: 'POST', body: JSON.stringify(employeeData) }),
+        update: (employeeId, employeeData) => fetchWithAuth(`api/employee/${employeeId}`, { method: 'PATCH', body: JSON.stringify(employeeData) }),
+        delete: (employeeId) => fetchWithAuth(`api/employee/${employeeId}`, { method: 'DELETE' })
     };
 
     // --- Booking Management Functions ---
     const bookings = {
+        // GET
         getMyBookings: () => fetchWithAuth('api/booking/my-requests'),
-        getForHall: (hallId) => fetchWithAuth(`api/booking/hall/${hallId}`),
-        getPendingForHall: (hallId) => fetchWithAuth(`api/booking/hall/pending/${hallId}`),
+        getApprovals: (filter = 'all') => fetchWithAuth(`api/booking/approvals?filter=${filter}`),
         getForApproval: () => fetchWithAuth('api/booking/approvals?filter=internal'),
         getForApprovalExternal: () => fetchWithAuth('api/booking/approvals?filter=external'),
         getForForwarding: () => fetchWithAuth('api/booking/approvals?filter=forward'),
-        createRequest: (bookingData) => fetchWithAuth('api/booking/request', {
-            method: 'POST',
-            body: JSON.stringify(bookingData)
-        }),
-        cancel: (bookingId) => fetchWithAuth(`api/booking/${bookingId}`, {
-            method: 'DELETE'
-        }),
-        updateStatus: (bookingId, action) => fetchWithAuth(`api/booking/${bookingId}/${action}`, {
-            method: 'PUT'
-        })
+        getForHall: (hallId) => fetchWithAuth(`api/booking/hall/${hallId}`),
+        getPendingForHall: (hallId) => fetchWithAuth(`api/booking/hall/pending/${hallId}`),
+        getConflicts: () => fetchWithAuth('api/booking/conflicts'),
+        getConflictsForHall: (hallId) => fetchWithAuth(`api/booking/conflicts/hall/${hallId}`),
+        getConflictsForUser: (userId) => fetchWithAuth(`api/booking/conflicts/user/${userId}`),
+        
+        // POST
+        createRequest: (bookingData) => fetchWithAuth('api/booking/request', { method: 'POST', body: JSON.stringify(bookingData) }),
+        
+        // PUT
+        approve: (bookingId) => fetchWithAuth(`api/booking/${bookingId}/approve`, { method: 'PUT' }),
+        forward: (bookingId) => fetchWithAuth(`api/booking/${bookingId}/forward`, { method: 'PUT' }),
+        reject: (bookingId) => fetchWithAuth(`api/booking/${bookingId}/reject`, { method: 'PUT' }),
+        modify: (bookingId, bookingData) => fetchWithAuth(`api/booking/${bookingId}/modify`, { method: 'PUT', body: JSON.stringify(bookingData) }),
+
+        // DELETE
+        delete: (bookingId) => fetchWithAuth(`api/booking/${bookingId}`, { method: 'DELETE' })
     };
 
     // Expose the public API functions for global use.
     return {
+        auth,
         halls,
         organization,
         employees,
         bookings,
-        invalidateCache // Expose for manual cache clearing if ever needed for debugging
+        invalidateCache
     };
 
 })();

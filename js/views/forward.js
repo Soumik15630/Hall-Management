@@ -45,6 +45,7 @@ window.ForwardView = (function() {
         return await ApiService.bookings.getForForwarding();
     }
 
+    // --- UPDATED: Logic applied from approveBookings.js ---
     async function handleBookingAction(bookingId, action) {
         const row = document.querySelector(`tr[data-booking-id="${bookingId}"]`);
         if (row) {
@@ -52,9 +53,16 @@ window.ForwardView = (function() {
             row.querySelectorAll('button').forEach(btn => btn.disabled = true);
         }
         try {
-            const response = await ApiService.bookings.updateStatus(bookingId, action);
-            showToast(response.message || `Booking action '${action}' completed successfully.`, 'success');
-            await initialize(); // Refresh the list
+            // Use the generic updateStatus endpoint which maps to specific backend routes
+            // e.g., PUT /api/booking/:id/forward or PUT /api/booking/:id/reject
+            await ApiService.bookings.updateStatus(bookingId, action);
+            
+            showToast(`Booking ${action}ed successfully.`, 'success');
+            
+            // More efficient UI update: filter out the item locally instead of re-fetching
+            state.allForwardableBookings = state.allForwardableBookings.filter(b => b.unique_id !== bookingId);
+            applyFiltersAndRender();
+
         } catch (error) {
             console.error(`Failed to ${action} booking ${bookingId}:`, error);
             showToast(`Error: Could not complete the '${action}' action. ${error.message}`, 'error');

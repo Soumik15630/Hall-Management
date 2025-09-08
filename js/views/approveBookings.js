@@ -1,4 +1,4 @@
-// Approve Bookings View Module (Updated to use FilterManager)
+// Approve Bookings View Module (Updated with Editable Dropdowns)
 window.ApproveBookingsView = (function() {
     // --- STATE MANAGEMENT ---
     const defaultFilters = () => ({
@@ -51,7 +51,7 @@ window.ApproveBookingsView = (function() {
     
     async function loadBookings() {
         const tableBody = document.getElementById('approve-bookings-body');
-        if (tableBody) tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10"><div class="spinner"></div></td></tr>`;
+        if (tableBody) tableBody.innerHTML = `<tr><td colspan="8" class="text-center py-10"><div class="spinner"></div></td></tr>`;
 
         try {
             const data = state.bookingType === 'internal'
@@ -65,15 +65,56 @@ window.ApproveBookingsView = (function() {
             console.error(`Error loading ${state.bookingType} approval data:`, error);
             if (tableBody) {
                 const errorMessage = `No ${state.bookingType} booking requests found or failed to load data.`;
-                tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-slate-400">${errorMessage}</td></tr>`;
+                tableBody.innerHTML = `<tr><td colspan="8" class="text-center py-10 text-slate-400">${errorMessage}</td></tr>`;
             }
         }
     }
 
+    // --- Handle saving modified booking details ---
+    // FIXED: class_code now sends an empty string instead of null to match server expectations
+    async function handleSaveModification(bookingId) {
+        const form = document.querySelector(`tr[data-details-for="${bookingId}"]`);
+        if (!form) return;
 
-    async function updateBookingStatus(bookingId, action) {
-        return await ApiService.bookings.updateStatus(bookingId, action);
+        const originalBooking = state.bookings.find(b => b.unique_id === bookingId);
+        if (!originalBooking) {
+            showToast('Original booking data not found.', 'error');
+            return;
+        }
+
+        // Construct a clean payload with only the fields required by the API
+        const payload = {
+            hall_id: originalBooking.hall_id,
+            booking_type: originalBooking.booking_type,
+            days_of_week: originalBooking.days_of_week,
+            booking_requested_employee_id: originalBooking.booking_requested_employee_id,
+            purpose: form.querySelector(`#purpose-${bookingId}`).value,
+            class_code: form.querySelector(`#class_code-${bookingId}`).value || "",
+            start_date: new Date(form.querySelector(`#start_date-${bookingId}`).value + 'T' + form.querySelector(`#start_time-${bookingId}`).value).toISOString(),
+            end_date: new Date(form.querySelector(`#end_date-${bookingId}`).value + 'T' + form.querySelector(`#end_time-${bookingId}`).value).toISOString(),
+            start_time: form.querySelector(`#start_time-${bookingId}`).value,
+            end_time: form.querySelector(`#end_time-${bookingId}`).value,
+        };
+
+        // Clean up any potentially undefined keys
+        Object.keys(payload).forEach(key => payload[key] === undefined && delete payload[key]);
+
+        const saveButton = form.querySelector('[data-action="save-edit"]');
+        saveButton.disabled = true;
+        saveButton.innerHTML = '<span class="spinner-sm"></span> Saving...';
+
+        try {
+            await ApiService.bookings.modify(bookingId, payload); 
+            showToast('Booking updated successfully!', 'success');
+            await loadBookings();
+        } catch (error) {
+            console.error('Failed to update booking:', error);
+            showToast(`Error updating booking: ${error.message || 'Please try again.'}`, 'error');
+            saveButton.disabled = false;
+            saveButton.innerHTML = 'Save Changes';
+        }
     }
+
 
     // --- FILTERING ---
     function applyFiltersAndRender() {
@@ -102,46 +143,87 @@ window.ApproveBookingsView = (function() {
         renderApproveBookingsTable();
     }
 
-    // --- RENDERING ---
+    // --- RENDERING (Updated with Dropdown Card System) ---
     function renderApproveBookingsTable() {
         const data = state.filteredBookings;
         const tableBody = document.getElementById('approve-bookings-body');
         if (!tableBody) return;
 
         if (!data || data.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-10 text-slate-400">No pending requests match the current filters.</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="8" class="text-center py-10 text-slate-400">No pending requests match the current filters.</td></tr>`;
             return;
         }
 
         const tableHtml = data.map(booking => {
             const hallName = booking.hall?.name || 'N/A';
             const userName = booking.user?.employee?.employee_name || 'N/A';
-            const startDateTime = new Date(`${booking.start_date.substring(0, 10)}T${booking.start_time}`);
-            const endDateTime = new Date(`${booking.end_date.substring(0, 10)}T${booking.end_time}`);
+            const startDateTime = new Date(booking.start_date);
+            const endDateTime = new Date(booking.end_date);
             const statusInfo = formatStatus(booking.status);
 
             return `
-            <tr class="hover:bg-slate-800/50 transition-colors" data-booking-id="${booking.unique_id}">
-                <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300">${formatDate(booking.created_at)}</td>
-                <td class="px-3 py-4 text-sm">
+            <tr class="booking-row border-b border-slate-800 cursor-pointer hover:bg-slate-800/50 transition-colors" data-booking-id="${booking.unique_id}">
+                <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300 align-middle">${formatDate(booking.created_at)}</td>
+                <td class="px-3 py-4 text-sm align-middle">
                     <div class="font-medium text-white">${hallName}</div>
                     <div class="text-slate-400 text-xs break-all">${booking.hall_id}</div>
                 </td>
-                <td class="px-3 py-4 text-sm">
+                <td class="px-3 py-4 text-sm align-middle">
                     <div class="font-medium text-white">${booking.purpose}</div>
                     <div class="text-slate-400">${booking.class_code || ''}</div>
                 </td>
-                <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300">${startDateTime.toLocaleString()} - ${endDateTime.toLocaleTimeString()}</td>
-                <td class="px-3 py-4 text-sm">
+                <td class="whitespace-nowrap px-3 py-4 text-sm text-slate-300 align-middle">${startDateTime.toLocaleString()} - ${endDateTime.toLocaleTimeString()}</td>
+                <td class="px-3 py-4 text-sm align-middle">
                     <div class="font-medium text-white">${userName}</div>
-                    <div class="text-slate-400 text-xs break-all">${booking.user?.employee?.department_name || 'N/A'}</div>
+                    <div class="text-slate-400 text-xs break-all">${booking.user?.employee?.department?.department_name || 'N/A'}</div>
                 </td>
-                <td class="px-3 py-4 text-sm font-semibold ${statusInfo.className}">${statusInfo.text}</td>
-                <td class="px-3 py-4 text-sm">
-                    <div class="flex flex-col sm:flex-row gap-2">
+                <td class="px-3 py-4 text-sm font-semibold align-middle ${statusInfo.className}">${statusInfo.text}</td>
+                <td class="px-3 py-4 text-sm align-middle">
+                    <div class="flex flex-wrap gap-2">
                         <button data-action="approve" class="px-2 py-1 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-md transition">Approve</button>
                         <button data-action="check-conflicts" class="px-2 py-1 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition">Conflicts</button>
                         <button data-action="reject" class="px-2 py-1 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-md transition">Reject</button>
+                        <button data-action="modify" class="px-2 py-1 text-xs font-semibold text-white bg-yellow-600 hover:bg-yellow-700 rounded-md transition">Modify</button>
+                    </div>
+                </td>
+                <td class="px-3 py-4 text-sm text-center align-middle">
+                    <i data-lucide="chevron-down" class="expand-icon w-5 h-5 transition-transform text-slate-400"></i>
+                </td>
+            </tr>
+            <tr class="details-row bg-slate-900/70 hidden" data-details-for="${booking.unique_id}">
+                <td colspan="8" class="p-0">
+                    <div class="p-6 space-y-4 border-t-2 border-blue-500">
+                        <h4 class="text-lg font-semibold text-white border-b border-slate-600 pb-2">Modify Booking Details</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="purpose-${booking.unique_id}" class="block text-sm font-medium text-slate-300 mb-1">Purpose of Booking</label>
+                                <input type="text" id="purpose-${booking.unique_id}" value="${booking.purpose}" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:ring-blue-500 focus:border-blue-500 transition">
+                            </div>
+                            <div>
+                                <label for="class_code-${booking.unique_id}" class="block text-sm font-medium text-slate-300 mb-1">Class Code (Optional)</label>
+                                <input type="text" id="class_code-${booking.unique_id}" value="${booking.class_code || ''}" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:ring-blue-500 focus:border-blue-500 transition">
+                            </div>
+                            <div>
+                                <label for="start_date-${booking.unique_id}" class="block text-sm font-medium text-slate-300 mb-1">Start Date</label>
+                                <input type="date" id="start_date-${booking.unique_id}" value="${startDateTime.toISOString().substring(0, 10)}" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:ring-blue-500 focus:border-blue-500 transition">
+                            </div>
+                            <div>
+                                <label for="start_time-${booking.unique_id}" class="block text-sm font-medium text-slate-300 mb-1">Start Time</label>
+                                <input type="time" id="start_time-${booking.unique_id}" value="${startDateTime.toTimeString().substring(0,5)}" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:ring-blue-500 focus:border-blue-500 transition">
+                            </div>
+                            <div>
+                                <label for="end_date-${booking.unique_id}" class="block text-sm font-medium text-slate-300 mb-1">End Date</label>
+                                <input type="date" id="end_date-${booking.unique_id}" value="${endDateTime.toISOString().substring(0, 10)}" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:ring-blue-500 focus:border-blue-500 transition">
+                            </div>
+                            <div>
+                                <label for="end_time-${booking.unique_id}" class="block text-sm font-medium text-slate-300 mb-1">End Time</label>
+                                <input type="time" id="end_time-${booking.unique_id}" value="${endDateTime.toTimeString().substring(0,5)}" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white focus:ring-blue-500 focus:border-blue-500 transition">
+                            </div>
+                        </div>
+                        <div class="flex justify-end gap-3 pt-4">
+                            <button data-action="cancel-edit" class="px-4 py-2 text-sm font-semibold text-slate-300 bg-slate-600 hover:bg-slate-700 rounded-lg transition">Cancel</button>
+                            <button data-action="save-edit" class="glowing-btn px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition flex items-center gap-2">Save Changes</button>
+                        </div>
                     </div>
                 </td>
             </tr>`;
@@ -151,6 +233,7 @@ window.ApproveBookingsView = (function() {
         updateFilterIcons();
         if(window.lucide) lucide.createIcons();
     }
+
 
     function updateFilterIcons() {
         document.querySelectorAll('#approve-bookings-view .filter-icon').forEach(icon => {
@@ -178,12 +261,10 @@ window.ApproveBookingsView = (function() {
     }
 
     function closeModal(modalId) {
-        // If a specific modalId is given (like the conflict modal), close it.
         if (modalId) {
             const modal = document.getElementById(modalId);
             if(modal) modal.classList.add('hidden');
         } else {
-            // Otherwise, close all non-filter modals
             document.querySelectorAll('.modal').forEach(modal => {
                 if (!modal.id.startsWith('filter-modal-')) {
                     modal.classList.add('hidden');
@@ -191,7 +272,6 @@ window.ApproveBookingsView = (function() {
             });
         }
 
-        // Always hide the main backdrop if no other modals are visible
         const anyModalVisible = document.querySelector('.modal:not(.hidden)');
         if (!anyModalVisible) {
             const backdrop = document.getElementById('modal-backdrop');
@@ -201,7 +281,6 @@ window.ApproveBookingsView = (function() {
             }
         }
         
-        // Let FilterManager handle its own modals
         FilterManager.close();
     }
 
@@ -217,7 +296,7 @@ window.ApproveBookingsView = (function() {
         container.innerHTML = allRequests.map(booking => {
             const rejectIds = allRequestIds.filter(id => id !== booking.unique_id);
             const userName = booking.user?.employee?.employee_name || 'N/A';
-            const department = booking.user?.employee?.department_name || 'N/A';
+            const department = booking.user?.employee?.department?.department_name || 'N/A';
             
             return `
             <div class="bg-slate-900/50 p-4 rounded-lg border border-slate-700 flex flex-col md:flex-row justify-between items-center gap-4">
@@ -237,12 +316,6 @@ window.ApproveBookingsView = (function() {
     }
 
     // --- REFACTORED: Integration with FilterManager ---
-    
-    /**
-     * Opens a filter modal using the centralized FilterManager.
-     * It constructs a context object with current filters and all necessary data.
-     * @param {string} column - The filter column to open (e.g., 'hall', 'bookedBy').
-     */
     async function openFilterModalFor(column) {
         const employees = await getEmployees();
         const context = {
@@ -255,30 +328,19 @@ window.ApproveBookingsView = (function() {
         FilterManager.openFilterModalFor(column, context);
     }
     
-    /**
-     * Callback for when a filter is applied via FilterManager.
-     * Merges the new filter values into the component's state.
-     * @param {object} newValues - The filter values from the modal.
-     */
     function handleApplyFilter(newValues) {
         state.filters = { ...state.filters, ...newValues };
         applyFiltersAndRender();
     }
 
-    /**
-     * Callback for when a filter is cleared via FilterManager.
-     * Resets the specified filter column to its default state.
-     * @param {string} column - The filter column to clear.
-     */
     function handleClearFilter(column) {
-        // The 'column' parameter directly corresponds to the key in the state.filters object.
         if (state.filters.hasOwnProperty(column)) {
             state.filters[column] = defaultFilters()[column];
             applyFiltersAndRender();
         }
     }
 
-
+    // --- CORRECTED: handleBookingAction function ---
     async function handleBookingAction(bookingId, action) {
         const row = document.querySelector(`tr[data-booking-id="${bookingId}"]`);
         if (row) {
@@ -286,7 +348,14 @@ window.ApproveBookingsView = (function() {
             row.querySelectorAll('button').forEach(btn => btn.disabled = true);
         }
         try {
-            await updateBookingStatus(bookingId, action);
+            // Use the correct API function based on the action
+            if (action === 'approve') {
+                await ApiService.bookings.approve(bookingId);
+            } else if (action === 'reject') {
+                await ApiService.bookings.reject(bookingId);
+            } else {
+                throw new Error(`Unknown action: ${action}`);
+            }
             showToast(`Booking ${action}ed successfully.`, 'success');
             state.bookings = state.bookings.filter(b => b.unique_id !== bookingId);
             applyFiltersAndRender();
@@ -300,18 +369,43 @@ window.ApproveBookingsView = (function() {
         }
     }
 
+    // --- CORRECTED: handleCheckConflicts function ---
     async function handleCheckConflicts(bookingId) {
         const originalRequest = state.bookings.find(b => b.unique_id === bookingId);
-        if (!originalRequest) {
-            showToast('Could not find the original booking request.', 'error');
+        if (!originalRequest || !originalRequest.hall_id) {
+            showToast('Could not find the booking request or its hall ID.', 'error');
             return;
         }
 
         try {
-            const conflicts = await ApiService.bookings.getConflictsFor(bookingId);
-            if (conflicts && conflicts.length > 0) {
-                displayConflictModal(originalRequest, conflicts);
+            // Fetch the conflict data object from the API.
+            const conflictData = await ApiService.bookings.getConflictsForHall(originalRequest.hall_id);
+
+            // The API returns an object with a 'conflicts' array. Check if it exists and is an array.
+            if (conflictData && Array.isArray(conflictData.conflicts)) {
+                
+                // The API returns all conflicts for the hall, so we filter them for the specific time of our request.
+                const overlappingRequests = conflictData.conflicts.filter(c => {
+                    // Don't compare the booking with itself
+                    if (c.unique_id === originalRequest.unique_id) return false;
+                    
+                    const originalStart = new Date(originalRequest.start_date);
+                    const originalEnd = new Date(originalRequest.end_date);
+                    const conflictStart = new Date(c.start_date);
+                    const conflictEnd = new Date(c.end_date);
+
+                    // Standard overlap check: (StartA < EndB) and (EndA > StartB)
+                    return originalStart < conflictEnd && originalEnd > conflictStart;
+                });
+
+                if (overlappingRequests.length > 0) {
+                    displayConflictModal(originalRequest, overlappingRequests);
+                } else {
+                    // This case handles when the API returns an empty conflicts array, or when none of the conflicts overlap with the current booking.
+                    showToast('No conflicts found for this booking. It is safe to approve.', 'info');
+                }
             } else {
+                // This case handles the server response explicitly stating no conflicts, or if the response format is unexpected.
                 showToast('No conflicts found for this booking. It is safe to approve.', 'info');
             }
         } catch (error) {
@@ -327,7 +421,6 @@ window.ApproveBookingsView = (function() {
         const view = document.getElementById('approve-bookings-view');
         if (!view) return;
 
-        // --- Initialize FilterManager for this view ---
         FilterManager.initialize({
             onApply: handleApplyFilter,
             onClear: handleClearFilter,
@@ -362,22 +455,65 @@ window.ApproveBookingsView = (function() {
             }
         }, { signal });
 
+        // --- FIXED: Event handler logic to correctly find the booking ID ---
         document.getElementById('approve-bookings-body')?.addEventListener('click', e => {
             const button = e.target.closest('button[data-action]');
-            if (!button || button.disabled) return;
-            const row = e.target.closest('tr[data-booking-id]');
-            const bookingId = row ? row.dataset.bookingId : null;
+            const parentRow = e.target.closest('tr');
+            
+            if (!parentRow) return;
+
+            let bookingId;
+            if (parentRow.classList.contains('booking-row')) {
+                bookingId = parentRow.dataset.bookingId;
+            } else if (parentRow.classList.contains('details-row')) {
+                bookingId = parentRow.dataset.detailsFor;
+            }
+
             if (!bookingId) return;
 
-            const action = button.dataset.action;
-            if (action === 'check-conflicts') {
-                handleCheckConflicts(bookingId);
-            } else if (action === 'approve' || action === 'reject') {
-                showConfirmationModal(
-                    `Confirm ${action.charAt(0).toUpperCase() + action.slice(1)}`,
-                    `Are you sure you want to ${action} this booking?`,
-                    () => handleBookingAction(bookingId, action)
-                );
+            // If a button was clicked, handle its action
+            if (button) {
+                e.stopPropagation(); // prevent row click from firing
+                const action = button.dataset.action;
+                const mainRow = document.querySelector(`.booking-row[data-booking-id="${bookingId}"]`);
+
+                switch (action) {
+                    case 'approve':
+                    case 'reject':
+                        showConfirmationModal(
+                            `Confirm ${action.charAt(0).toUpperCase() + action.slice(1)}`,
+                            `Are you sure you want to ${action} this booking?`,
+                            () => handleBookingAction(bookingId, action)
+                        );
+                        return;
+                    case 'check-conflicts':
+                        handleCheckConflicts(bookingId);
+                        return;
+                    case 'modify':
+                    case 'cancel-edit':
+                        if (mainRow) {
+                            const detailsRowToToggle = mainRow.nextElementSibling;
+                            const iconToRotate = mainRow.querySelector('.expand-icon');
+                            if (detailsRowToToggle?.classList.contains('details-row')) {
+                                detailsRowToToggle.classList.toggle('hidden');
+                            }
+                            if(iconToRotate) iconToRotate.classList.toggle('rotate-180');
+                        }
+                        return;
+                    case 'save-edit':
+                        handleSaveModification(bookingId);
+                        return;
+                }
+            }
+
+            // If no button was clicked, but a main row was, treat it as an expand/collapse action
+            if (parentRow.classList.contains('booking-row')) {
+                const detailsRow = parentRow.nextElementSibling;
+                const icon = parentRow.querySelector('.expand-icon');
+                if (detailsRow?.classList.contains('details-row')) {
+                    detailsRow.classList.toggle('hidden');
+                }
+                if (icon) icon.classList.toggle('rotate-180');
             }
         }, { signal });
         
@@ -392,7 +528,12 @@ window.ApproveBookingsView = (function() {
                 const rejectIds = button.dataset.rejectIds.split(',').filter(Boolean);
                 
                 try {
-                    await ApiService.bookings.resolveConflict({ approveId, rejectIds });
+                    // Sequentially reject and then approve
+                    for (const id of rejectIds) {
+                        await ApiService.bookings.reject(id);
+                    }
+                    await ApiService.bookings.approve(approveId);
+
                     showToast('Conflict resolved successfully.', 'success');
                     
                     const idsToRemove = [approveId, ...rejectIds];
@@ -432,8 +573,9 @@ window.ApproveBookingsView = (function() {
     function cleanup() {
         if (abortController) abortController.abort();
         state = { bookings: [], filteredBookings: [], filters: defaultFilters(), employeeDataCache: null, bookingType: 'internal' };
-        closeModal(); // Close any open modals
+        closeModal();
     }
 
     return { initialize, cleanup };
 })();
+

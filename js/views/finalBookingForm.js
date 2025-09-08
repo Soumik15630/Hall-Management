@@ -828,16 +828,16 @@ window.FinalBookingFormView = (function() {
                 const endMinute = String(tempDate.getMinutes()).padStart(2, '0');
                 const actualEndTime = `${endHour}:${endMinute}`;
                 
-                // For individual bookings, start_date and end_date are the same day.
-                // The time component is handled by start_time and end_time fields.
-                const dateISO = new Date(selectedDate).toISOString();
+                // CORRECTED: Construct full ISO strings for start and end dates
+                const startDateISO = new Date(`${selectedDate}T${startTime}:00`).toISOString();
+                const endDateISO = new Date(`${selectedDate}T${actualEndTime}:00`).toISOString();
 
                 const payload = {
                     hall_id: state.hallIdFromUrl,
                     purpose: purposeInput.value.trim(),
                     booking_type: 'INDIVIDUAL',
-                    start_date: dateISO,
-                    end_date: dateISO,
+                    start_date: startDateISO,
+                    end_date: endDateISO,
                     start_time: startTime,
                     end_time: actualEndTime,
                     class_code: classCodeInput?.value.trim() || undefined,
@@ -848,7 +848,9 @@ window.FinalBookingFormView = (function() {
 
             const results = await Promise.all(bookingPromises);
             
-            const successfulBookings = results.filter(r => r.success).length;
+            // Assuming the API returns an object with a 'success' property
+            const successfulBookings = results.filter(r => r && (r.success || r.unique_id)).length;
+
             if (successfulBookings === bookingGroups.length) {
                 showToast('All booking requests submitted successfully!', 'success');
             } else {
