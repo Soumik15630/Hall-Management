@@ -62,7 +62,7 @@ window.ArchiveView = (function() {
     // --- FIXED: fetchArchivedHallData now uses the correct, filtered endpoint ---
     async function fetchArchivedHallData() {
         // Directly fetch only the archived halls from the server
-        const archivedHalls = await ApiService.halls.getAll({ filter: 'archived' });
+        const archivedHalls = await ApiService.halls.getArchived();
         // Format the fetched halls for display
         return await fetchAllFormattedHalls(archivedHalls);
     }

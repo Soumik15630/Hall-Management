@@ -152,6 +152,7 @@ window.ApiService = (function() {
     // --- Hall Management Functions ---
     const halls = {
         getAll: (filter = 'all') => fetchWithAuth(`api/hall/all-hall?filter=${filter}`),
+        getArchived:(filter = 'archived')=> fetchWithAuth(`api/hall/all-hall?filter=${filter}`),
         getById: (hallId) => fetchWithAuth(`api/hall/${hallId}`),
         create: (hallData) => fetchWithAuth('api/hall/create', { method: 'POST', body: JSON.stringify(hallData) }),
         update: (hallId, hallData) => fetchWithAuth(`api/hall/${hallId}`, { method: 'PATCH', body: JSON.stringify(hallData) }),

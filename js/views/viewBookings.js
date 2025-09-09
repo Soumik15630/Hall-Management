@@ -43,7 +43,7 @@ window.ViewBookingsView = (function() {
 
     // --- API & DATA HANDLING ---
     async function fetchViewBookingsData() {
-        return await ApiService.bookings.getMyBookings();
+        return await ApiService.bookings.getMyBookings(); // Corrected API call
     }
 
     async function getSchoolsAndDepartments() {
@@ -132,9 +132,18 @@ window.ViewBookingsView = (function() {
                     </tr>
                     <tr class="details-row bg-slate-900/70 hidden">
                         <td colspan="8" class="p-0">
-                            <div class="p-4 text-sm">
-                                <!-- Expanded details can be added here if needed -->
-                                <p><strong class="text-slate-400">Booking ID:</strong> <span class="text-white font-mono text-xs">${booking.unique_id || 'N/A'}</span></p>
+                            <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+                                <div class="space-y-3">
+                                    <h4 class="font-semibold text-white border-b border-slate-600 pb-2">User Details</h4>
+                                    <p><strong class="text-slate-400 w-24 inline-block">Booked By:</strong> <span class="text-white">${userName}</span></p>
+                                    <p><strong class="text-slate-400 w-24 inline-block">School:</strong> <span class="text-white">${userSchool}</span></p>
+                                    <p><strong class="text-slate-400 w-24 inline-block">Dept:</strong> <span class="text-white">${userDepartment}</span></p>
+                                </div>
+                                <div class="space-y-3">
+                                    <h4 class="font-semibold text-white border-b border-slate-600 pb-2">Booking Info</h4>
+                                    <p><strong class="text-slate-400 w-24 inline-block">Status:</strong> <span class="font-semibold ${statusClass}">${statusText}</span></p>
+                                    <p><strong class="text-slate-400 w-24 inline-block">Booking ID:</strong> <span class="text-white font-mono text-xs">${booking.unique_id || 'N/A'}</span></p>
+                                </div>
                             </div>
                         </td>
                     </tr>
@@ -270,3 +279,4 @@ window.ViewBookingsView = (function() {
 
     return { initialize, cleanup };
 })();
+

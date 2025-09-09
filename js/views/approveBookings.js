@@ -157,8 +157,13 @@ window.ApproveBookingsView = (function() {
         const tableHtml = data.map(booking => {
             const hallName = booking.hall?.name || 'N/A';
             const userName = booking.user?.employee?.employee_name || 'N/A';
-            const startDateTime = new Date(booking.start_date);
-            const endDateTime = new Date(booking.end_date);
+            // Correctly combine the date-part of start_date with start_time
+            const localStartDateString = booking.start_date.substring(0, 10) + 'T' + booking.start_time;
+            const startDateTime = new Date(localStartDateString);
+
+            // Correctly combine the date-part of end_date with end_time
+            const localEndDateString = booking.end_date.substring(0, 10) + 'T' + booking.end_time;
+            const endDateTime = new Date(localEndDateString);
             const statusInfo = formatStatus(booking.status);
 
             return `
