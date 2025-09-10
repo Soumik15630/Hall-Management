@@ -1,7 +1,6 @@
-// Navigation Module - Dynamic menu generation and view switching
 window.NavigationModule = (function() {
     
-    // Navigation menu data - All items are preserved as they are for the HOD.
+    // Navigation menu data - Updated based on user request
     const navItems = [
         { name: 'Dashboard', target: 'dashboard-view' },
         { 
@@ -21,21 +20,20 @@ window.NavigationModule = (function() {
             name: 'Book the Hall', 
             subItems: [
                 { name: 'Browse & Book', target: 'browse-book-view' }, 
-                { name: 'Semester Booking', target: 'semester-booking-view' }, 
-                { name: 'My Bookings', target: 'my-bookings-view' }
+                { name: 'Semester Booking', target: 'semester-booking-view' }
             ] 
         },
         { 
             name: 'Approve Bookings', 
             subItems: [
                 { name: 'Bookings', target: 'approve-bookings-view' }, 
-                { name: 'Booking Conflicts', target: 'booking-conflicts-view' }
+                { name: 'Forward Bookings', target: 'forward-bookings-view' }
             ] 
         },
         { 
             name: 'Manage Bookings', 
             subItems: [
-                { name: 'Forward Bookings', target: 'forward-bookings-view' }, 
+                { name: 'My Requests', target: 'my-bookings-view' },
                 { name: 'View Bookings', target: 'view-bookings-view' }
             ] 
         }

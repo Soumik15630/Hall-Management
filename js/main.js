@@ -65,7 +65,6 @@
             'semester-booking-view': () => SemesterBookingView.initialize(),
             'my-bookings-view': () => MyBookingsView.initialize(),
             'approve-bookings-view': () => ApproveBookingsView.initialize(),
-            'booking-conflicts-view': () => ConflictsView.initialize(),
             'forward-bookings-view': () => ForwardView.initialize(),
             'view-bookings-view': () => ViewBookingsView.initialize(),
             'hall-booking-details-view': () => HallBookingDetailsView.initialize(hallId),
@@ -100,10 +99,19 @@
         const navContainer = document.getElementById('main-nav');
         if (!navContainer) return;
         navContainer.addEventListener('click', async (e) => {
-            const link = e.target.closest('a[data-target]');
+            const link = e.target.closest('a');
             if (!link) return;
-            e.preventDefault();
-            window.location.hash = '#' + link.dataset.target;
+    
+            // If the link is meant for navigation (has a data-target), handle it
+            if (link.dataset.target) {
+                e.preventDefault();
+                window.location.hash = '#' + link.dataset.target;
+            } 
+            // If it's a dropdown toggle link (href="#" without a target),
+            // also prevent its default action to stop the jump to '#'.
+            else if (link.getAttribute('href') === '#') {
+                e.preventDefault();
+            }
         });
     }
 
@@ -132,3 +140,4 @@
     document.addEventListener('DOMContentLoaded', initializeApp);
 
 })();
+
