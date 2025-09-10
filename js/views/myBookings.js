@@ -42,9 +42,9 @@ window.MyBookingsView = (function() {
         return await ApiService.bookings.getMyBookings();
     }
 
-    async function cancelBookings(bookingIds) {
+    async function deleteBookings(bookingIds) {
         for (const id of bookingIds) {
-             await ApiService.bookings.cancel(id);
+             await ApiService.bookings.delete(id);
         }
     }
 
@@ -213,16 +213,16 @@ window.MyBookingsView = (function() {
                 if (state.selectedRows.length === 0) return;
                 
                 showConfirmationModal(
-                    'Confirm Cancellation', 
-                    `Are you sure you want to request cancellation for ${state.selectedRows.length} booking(s)?`,
+                    'Confirm Deletion', 
+                    `Are you sure you want to permanently delete ${state.selectedRows.length} booking(s)? This action cannot be undone.`,
                     async () => {
                         try {
-                            await cancelBookings(state.selectedRows);
-                            showToast('Cancellation request(s) sent successfully.');
+                            await deleteBookings(state.selectedRows);
+                            showToast('Booking(s) deleted successfully.');
                             state.selectedRows = [];
                             await initialize(); // Refresh data
                         } catch (error) {
-                            console.error('Failed to cancel bookings:', error);
+                            console.error('Failed to delete bookings:', error);
                             showToast(`An error occurred: ${error.message}`, 'error');
                         }
                     }

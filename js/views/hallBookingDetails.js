@@ -440,7 +440,7 @@ window.HallBookingDetailsView = (function() {
     }
 
     async function initialize(hallId) {
-            if (document.readyState !== 'complete') {
+        if (document.readyState !== 'complete') {
                 await new Promise(resolve => {
                     window.addEventListener('load', resolve, { once: true });
                 });
