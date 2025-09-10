@@ -71,7 +71,6 @@ window.ApproveBookingsView = (function() {
     }
 
     // --- Handle saving modified booking details ---
-    // FIXED: class_code now sends an empty string instead of null to match server expectations
     async function handleSaveModification(bookingId) {
         const form = document.querySelector(`tr[data-details-for="${bookingId}"]`);
         if (!form) return;
@@ -81,25 +80,44 @@ window.ApproveBookingsView = (function() {
             showToast('Original booking data not found.', 'error');
             return;
         }
+        
+        const saveButton = form.querySelector('[data-action="save-edit"]');
 
-        // Construct a clean payload with only the fields required by the API
+        const startDateValue = form.querySelector(`#start_date-${bookingId}`).value;
+        const startTimeValue = form.querySelector(`#start_time-${bookingId}`).value;
+        const endDateValue = form.querySelector(`#end_date-${bookingId}`).value;
+        const endTimeValue = form.querySelector(`#end_time-${bookingId}`).value;
+
+        const startDateTime = new Date(`${startDateValue}T${startTimeValue}`);
+        const endDateTime = new Date(`${endDateValue}T${endTimeValue}`);
+        const now = new Date();
+
+        if (startDateTime < now) {
+            showToast('Cannot select a past date or time for the start.', 'error');
+            return;
+        }
+
+        if (endDateTime <= startDateTime) {
+            showToast('End time must be after the start time.', 'error');
+            return;
+        }
+
         const payload = {
             hall_id: originalBooking.hall_id,
             booking_type: originalBooking.booking_type,
-            days_of_week: originalBooking.days_of_week,
-            booking_requested_employee_id: originalBooking.booking_requested_employee_id,
             purpose: form.querySelector(`#purpose-${bookingId}`).value,
-            class_code: form.querySelector(`#class_code-${bookingId}`).value || "",
-            start_date: new Date(form.querySelector(`#start_date-${bookingId}`).value + 'T' + form.querySelector(`#start_time-${bookingId}`).value).toISOString(),
-            end_date: new Date(form.querySelector(`#end_date-${bookingId}`).value + 'T' + form.querySelector(`#end_time-${bookingId}`).value).toISOString(),
-            start_time: form.querySelector(`#start_time-${bookingId}`).value,
-            end_time: form.querySelector(`#end_time-${bookingId}`).value,
+            class_code: form.querySelector(`#class_code-${bookingId}`).value.trim() || undefined,
+            start_date: startDateTime.toISOString(),
+            end_date: endDateTime.toISOString(),
+            start_time: startTimeValue,
+            end_time: endTimeValue,
         };
+        
+        // Remove class_code from payload if it's undefined to keep the payload clean
+        if (payload.class_code === undefined) {
+            delete payload.class_code;
+        }
 
-        // Clean up any potentially undefined keys
-        Object.keys(payload).forEach(key => payload[key] === undefined && delete payload[key]);
-
-        const saveButton = form.querySelector('[data-action="save-edit"]');
         saveButton.disabled = true;
         saveButton.innerHTML = '<span class="spinner-sm"></span> Saving...';
 
@@ -157,11 +175,8 @@ window.ApproveBookingsView = (function() {
         const tableHtml = data.map(booking => {
             const hallName = booking.hall?.name || 'N/A';
             const userName = booking.user?.employee?.employee_name || 'N/A';
-            // Correctly combine the date-part of start_date with start_time
             const localStartDateString = booking.start_date.substring(0, 10) + 'T' + booking.start_time;
             const startDateTime = new Date(localStartDateString);
-
-            // Correctly combine the date-part of end_date with end_time
             const localEndDateString = booking.end_date.substring(0, 10) + 'T' + booking.end_time;
             const endDateTime = new Date(localEndDateString);
             const statusInfo = formatStatus(booking.status);
@@ -289,7 +304,6 @@ window.ApproveBookingsView = (function() {
         FilterManager.close();
     }
 
-    // --- Conflict Resolution Modal Logic ---
     function displayConflictModal(originalRequest, conflictingRequests) {
         const container = document.getElementById('conflict-list-container');
         const modal = document.getElementById('conflict-resolution-modal');
@@ -320,7 +334,6 @@ window.ApproveBookingsView = (function() {
         openModal('conflict-resolution-modal');
     }
 
-    // --- REFACTORED: Integration with FilterManager ---
     async function openFilterModalFor(column) {
         const employees = await getEmployees();
         const context = {
@@ -345,7 +358,6 @@ window.ApproveBookingsView = (function() {
         }
     }
 
-    // --- CORRECTED: handleBookingAction function ---
     async function handleBookingAction(bookingId, action) {
         const row = document.querySelector(`tr[data-booking-id="${bookingId}"]`);
         if (row) {
@@ -353,13 +365,10 @@ window.ApproveBookingsView = (function() {
             row.querySelectorAll('button').forEach(btn => btn.disabled = true);
         }
         try {
-            // Use the correct API function based on the action
             if (action === 'approve') {
                 await ApiService.bookings.approve(bookingId);
             } else if (action === 'reject') {
                 await ApiService.bookings.reject(bookingId);
-            } else {
-                throw new Error(`Unknown action: ${action}`);
             }
             showToast(`Booking ${action}ed successfully.`, 'success');
             state.bookings = state.bookings.filter(b => b.unique_id !== bookingId);
@@ -374,7 +383,63 @@ window.ApproveBookingsView = (function() {
         }
     }
 
-    // --- CORRECTED: handleCheckConflicts function ---
+    async function handleApproveClick(bookingId) {
+        const originalRequest = state.bookings.find(b => b.unique_id === bookingId);
+        if (!originalRequest || !originalRequest.hall_id) {
+            showToast('Could not find the booking request or its hall ID.', 'error');
+            return;
+        }
+
+        const row = document.querySelector(`tr[data-booking-id="${bookingId}"]`);
+        if (row) {
+            row.style.opacity = '0.5';
+            row.querySelectorAll('button').forEach(btn => btn.disabled = true);
+        }
+
+        try {
+            const conflictData = await ApiService.bookings.getConflictsForHall(originalRequest.hall_id);
+            
+            let overlappingRequests = [];
+            if (conflictData && Array.isArray(conflictData.conflicts)) {
+                overlappingRequests = conflictData.conflicts.filter(c => {
+                    if (c.unique_id === originalRequest.unique_id) return false;
+                    
+                    const originalStart = new Date(originalRequest.start_date.substring(0, 10) + 'T' + originalRequest.start_time);
+                    const originalEnd = new Date(originalRequest.end_date.substring(0, 10) + 'T' + originalRequest.end_time);
+                    const conflictStart = new Date(c.start_date.substring(0, 10) + 'T' + c.start_time);
+                    const conflictEnd = new Date(c.end_date.substring(0, 10) + 'T' + c.end_time);
+
+                    return originalStart < conflictEnd && originalEnd > conflictStart;
+                });
+            }
+
+            if (overlappingRequests.length > 0) {
+                if (row) {
+                    row.style.opacity = '1';
+                    row.querySelectorAll('button').forEach(btn => btn.disabled = false);
+                }
+                displayConflictModal(originalRequest, overlappingRequests);
+            } else {
+                if (row) {
+                    row.style.opacity = '1';
+                    row.querySelectorAll('button').forEach(btn => btn.disabled = false);
+                }
+                showConfirmationModal(
+                    'Confirm Approval',
+                    'No conflicts found. Are you sure you want to approve this booking?',
+                    () => handleBookingAction(bookingId, 'approve')
+                );
+            }
+        } catch (error) {
+            console.error('Error checking for conflicts during approval:', error);
+            showToast('Failed to check for conflicts before approving. Please try again.', 'error');
+            if (row) {
+                row.style.opacity = '1';
+                row.querySelectorAll('button').forEach(btn => btn.disabled = false);
+            }
+        }
+    }
+
     async function handleCheckConflicts(bookingId) {
         const originalRequest = state.bookings.find(b => b.unique_id === bookingId);
         if (!originalRequest || !originalRequest.hall_id) {
@@ -383,35 +448,27 @@ window.ApproveBookingsView = (function() {
         }
 
         try {
-            // Fetch the conflict data object from the API.
             const conflictData = await ApiService.bookings.getConflictsForHall(originalRequest.hall_id);
 
-            // The API returns an object with a 'conflicts' array. Check if it exists and is an array.
             if (conflictData && Array.isArray(conflictData.conflicts)) {
-                
-                // The API returns all conflicts for the hall, so we filter them for the specific time of our request.
                 const overlappingRequests = conflictData.conflicts.filter(c => {
-                    // Don't compare the booking with itself
                     if (c.unique_id === originalRequest.unique_id) return false;
                     
-                    const originalStart = new Date(originalRequest.start_date);
-                    const originalEnd = new Date(originalRequest.end_date);
-                    const conflictStart = new Date(c.start_date);
-                    const conflictEnd = new Date(c.end_date);
+                    const originalStart = new Date(originalRequest.start_date.substring(0, 10) + 'T' + originalRequest.start_time);
+                    const originalEnd = new Date(originalRequest.end_date.substring(0, 10) + 'T' + originalRequest.end_time);
+                    const conflictStart = new Date(c.start_date.substring(0, 10) + 'T' + c.start_time);
+                    const conflictEnd = new Date(c.end_date.substring(0, 10) + 'T' + c.end_time);
 
-                    // Standard overlap check: (StartA < EndB) and (EndA > StartB)
                     return originalStart < conflictEnd && originalEnd > conflictStart;
                 });
 
                 if (overlappingRequests.length > 0) {
                     displayConflictModal(originalRequest, overlappingRequests);
                 } else {
-                    // This case handles when the API returns an empty conflicts array, or when none of the conflicts overlap with the current booking.
-                    showToast('No conflicts found for this booking. It is safe to approve.', 'info');
+                    showToast('No conflicts found for this booking.', 'info');
                 }
             } else {
-                // This case handles the server response explicitly stating no conflicts, or if the response format is unexpected.
-                showToast('No conflicts found for this booking. It is safe to approve.', 'info');
+                showToast('No conflicts found for this booking.', 'info');
             }
         } catch (error) {
             console.error('Error checking for conflicts:', error);
@@ -460,67 +517,79 @@ window.ApproveBookingsView = (function() {
             }
         }, { signal });
 
-        // --- FIXED: Event handler logic to correctly find the booking ID ---
-        document.getElementById('approve-bookings-body')?.addEventListener('click', e => {
-            const button = e.target.closest('button[data-action]');
-            const parentRow = e.target.closest('tr');
-            
-            if (!parentRow) return;
+        const approveBookingsBody = document.getElementById('approve-bookings-body');
+        if (approveBookingsBody) {
+            approveBookingsBody.addEventListener('click', e => {
+                const button = e.target.closest('button[data-action]');
+                const parentRow = e.target.closest('tr');
+                if (!parentRow) return;
 
-            let bookingId;
-            if (parentRow.classList.contains('booking-row')) {
-                bookingId = parentRow.dataset.bookingId;
-            } else if (parentRow.classList.contains('details-row')) {
-                bookingId = parentRow.dataset.detailsFor;
-            }
+                let bookingId;
+                if (parentRow.classList.contains('booking-row')) {
+                    bookingId = parentRow.dataset.bookingId;
+                } else if (parentRow.classList.contains('details-row')) {
+                    bookingId = parentRow.dataset.detailsFor;
+                }
+                if (!bookingId) return;
 
-            if (!bookingId) return;
-
-            // If a button was clicked, handle its action
-            if (button) {
-                e.stopPropagation(); // prevent row click from firing
-                const action = button.dataset.action;
-                const mainRow = document.querySelector(`.booking-row[data-booking-id="${bookingId}"]`);
-
-                switch (action) {
-                    case 'approve':
-                    case 'reject':
-                        showConfirmationModal(
-                            `Confirm ${action.charAt(0).toUpperCase() + action.slice(1)}`,
-                            `Are you sure you want to ${action} this booking?`,
-                            () => handleBookingAction(bookingId, action)
-                        );
-                        return;
-                    case 'check-conflicts':
-                        handleCheckConflicts(bookingId);
-                        return;
-                    case 'modify':
-                    case 'cancel-edit':
-                        if (mainRow) {
-                            const detailsRowToToggle = mainRow.nextElementSibling;
-                            const iconToRotate = mainRow.querySelector('.expand-icon');
-                            if (detailsRowToToggle?.classList.contains('details-row')) {
-                                detailsRowToToggle.classList.toggle('hidden');
+                if (button) {
+                    e.stopPropagation();
+                    const action = button.dataset.action;
+                    const mainRow = document.querySelector(`.booking-row[data-booking-id="${bookingId}"]`);
+                    switch (action) {
+                        case 'approve':
+                            handleApproveClick(bookingId);
+                            return;
+                        case 'reject':
+                            showConfirmationModal(`Confirm Reject`, `Are you sure you want to reject this booking?`, () => handleBookingAction(bookingId, 'reject'));
+                            return;
+                        case 'check-conflicts':
+                            handleCheckConflicts(bookingId);
+                            return;
+                        case 'modify':
+                        case 'cancel-edit':
+                             if (mainRow) {
+                                const detailsRowToToggle = mainRow.nextElementSibling;
+                                const iconToRotate = mainRow.querySelector('.expand-icon');
+                                if (detailsRowToToggle?.classList.contains('details-row')) detailsRowToToggle.classList.toggle('hidden');
+                                if (iconToRotate) iconToRotate.classList.toggle('rotate-180');
                             }
-                            if(iconToRotate) iconToRotate.classList.toggle('rotate-180');
-                        }
-                        return;
-                    case 'save-edit':
-                        handleSaveModification(bookingId);
-                        return;
+                            return;
+                        case 'save-edit':
+                            handleSaveModification(bookingId);
+                            return;
+                    }
                 }
-            }
 
-            // If no button was clicked, but a main row was, treat it as an expand/collapse action
-            if (parentRow.classList.contains('booking-row')) {
-                const detailsRow = parentRow.nextElementSibling;
-                const icon = parentRow.querySelector('.expand-icon');
-                if (detailsRow?.classList.contains('details-row')) {
-                    detailsRow.classList.toggle('hidden');
+                if (parentRow.classList.contains('booking-row')) {
+                    const detailsRow = parentRow.nextElementSibling;
+                    const icon = parentRow.querySelector('.expand-icon');
+                    if (detailsRow?.classList.contains('details-row')) detailsRow.classList.toggle('hidden');
+                    if (icon) icon.classList.toggle('rotate-180');
                 }
-                if (icon) icon.classList.toggle('rotate-180');
-            }
-        }, { signal });
+            }, { signal });
+
+            approveBookingsBody.addEventListener('change', e => {
+                const changedInput = e.target;
+                if (changedInput.matches('input[type="date"]')) {
+                    const detailsRow = changedInput.closest('tr.details-row');
+                    if (!detailsRow) return;
+
+                    const bookingId = detailsRow.dataset.detailsFor;
+                    const booking = state.bookings.find(b => b.unique_id === bookingId);
+
+                    if (booking && booking.booking_type === 'INDIVIDUAL') {
+                        if (changedInput.id.startsWith('start_date-')) {
+                            const endDateInput = detailsRow.querySelector(`#end_date-${bookingId}`);
+                            if (endDateInput) endDateInput.value = changedInput.value;
+                        } else if (changedInput.id.startsWith('end_date-')) {
+                            const startDateInput = detailsRow.querySelector(`#start_date-${bookingId}`);
+                            if (startDateInput) startDateInput.value = changedInput.value;
+                        }
+                    }
+                }
+            }, { signal });
+        }
         
         document.getElementById('conflict-resolution-modal')?.addEventListener('click', async e => {
             const button = e.target.closest('button');
@@ -533,14 +602,9 @@ window.ApproveBookingsView = (function() {
                 const rejectIds = button.dataset.rejectIds.split(',').filter(Boolean);
                 
                 try {
-                    // Sequentially reject and then approve
-                    for (const id of rejectIds) {
-                        await ApiService.bookings.reject(id);
-                    }
+                    for (const id of rejectIds) await ApiService.bookings.reject(id);
                     await ApiService.bookings.approve(approveId);
-
                     showToast('Conflict resolved successfully.', 'success');
-                    
                     const idsToRemove = [approveId, ...rejectIds];
                     state.bookings = state.bookings.filter(b => !idsToRemove.includes(b.unique_id));
                     applyFiltersAndRender();

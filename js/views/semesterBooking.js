@@ -438,9 +438,26 @@ window.SemesterBookingView = (function() {
         if (!formDetails.startDate || !formDetails.endDate || !formDetails.purpose || !formDetails.title) {
             showToast('Please fill out all booking detail fields.', 'warning'); return;
         }
-        if (new Date(formDetails.startDate) > new Date(formDetails.endDate)) {
-            showToast('Start date cannot be after the end date.', 'warning'); return;
+
+        // --- NEW: Date Validation ---
+        const startDate = new Date(formDetails.startDate);
+        const endDate = new Date(formDetails.endDate);
+        const today = new Date();
+
+        // Reset time part for accurate date-only comparison
+        today.setHours(0, 0, 0, 0); 
+
+        // 1. Check if start date is in the past
+        if (startDate < today) {
+            showToast('Start date cannot be in the past.', 'error');
+            return;
         }
+        
+        // 2. Check if end date is before start date
+        if (endDate < startDate) {
+            showToast('End date cannot be before the start date.', 'error'); return;
+        }
+        // --- End of Validation ---
 
         const dayMap = { 'Mon': 'MONDAY', 'Tue': 'TUESDAY', 'Wed': 'WEDNESDAY', 'Thu': 'THURSDAY', 'Fri': 'FRIDAY' };
         const selectedDays = [...new Set(currentHallState.selectedSlots.map(s => s.day))];
