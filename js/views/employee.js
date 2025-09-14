@@ -218,23 +218,48 @@ window.EmployeeView = (function() {
         document.querySelector(`input[name="update-employee-status"][value="${employee.status || 'ACTIVE'}"]`).checked = true;
         const belongsToSelect = document.getElementById('update-employee-belongs-to');
         belongsToSelect.value = state.modalState.belongsTo;
+        
         belongsToSelect.dispatchEvent(new Event('change'));
         openModal('update-employee-modal');
     }
 
     // --- EVENT HANDLERS ---
     async function handleUpdateSubmit(e) {
-        // This function's logic remains the same
         e.preventDefault();
-        const payload = {};
-        // ... logic to build payload ...
+        
+        const saveButton = document.getElementById('update-employee-form').querySelector('button[type="submit"]');
+        const originalButtonText = saveButton.innerHTML;
+        saveButton.innerHTML = 'Saving...';
+        saveButton.disabled = true;
+
         try {
+            const statusInput = document.querySelector('input[name="update-employee-status"]:checked');
+            
+            const payload = {
+                employee_name: document.getElementById('update-employee-name').value,
+                employee_email: document.getElementById('update-employee-email').value,
+                employee_mobile: document.getElementById('update-employee-phone').value,
+                designation: document.getElementById('update-employee-designation-select').value,
+                status: statusInput ? statusInput.value : 'ACTIVE',
+                belongs_to: state.modalState.belongsTo,
+                school_id: state.modalState.schoolId,
+                department_id: state.modalState.departmentId,
+                section: state.modalState.section
+            };
+            
+            if (!payload.employee_name || !payload.employee_email) {
+                 throw new Error("Employee name and email are required.");
+            }
+
             await ApiService.employees.update(state.modalState.employeeId, payload);
             showToast('Employee updated successfully!', 'success');
             closeModal();
             await initialize();
         } catch (error) {
             showToast(`Update failed: ${error.message}`, 'error');
+        } finally {
+            saveButton.innerHTML = originalButtonText;
+            saveButton.disabled = false;
         }
     }
 
