@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pondicherry University Hall Booking System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="../config.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+      }
+      /* Focus state for form inputs */
+      .form-input:focus {
+        outline: 2px solid transparent;
+        outline-offset: 2px;
+        border-color: #6366f1; /* indigo-500 */
+        box-shadow: 0 0 0 2px #a5b4fc; /* indigo-200 */
+      }
+      /* Styles for the background slideshow */
+      .slideshow-image {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0;
+        transition: opacity 1.5s ease-in-out;
+        z-index: -1;
+      }
+      .slideshow-image.active {
+        opacity: 1;
+      }
+      /* Styles for feedback messages */
+      .message {
+        margin-top: 1rem;
+        font-weight: 500;
+        padding: 0.75rem 1rem;
+        border-radius: 0.5rem;
+        text-align: center;
+        width: 100%;
+        display: none; /* Hidden by default */
+      }
+      .message.success {
+        background-color: #d1fae5; /* Light green */
+        color: #065f46; /* Dark green text */
+        border: 1px solid #34d399; /* Green border */
+      }
+      .message.error {
+        background-color: #fee2e2; /* Light red */
+        color: #991b1b; /* Dark red text */
+        border: 1px solid #f87171; /* Red border */
+      }
+    </style>
+  </head>
+  <body class="bg-gray-900">
+    <div id="slideshow-container" class="fixed inset-0">
+      <div class="absolute inset-0 bg-black opacity-50 z-0"></div>
+      <img
+        src="./public/uni-img1.jpg"
+        class="slideshow-image"
+        alt="Birds Eye View of SJ"
+      />
+      <img
+        src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d9/S_campusj.jpg/1200px-S_campusj.jpg?20200716130016"
+        class="slideshow-image active"
+        alt="SJ at Night"
+      />
+      <img
+        src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/Pondicherry_University_2.jpg/1200px-Pondicherry_University_2.jpg?20240801073328"
+        class="slideshow-image"
+        alt="University Building Background"
+      />
+    </div>
+
+    <div class="min-h-screen flex items-center justify-center p-4 md:p-8">
+      <div class="w-full max-w-7xl grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div
+          class="flex flex-col justify-center p-8 lg:p-12 text-white rounded-2xl shadow-2xl bg-black/30 backdrop-blur-md border border-white/10"
+        >
+          <div class="relative z-10">
+            <div class="mb-8 text-center">
+              <div
+                class="inline-flex items-center justify-center bg-white p-3 rounded-full mb-4"
+              >
+                <img
+                  class="w-56"
+                  src="https://www.pondiuni.edu.in/wp-content/uploads/2020/05/PU_Logo-BG-White.png"
+                  alt="PU_Logo-BG-White"
+                />
+              </div>
+              <h1 class="text-4xl font-bold">Pondicherry University</h1>
+              <p class="text-2xl font-light mt-1">Hall Booking System</p>
+            </div>
+            <div class="space-y-6">
+              <p class="text-lg text-center md:text-left">
+                Welcome to the official hall booking system of Pondicherry
+                University.
+              </p>
+              <ul class="space-y-3 text-base">
+                <li class="flex items-center">
+                  <svg
+                    class="w-5 h-5 mr-3 text-green-300"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M5 13l4 4L19 7"
+                    ></path>
+                  </svg>
+                  Secure and efficient hall reservations
+                </li>
+                <li class="flex items-center">
+                  <svg
+                    class="w-5 h-5 mr-3 text-green-300"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M5 13l4 4L19 7"
+                    ></path>
+                  </svg>
+                  Real-time availability tracking
+                </li>
+                <li class="flex items-center">
+                  <svg
+                    class="w-5 h-5 mr-3 text-green-300"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M5 13l4 4L19 7"
+                    ></path>
+                  </svg>
+                  Streamlined booking process
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-center">
+          <div
+            class="w-full max-w-md p-8 space-y-6 bg-gray-900/70 backdrop-blur-md rounded-2xl shadow-2xl border border-white/10"
+          >
+            <div>
+              <h2 class="text-center text-3xl font-bold text-white">
+                Welcome Back
+              </h2>
+              <p class="mt-2 text-center text-sm text-gray-300">
+                Sign in to your account.
+              </p>
+            </div>
+
+            <form id="loginForm" class="space-y-6">
+              <div class="rounded-md shadow-sm -space-y-px">
+                <div>
+                  <label
+                    for="email"
+                    class="block text-sm font-medium text-gray-300 mb-1"
+                    >Email Address</label
+                  >
+                  <div class="relative">
+                    <div
+                      class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
+                    >
+                      <svg
+                        class="w-5 h-5 text-gray-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                        ></path>
+                      </svg>
+                    </div>
+                    <input
+                      id="email"
+                      name="email"
+                      type="email"
+                      autocomplete="email"
+                      required
+                      class="form-input block w-full pl-10 pr-3 py-2 border border-gray-700 bg-gray-800 rounded-md placeholder-gray-400 text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      placeholder="Enter your email"
+                    />
+                  </div>
+                </div>
+                <div class="pt-6">
+                  <label
+                    for="password"
+                    class="block text-sm font-medium text-gray-300 mb-1"
+                    >Password</label
+                  >
+                  <div class="relative">
+                    <div
+                      class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
+                    >
+                      <svg
+                        class="w-5 h-5 text-gray-500"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                        ></path>
+                      </svg>
+                    </div>
+                    <input
+                      id="password"
+                      name="password"
+                      type="password"
+                      autocomplete="current-password"
+                      required
+                      class="form-input block w-full pl-10 pr-10 py-2 border border-gray-700 bg-gray-800 rounded-md placeholder-gray-400 text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      placeholder="Enter your password"
+                    />
+                    <div
+                      id="togglePassword"
+                      class="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer"
+                    >
+                      <svg
+                        id="eyeIcon"
+                        class="w-5 h-5 text-gray-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                        ></path>
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                        ></path>
+                      </svg>
+                      <svg
+                        id="eyeOffIcon"
+                        class="w-5 h-5 text-gray-400 hidden"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7 .946-3.118 3.55-5.57 6.818-6.575M2 2l20 20M12 5c.317 0 .63.018.938.05A14.95 14.95 0 0119.542 7c1.274 4.057-5.064 7-9.542 7a10.05 10.05 0 01-1.875-.175M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                        ></path>
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex items-center justify-end text-sm">
+                <a
+                  href="#"
+                  class="font-medium text-indigo-400 hover:text-indigo-300"
+                >
+                  Forgot your password?
+                </a>
+              </div>
+
+              <div id="messageArea" class="message"></div>
+
+              <div>
+                <button
+                  id="loginBtn"
+                  type="submit"
+                  class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  Sign in
+                </button>
+              </div>
+            </form>
+
+            <div class="relative flex py-2 items-center">
+              <div class="flex-grow border-t border-gray-600"></div>
+              <span class="flex-shrink mx-4 text-gray-400 text-sm">or</span>
+              <div class="flex-grow border-t border-gray-600"></div>
+            </div>
+
+            <div id="googleSignInButton" class="flex justify-center"></div>
+            <div class="text-sm text-center">
+              <br />
+              <div>
+                <p class="text-gray-400">
+                  &copy; 2025 Department of Computer Science
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // --- UI Enhancements ---
+
+      // Password visibility toggle
+      const togglePassword = document.querySelector("#togglePassword");
+      const passwordInput = document.querySelector("#password");
+      const eyeIcon = document.querySelector("#eyeIcon");
+      const eyeOffIcon = document.querySelector("#eyeOffIcon");
+
+      togglePassword.addEventListener("click", function (e) {
+        const type =
+          passwordInput.getAttribute("type") === "password"
+            ? "text"
+            : "password";
+        passwordInput.setAttribute("type", type);
+        eyeIcon.classList.toggle("hidden");
+        eyeOffIcon.classList.toggle("hidden");
+      });
+
+      // Background Slideshow
+      const slideshowImages = document.querySelectorAll(
+        "#slideshow-container .slideshow-image"
+      );
+      let currentImageIndex = 0;
+
+      function changeImage() {
+        slideshowImages[currentImageIndex].classList.remove("active");
+        currentImageIndex = (currentImageIndex + 1) % slideshowImages.length;
+        slideshowImages[currentImageIndex].classList.add("active");
+      }
+      setInterval(changeImage, 5000);
+
+      // --- Backend Logic ---
+
+      const messageArea = document.getElementById("messageArea");
+      const loginButton = document.getElementById("loginBtn");
+
+      // Helper function to display messages
+      function displayMessage(message, type) {
+        messageArea.textContent = message;
+        messageArea.className = `message ${type}`;
+        messageArea.style.display = "block";
+      }
+
+      // REFACTORED: Central function to handle successful login and redirection
+      function handleSuccessfulLogin(result) {
+        const token = result.token;
+        const role = result.role;
+        const name = result.name;
+
+        if (token) {
+          sessionStorage.setItem("authToken", token);
+          sessionStorage.setItem("roleToken", role);
+          sessionStorage.setItem("name", name);
+          displayMessage("Login successful! Redirecting...", "success");
+
+          setTimeout(() => {
+            if (role === "ADMIN") {
+              window.location.replace("admin.html");
+            } else if (role === "HOD") {
+              window.location.replace("hod.html");
+            } 
+            else if (role === "FACULTY") {
+              window.location.replace("faculty.html");
+            }else {
+              displayMessage(
+                "Login successful, but role is not recognized.",
+                "error"
+              );
+            }
+          }, 1500); // Redirect after 1.5 seconds
+        } else {
+          displayMessage(
+            "Login successful, but no token was received.",
+            "error"
+          );
+        }
+      }
+
+      // --- Traditional Email/Password Login ---
+      const loginForm = document.getElementById("loginForm");
+      loginForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        const email = document.getElementById("email").value;
+        const password = passwordInput.value;
+
+        if (!email || !password) {
+          displayMessage("Please enter both email and password.", "error");
+          return;
+        }
+
+        loginButton.innerHTML = "Signing in...";
+        loginButton.disabled = true;
+
+        try {
+          const apiUrl = `https://hall-management.nirmaljyotib.workers.dev/auth/login`;
+          const response = await fetch(apiUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password }),
+          });
+          const result = await response.json();
+          if (response.ok) {
+            handleSuccessfulLogin(result); // Use the refactored function
+          } else {
+            const errorMessage =
+              result.message || result.error || "An unknown error occurred.";
+            displayMessage(errorMessage, "error");
+          }
+        } catch (error) {
+          console.error("Login failed:", error);
+          displayMessage(
+            "Login failed. Please check your connection and try again.",
+            "error"
+          );
+        } finally {
+          if (!sessionStorage.getItem("authToken")) {
+            loginButton.innerHTML = "Sign in";
+            loginButton.disabled = false;
+          }
+        }
+      });
+
+      // --- TO BE UPDATED: Google Authentication Logic ---
+      async function handleGoogleSignIn(response) {
+        console.log("Received credential from Google:", response.credential);
+        displayMessage("Authenticating with Google...", "success");
+
+        try {
+          // This URL is an example. You should have a specific endpoint on your backend
+          // to verify the Google token and create a session for your app.
+          const apiUrl = `https://hall-management.nirmaljyotib.workers.dev/auth/google`;
+
+          const res = await fetch(apiUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            // Send the token received from Google to your backend
+            body: JSON.stringify({ token: response.credential }),
+          });
+
+          const result = await res.json();
+          if (res.ok) {
+            handleSuccessfulLogin(result); // Use the refactored function
+          } else {
+            const errorMessage =
+              result.message || result.error || "Google authentication failed.";
+            displayMessage(errorMessage, "error");
+          }
+        } catch (error) {
+          console.error("Google Sign-In Error:", error);
+          displayMessage(
+            "Failed to authenticate with Google. Please try again.",
+            "error"
+          );
+        }
+      }
+
+      window.onload = function () {
+        google.accounts.id.initialize({
+          // IMPORTANT: Replace this with your actual Google Cloud Client ID
+          client_id: "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com",
+          callback: handleGoogleSignIn,
+        });
+        google.accounts.id.renderButton(
+          document.getElementById("googleSignInButton"),
+          { theme: "outline", size: "large", width: "318" } // Customization options
+        );
+        google.accounts.id.prompt(); // Also display the One Tap dialog
+      };
+    </script>
+  </body>
+</html>

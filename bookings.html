@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Bookings</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="config.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <style>
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background-image: linear-gradient(to right, #14555F, #0B1940);
+            background-attachment: fixed;
+        }
+        .scrollable-dropdown::-webkit-scrollbar { width: 8px; }
+        .scrollable-dropdown::-webkit-scrollbar-track { background: #2d3748; }
+        .scrollable-dropdown::-webkit-scrollbar-thumb { background: #4a5568; border-radius: 10px; }
+        .table-header-icon { color: #4b5563; }
+        .filter-btn { transition: all 0.2s ease-in-out; }
+        .filter-btn.active { background-color: #0B1940; color: white; border-color: #0B1940; }
+        [x-cloak] { display: none !important; }
+        .btn {
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-weight: 600;
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            display: inline-flex;
+            align-items: center;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .btn-danger { background-color: #EF4444; color: white; border: 1px solid #EF4444; }
+        .btn-danger:hover { background-color: #DC2626; }
+        .btn-secondary { background-color: #6B7280; color: white; border: 1px solid #6B7280; }
+        .btn-secondary:hover { background-color: #4B5563; }
+        .btn-secondary:disabled { background-color: #D1D5DB; cursor: not-allowed; transform: none; box-shadow: none; }
+        .btn-primary { background-color: #3B82F6; color: white; border: 1px solid #3B82F6; }
+        .btn-primary:hover { background-color: #2563EB; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+    <div id="nav-placeholder"></div>
+
+    <main class="flex-grow p-2 sm:p-6" x-data="myBookings()" x-init="init()">
+        <div class="container mx-auto bg-white p-4 sm:p-6 rounded-lg shadow-xl">
+            <h2 class="text-3xl font-bold text-center text-indigo-900 mb-6">My Bookings</h2>
+            
+            <div class="flex justify-end items-center mb-4 gap-4">
+                <button @click="clearFilters()" 
+                        x-show="isFilterActive"
+                        x-transition
+                        class="btn btn-danger">
+                    Clear Filters
+                </button>
+                <button @click="selectedBookings = []" 
+                        class="btn btn-secondary"
+                        :disabled="selectedBookings.length === 0">
+                    <i class="fas fa-ban mr-2"></i>Cancel
+                </button>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-2 sm:px-6 py-3 text-left text-xs font-bold text-gray-800 uppercase tracking-wider">Select</th>
+                            <th scope="col" class="px-2 sm:px-6 py-3 text-left text-xs font-bold text-gray-800 uppercase tracking-wider">
+                                <div class="flex items-center cursor-pointer" @click="showDateFilterModal = true">
+                                    Booked On <i class="fas fa-filter ml-2 table-header-icon"></i>
+                                </div>
+                            </th>
+                            <th scope="col" class="px-2 sm:px-6 py-3 text-left text-xs font-bold text-gray-800 uppercase tracking-wider">
+                                <div class="flex items-center cursor-pointer" @click="showHallFilterModal = true">
+                                    Hall Details <i class="fas fa-filter ml-2 table-header-icon"></i>
+                                </div>
+                            </th>
+                            <th scope="col" class="hidden lg:table-cell px-6 py-3 text-left text-xs font-bold text-gray-800 uppercase tracking-wider">
+                                Purpose
+                            </th>
+                            <th scope="col" class="px-2 sm:px-6 py-3 text-left text-xs font-bold text-gray-800 uppercase tracking-wider">
+                                <div class="flex items-center cursor-pointer" @click="showDateTimeFilterModal = true">
+                                    Date & Time <i class="fas fa-filter ml-2 table-header-icon"></i>
+                                </div>
+                            </th>
+                            <th scope="col" class="px-2 sm:px-6 py-3 text-left text-xs font-bold text-gray-800 uppercase tracking-wider">
+                                <div class="flex items-center cursor-pointer" @click="showStatusFilterModal = true">
+                                    Status <i class="fas fa-filter ml-2 table-header-icon"></i>
+                                </div>
+                            </th>
+                            <th scope="col" class="px-2 sm:px-6 py-3 text-left text-xs font-bold text-gray-800 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        <template x-if="isLoading">
+                             <tr><td colspan="7" class="text-center py-10 text-gray-500"><i class="fas fa-spinner fa-spin mr-2"></i>Loading your bookings...</td></tr>
+                        </template>
+                    
+                        <template x-if="!isLoading && filteredBookings.length === 0">
+                            <tr>
+                                <td colspan="7" class="text-center py-10 text-gray-500">
+                                    You have no bookings.
+                                </td>
+                            </tr>
+                        </template>
+                    
+                        <template x-for="booking in filteredBookings" :key="booking.id">
+                            <tr>
+                                <td class="px-2 sm:px-6 py-4">
+                                    <input type="checkbox" :value="booking.id" x-model="selectedBookings" class="rounded border-gray-300">
+                                </td>
+                                <td class="px-2 sm:px-6 py-4">
+                                    <div class="text-sm text-gray-900" x-text="booking.bookedOn"></div>
+                                    <div class="text-sm text-blue-600">
+                                        <a href="#" class="hover:underline" x-text="booking.bookingId"></a>
+                                    </div>
+                                </td>
+                                <td class="px-2 sm:px-6 py-4">
+                                    <div class="text-sm font-medium text-gray-900" x-text="booking.hall.type"></div>
+                                    <div class="text-sm font-bold text-blue-600" x-text="booking.hall.name"></div>
+                                    <div class="text-sm text-gray-500" x-text="booking.hall.owner"></div>
+                                </td>
+                                <td class="hidden lg:table-cell px-6 py-4">
+                                    <div class="text-sm text-gray-900" x-text="booking.purpose"></div>
+                                </td>
+                                <td class="px-2 sm:px-6 py-4">
+                                    <div class="text-sm text-gray-900" x-text="booking.dateTimeRange"></div>
+                                </td>
+                                <td class="px-2 sm:px-6 py-4">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                                          :class="{ 
+                                              'bg-red-100 text-red-800': booking.status.toLowerCase().includes('cancelled') || booking.status.toLowerCase().includes('rejected'),
+                                              'bg-green-100 text-green-800': booking.status.toLowerCase().includes('approved') || booking.status.toLowerCase().includes('confirmed'),
+                                              'bg-yellow-100 text-yellow-800': booking.status.toLowerCase().includes('pending')
+                                          }"
+                                          x-text="booking.status">
+                                    </span>
+                                </td>
+                                <td class="px-2 sm:px-6 py-4 text-sm text-gray-500">
+                                    <template x-if="booking.booking_type === 'INDIVIDUAL' && (booking.rawStatus === 'PENDING_HOD_APPROVAL' || booking.rawStatus === 'PENDING_HALL_HOD_APPROVAL')">
+                                        <button @click="modifyBooking(booking.rawItem)" class="btn btn-primary">
+                                            Modify
+                                        </button>
+                                    </template>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                    </table>
+            </div>
+        </div>
+
+        <div x-show="showDateFilterModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30" @click.away="showDateFilterModal = false" x-cloak>
+            <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md relative" @click.stop>
+                <button @click="showDateFilterModal = false" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800"><i class="fas fa-times fa-lg"></i></button>
+                <h3 class="text-2xl font-bold text-gray-800 mb-4">Filter by Booked Date</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label for="fromDate" class="block text-sm font-medium text-gray-700">From Date:</label>
+                        <input type="date" id="fromDate" x-model="filters.fromDate" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                    </div>
+                    <div>
+                        <label for="toDate" class="block text-sm font-medium text-gray-700">To Date:</label>
+                        <input type="date" id="toDate" x-model="filters.toDate" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                    </div>
+                </div>
+                <div class="mt-6 text-right">
+                    <button @click="applyFilters()" class="bg-blue-600 text-white px-4 py-2 rounded-md shadow hover:bg-blue-700">Apply Filter</button>
+                </div>
+            </div>
+        </div>
+        
+        <div x-show="showHallFilterModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30" @click.away="showHallFilterModal = false" x-cloak>
+             <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md relative" @click.stop>
+                <button @click="showHallFilterModal = false" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800"><i class="fas fa-times fa-lg"></i></button>
+                <h3 class="text-2xl font-bold text-gray-800 mb-4">Filter by Hall</h3>
+                <div class="space-y-4">
+                     <div>
+                        <label for="hallName" class="block text-sm font-medium text-gray-700">Hall Name:</label>
+                        <select id="hallName" x-model="filters.hallName" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                            <option value="">-- Select Hall --</option>
+                            <template x-for="hall in uniqueHallNames" :key="hall">
+                                <option :value="hall" x-text="hall"></option>
+                            </template>
+                        </select>
+                    </div>
+                </div>
+                <div class="mt-6 text-right">
+                    <button @click="applyFilters()" class="bg-blue-600 text-white px-4 py-2 rounded-md shadow hover:bg-blue-700">Apply Filter</button>
+                </div>
+            </div>
+        </div>
+        
+        <div x-show="showDateTimeFilterModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30" @click.away="showDateTimeFilterModal = false" x-cloak>
+            <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md relative" @click.stop>
+                <button @click="showDateTimeFilterModal = false" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800"><i class="fas fa-times fa-lg"></i></button>
+                <h3 class="text-2xl font-bold text-gray-800 mb-4">Filter by Event Date</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label for="startDateTime" class="block text-sm font-medium text-gray-700">Start Date:</label>
+                        <input type="date" id="startDateTime" x-model="filters.startDateTime" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                    </div>
+                    <div>
+                        <label for="endDateTime" class="block text-sm font-medium text-gray-700">End Date:</label>
+                        <input type="date" id="endDateTime" x-model="filters.endDateTime" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                    </div>
+                </div>
+                <div class="mt-6 text-right">
+                    <button @click="applyFilters()" class="bg-blue-600 text-white px-4 py-2 rounded-md shadow hover:bg-blue-700">Apply Filter</button>
+                </div>
+            </div>
+        </div>
+
+        <div x-show="showStatusFilterModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-30" @click.away="showStatusFilterModal = false" x-cloak>
+            <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md relative" @click.stop>
+                <button @click="showStatusFilterModal = false" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800"><i class="fas fa-times fa-lg"></i></button>
+                <h3 class="text-2xl font-bold text-gray-800 mb-4">Filter by Status</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label for="status" class="block text-sm font-medium text-gray-700">Status:</label>
+                        <select id="status" x-model="filters.status" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2">
+                            <option value="">-- All Statuses --</option>
+                            <option value="CONFIRMED">Confirmed</option>
+                            <option value="PENDING_HOD_APPROVAL">Pending HOD Approval</option>
+                            <option value="PENDING_HALL_HOD_APPROVAL">Pending Hall HOD Approval</option>
+                            <option value="REJECTED_BY_HOD">Rejected by HOD</option>
+                            <option value="REJECTED_BY_HALL_HOD">Rejected by Hall HOD</option>
+                            <option value="CANCELLED">Cancelled</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mt-6 text-right">
+                    <button @click="applyFilters()" class="bg-blue-600 text-white px-4 py-2 rounded-md shadow hover:bg-blue-700">Apply Filter</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        function myBookings() {
+            return {
+                isLoading: true,
+                hasBeenInitialized: false,
+                selectedBookings: [],
+                showDateFilterModal: false,
+                showHallFilterModal: false,
+                showDateTimeFilterModal: false,
+                showStatusFilterModal: false,
+                filters: { fromDate: '', toDate: '', hallName: '', startDateTime: '', endDateTime: '', status: '' },
+                allBookings: [],
+                
+                async init() {
+                    if (this.hasBeenInitialized) return;
+                    this.hasBeenInitialized = true;
+                    await this.fetchAndProcessBookings();
+                },
+
+                async fetchWithAuth(url, options = {}) {
+                    const headers = getAuthHeaders();
+                    if (!headers) {
+                        logout();
+                        throw new Error('User not authenticated');
+                    }
+                    const config = { ...options, headers: {...headers, ...options.headers} };
+                    const response = await fetch(url, config);
+                    if (response.status === 401) {
+                        logout();
+                        throw new Error('Authentication failed');
+                    }
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({ message: 'An unknown error occurred' }));
+                        throw new Error(errorData.message || `HTTP error! Status: ${response.status}`);
+                    }
+                    return response.json();
+                },
+
+                async fetchAndProcessBookings() {
+                    this.isLoading = true;
+                    try {
+                        const bookingUrl = AppConfig.apiBaseUrl + AppConfig.endpoints.myBookings;
+                        const bookingResult = await this.fetchWithAuth(bookingUrl);
+
+                        if (!bookingResult.success) throw new Error("Failed to fetch bookings.");
+                        
+                        this.allBookings = bookingResult.data.map(item => this.mapBookingData(item));
+
+                    } catch (error) {
+                        console.error('Failed to fetch and process bookings:', error.message);
+                        alert(`Error: ${error.message}. Please try logging in again.`);
+                    } finally {
+                        this.isLoading = false;
+                    }
+                },
+                
+                // --- MODIFIED FUNCTION ---
+                // Added 'booking_type' to enable conditional logic
+                mapBookingData(item) {
+                    let hallOwner = 'N/A';
+                    if (item.hall.belongs_to === 'DEPARTMENT' && item.hall.department) {
+                        hallOwner = item.hall.department.department_name;
+                    } else if (item.hall.belongs_to === 'SCHOOL' && item.hall.school) {
+                        hallOwner = item.hall.school.school_name;
+                    } else if (item.hall.belongs_to === 'ADMINISTRATION') {
+                        hallOwner = item.hall.section || 'Administration';
+                    }
+
+                    return {
+                        id: item.unique_id || item.created_at,
+                        bookedOn: new Date(item.created_at).toISOString().split('T')[0],
+                        bookingId: item.unique_id,
+                        hall: {
+                            name: item.hall.name,
+                            type: this.formatHallType(item.hall.type),
+                            owner: hallOwner
+                        },
+                        purpose: item.purpose,
+                        dateTimeRange: this.formatDateTimeRange(item.start_date, item.start_time, item.end_date, item.end_time),
+                        rawStatus: item.status,
+                        status: this.formatStatus(item.status),
+                        startDateForFilter: item.start_date,
+                        rawItem: item,
+                        // ASSUMPTION: Your API provides this field.
+                        // e.g., "booking_type": "INDIVIDUAL"
+                        booking_type: item.booking_type 
+                    };
+                },
+                
+                modifyBooking(bookingData) {
+                    sessionStorage.setItem('modifyBookData', JSON.stringify(bookingData));
+                    window.location.href = 'modifyBooking.html';
+                },
+
+                formatDateTimeRange(startDate, startTime, endDate, endTime) {
+                    const start = `${new Date(startDate).toLocaleDateString('en-GB')} ${startTime}`;
+                    const end = `${new Date(endDate).toLocaleDateString('en-GB')} ${endTime}`;
+                    if (start === end) return start;
+                    return `${start} - ${end}`;
+                },
+
+                formatStatus(status) {
+                    const statusMap = {
+                        'CONFIRMED': 'Confirmed',
+                        'PENDING_HOD_APPROVAL': 'Pending HOD Approval',
+                        'PENDING_HALL_HOD_APPROVAL': 'Pending Hall HOD Approval',
+                        'REJECTED_BY_HOD': 'Rejected by HOD',
+                        'REJECTED_BY_HALL_HOD': 'Rejected by Hall HOD',
+                        'CANCELLED': 'Cancelled'
+                    };
+                    return statusMap[status] || status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                },
+                
+                formatHallType(type) {
+                    if (!type) return 'General Hall';
+                    return type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                },
+
+                get uniqueHallNames() {
+                    const names = this.allBookings.map(b => b.hall.name);
+                    return [...new Set(names)];
+                },
+
+                get isFilterActive() {
+                    return Object.values(this.filters).some(value => value !== '');
+                },
+
+                get filteredBookings() {
+                    return this.allBookings.filter(booking => {
+                        const bookedDate = new Date(booking.bookedOn);
+                        const fromDate = this.filters.fromDate ? new Date(this.filters.fromDate) : null;
+                        const toDate = this.filters.toDate ? new Date(this.filters.toDate) : null;
+                        
+                        const bookingEventDate = new Date(booking.startDateForFilter);
+                        const startDateTime = this.filters.startDateTime ? new Date(this.filters.startDateTime) : null;
+                        const endDateTime = this.filters.endDateTime ? new Date(this.filters.endDateTime) : null;
+
+                        if (fromDate && bookedDate < fromDate) return false;
+                        if (toDate && bookedDate > toDate) return false;
+                        if (this.filters.hallName && booking.hall.name !== this.filters.hallName) return false;
+                        if (startDateTime && bookingEventDate < startDateTime) return false;
+                        if (endDateTime && bookingEventDate > endDateTime) return false;
+                        if (this.filters.status && booking.rawStatus !== this.filters.status) return false;
+
+                        return true;
+                    });
+                },
+
+                applyFilters() {
+                    this.showDateFilterModal = false;
+                    this.showHallFilterModal = false;
+                    this.showDateTimeFilterModal = false;
+                    this.showStatusFilterModal = false;
+                },
+                
+                clearFilters() {
+                    this.filters = { fromDate: '', toDate: '', hallName: '', startDateTime: '', endDateTime: '', status: '' };
+                }
+            }
+        }
+    </script>
+    <script src="layout.js"></script>
+    </body>
+</html>

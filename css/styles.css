@@ -1,0 +1,275 @@
+/* --- final/css/styles.css --- */
+
+/* --- Keyframe Animations for a Dynamic Feel --- */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+    0% { background-position: -1000px 0; }
+    100% { background-position: 1000px 0; }
+}
+
+@keyframes slideInDown {
+    from { transform: translateY(-30%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes pulse-glow {
+    0% { box-shadow: 0 0 15px rgba(79, 70, 229, 0.5); }
+    50% { box-shadow: 0 0 25px rgba(79, 70, 229, 0.8); }
+    100% { box-shadow: 0 0 15px rgba(79, 70, 229, 0.5); }
+}
+
+@keyframes aurora {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+@keyframes input-glow {
+    0% { box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.4); }
+    50% { box-shadow: 0 0 0 6px rgba(99, 102, 241, 0.2); }
+    100% { box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.4); }
+}
+
+
+/* --- Base and Theme Styles --- */
+body {
+    font-family: 'Montserrat', sans-serif;
+    background: linear-gradient(to right, #14555F, #0B1940);
+    background-size: 400% 400%;
+    animation: aurora 15s ease infinite;
+    color: #E5E7EB;
+}
+
+[x-cloak] { 
+    display: none !important; 
+}
+
+/* --- Navigation Styles --- */
+#main-nav a {
+    position: relative;
+    padding-bottom: 8px;
+}
+#main-nav a::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 2px;
+    background-color: #8B5CF6;
+    transition: width 0.3s ease-in-out;
+}
+#main-nav a:hover::after, #main-nav a.active::after {
+    width: 100%;
+}
+
+
+/* --- Upgraded Button and Interactive Element Styles --- */
+.glowing-btn, .modern-button {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease-in-out;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    border: none;
+}
+.glowing-btn:hover, .modern-button:hover {
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+}
+.glowing-btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 300%;
+    height: 300%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0) 70%);
+    transform: translate(-50%, -50%) scale(0);
+    transition: transform 0.7s cubic-bezier(0.23, 1, 0.32, 1);
+}
+.glowing-btn:hover::before {
+    transform: translate(-50%, -50%) scale(1);
+}
+
+.modern-button {
+    background-image: linear-gradient(to right, #6366F1, #8B5CF6);
+}
+.modern-button:hover {
+    animation: shimmer 1.5s infinite;
+}
+
+/* --- Table Styles & Animations --- */
+.table-container {
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #4b5563 #1f2937;
+}
+.table-container::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+.table-container::-webkit-scrollbar-track {
+    background: #1f2937;
+}
+.table-container::-webkit-scrollbar-thumb {
+    background-color: #4b5563;
+    border-radius: 10px;
+    border: 2px solid #1f2937;
+}
+.table-container tbody tr {
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    opacity: 0;
+    animation: fadeIn 0.5s ease forwards;
+}
+/* Staggered animation for table rows */
+.table-container tbody tr:nth-child(1) { animation-delay: 0.1s; }
+.table-container tbody tr:nth-child(2) { animation-delay: 0.15s; }
+.table-container tbody tr:nth-child(3) { animation-delay: 0.2s; }
+.table-container tbody tr:nth-child(4) { animation-delay: 0.25s; }
+.table-container tbody tr:nth-child(5) { animation-delay: 0.3s; }
+
+.table-container tbody tr:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    transform: scale(1.01);
+}
+
+/* --- Custom Scrollbars & Panels --- */
+.browse-filter-panel, .card-grid-scrollable, .nav-dropdown-scrollable {
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #4b5563 #1f2937;
+}
+.browse-filter-panel::-webkit-scrollbar, .card-grid-scrollable::-webkit-scrollbar, .nav-dropdown-scrollable::-webkit-scrollbar {
+    width: 6px;
+}
+.browse-filter-panel::-webkit-scrollbar-thumb, .card-grid-scrollable::-webkit-scrollbar-thumb, .nav-dropdown-scrollable::-webkit-scrollbar-thumb {
+    background-color: #4b5563;
+    border-radius: 6px;
+}
+
+/* --- Interactive Card Animations --- */
+.hall-card, .semester-hall-card {
+    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), border-color 0.3s ease;
+}
+.hall-card:hover, .semester-hall-card:hover {
+    transform: translateY(-8px) perspective(1000px) rotateX(4deg) rotateY(-2deg);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+    border-color: rgba(99, 102, 241, 0.7); /* indigo */
+}
+
+/* Active state for hall type buttons in browse view */
+.hall-type-btn.active {
+    background-color: #4f46e5; /* indigo-600 */
+    color: #ffffff;
+    font-weight: 600;
+    transform: scale(1.05);
+    animation: pulse-glow 2s infinite;
+}
+
+/* --- Booking Calendar & Timetable Styles --- */
+.booking-type-btn.active, .day-btn.active {
+    background-color: #16a34a; /* green-600 */
+    color: white;
+    box-shadow: 0 4px 15px rgba(22, 163, 74, 0.4);
+}
+.calendar-grid, .calendar-header, .calendar-body {
+    display: grid;
+    gap: 4px;
+}
+.calendar-grid { grid-template-columns: auto 1fr; }
+.calendar-header, .calendar-body { grid-template-columns: repeat(31, minmax(35px, 1fr)); }
+
+.slot {
+    width: 100%;
+    height: 2rem;
+    border-radius: 0.25rem;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+}
+.slot-available { background-color: #dcfce7; border: 1px solid #86efac; }
+.slot-available:hover { background-color: #bbf7d0; transform: scale(1.1); }
+.slot-booked { background-color: #fee2e2; border: 1px solid #fca5a5; cursor: not-allowed; }
+.slot-pending { background-color: #fef9c3; border: 1px solid #fde047; cursor: not-allowed; }
+.slot-past { background-color: #e5e7eb; border: 1px solid #d1d5db; cursor: not-allowed; }
+.slot-selected {
+    background-color: #3b82f6 !important;
+    color: white !important;
+    border-color: #3b82f6 !important;
+    transform: scale(1.1);
+    box-shadow: 0 0 10px #3b82f6;
+}
+.date-header-day { color: #ef4444; }
+
+.timetable-slot {
+    height: 40px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+}
+.timetable-slot.available:hover {
+    background-color: rgba(34, 197, 94, 0.3);
+    transform: scale(1.05);
+    z-index: 10;
+}
+.timetable-slot.booked {
+    background-color: rgba(239, 68, 68, 0.5);
+    cursor: not-allowed;
+    color: #fecaca;
+    font-weight: 500;
+    font-size: 0.75rem;
+}
+.timetable-slot.selected {
+    background-color: #3b82f6;
+    color: white;
+    transform: scale(1.05);
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.7);
+    z-index: 10;
+}
+.semester-hall-card.active {
+    border-color: #3b82f6;
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.6);
+    transform: scale(1.02);
+}
+
+/* --- Animated Modals & Forms --- */
+.modal {
+    animation: slideInDown 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+.view-panel {
+    animation: fadeIn 0.6s ease-out forwards;
+}
+.view-panel h1 {
+    animation: fadeIn 0.8s ease-out 0.2s forwards;
+    opacity: 0;
+}
+
+input, select, textarea {
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+input:focus, select:focus, textarea:focus {
+    animation: input-glow 1.5s infinite;
+    border-color: #6366F1;
+}
+
+/* --- Scrollbar Styles --- */
+.table-container, .browse-filter-panel, .card-grid-scrollable, .nav-dropdown-scrollable, #semester-halls-container, #final-booking-form-content {
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #4b5563 #1f2937;
+}
+.table-container::-webkit-scrollbar, .browse-filter-panel::-webkit-scrollbar, .card-grid-scrollable::-webkit-scrollbar, .nav-dropdown-scrollable::-webkit-scrollbar, #semester-halls-container::-webkit-scrollbar, #final-booking-form-content::-webkit-scrollbar {
+    width: 8px;
+}
+.table-container::-webkit-scrollbar-track, .browse-filter-panel::-webkit-scrollbar-track, .card-grid-scrollable::-webkit-scrollbar-track, .nav-dropdown-scrollable::-webkit-scrollbar-track, #semester-halls-container::-webkit-scrollbar-track, #final-booking-form-content::-webkit-scrollbar-track {
+    background: #1f2937;
+}
+.table-container::-webkit-scrollbar-thumb, .browse-filter-panel::-webkit-scrollbar-thumb, .card-grid-scrollable::-webkit-scrollbar-thumb, .nav-dropdown-scrollable::-webkit-scrollbar-thumb, #semester-halls-container::-webkit-scrollbar-thumb, #final-booking-form-content::-webkit-scrollbar-thumb {
+    background-color: #4b5563;
+    border-radius: 10px;
+    border: 2px solid #1f2937;
+}

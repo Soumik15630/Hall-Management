@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Hall</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="config.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <style>
+        /* Custom styles for Montserrat font and scrollable dropdowns */
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background-image: linear-gradient(to right, #14555F, #0B1940);
+            background-attachment: fixed;
+        }
+        /* Custom styles for select dropdown arrows */
+        select:not([multiple]) {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='currentColor'%3E%3Cpath fill-rule='evenodd' d='M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z' clip-rule='evenodd'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.75rem center;
+            background-size: 1.5em 1.5em;
+            padding-right: 2.5rem;
+        }
+        /* Hide elements managed by AlpineJS until it's initialized */
+        [x-cloak] { display: none !important; }
+        
+        /* Map styles */
+        .map-container {
+            height: 100%;
+            width: 100%;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .map-popup {
+            backdrop-filter: blur(8px);
+        }
+        
+        /* Custom map button styles */
+        .map-view-toggle {
+            position: absolute;
+            top: 10px;
+            left: 50px;
+            z-index: 1000;
+            background: white;
+            border: 2px solid rgba(0,0,0,0.2);
+            border-radius: 4px;
+            padding: 5px 10px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.65);
+        }
+        
+        .map-view-toggle:hover {
+            background: #f4f4f4;
+        }
+
+        /* Custom pin icon styles */
+        .custom-pin {
+            background: transparent !important;
+            border: none !important;
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <div id="header-placeholder"></div>
+    <div id="nav-placeholder"></div>
+
+    <main class="flex-grow p-6">
+        <div class="container mx-auto max-w-3xl" x-data="addHallForm">
+            <div class="bg-[rgba(0,0,0,0.15)] p-8 rounded-lg shadow-xl">
+                <h2 class="text-3xl font-bold text-center text-white mb-8">ADD HALL</h2>
+                <form id="addHallForm" @submit.prevent="submitForm" class="space-y-8">
+                    
+                    <section class="bg-white p-6 rounded-lg shadow-md" aria-labelledby="core-details-heading">
+                        <h3 id="core-details-heading" class="text-xl font-semibold text-gray-800 mb-4 border-b border-gray-200 pb-2">Core Details</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <fieldset>
+                                <legend class="block text-gray-600 text-sm font-medium mb-2">TYPE</legend>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <button type="button" @click="hallType = 'auditorium'" :class="{'bg-indigo-600 text-white shadow-lg': hallType === 'auditorium', 'bg-gray-200 text-gray-700 hover:bg-gray-300': hallType !== 'auditorium'}" class="w-full py-2 px-3 text-center rounded-md text-sm font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Auditorium</button>
+                                    <button type="button" @click="hallType = 'conference_room'" :class="{'bg-indigo-600 text-white shadow-lg': hallType === 'conference_room', 'bg-gray-200 text-gray-700 hover:bg-gray-300': hallType !== 'conference_room'}" class="w-full py-2 px-3 text-center rounded-md text-sm font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Conference</button>
+                                    <button type="button" @click="hallType = 'lecture_hall'" :class="{'bg-indigo-600 text-white shadow-lg': hallType === 'lecture_hall', 'bg-gray-200 text-gray-700 hover:bg-gray-300': hallType !== 'lecture_hall'}" class="w-full py-2 px-3 text-center rounded-md text-sm font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Lecture</button>
+                                    <button type="button" @click="hallType = 'seminar_hall'" :class="{'bg-indigo-600 text-white shadow-lg': hallType === 'seminar_hall', 'bg-gray-200 text-gray-700 hover:bg-gray-300': hallType !== 'seminar_hall'}" class="w-full py-2 px-3 text-center rounded-md text-sm font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Seminar</button>
+                                </div>
+                            </fieldset>
+                            <div class="space-y-6">
+                                <div><label for="hallName" class="block text-gray-600 text-sm font-medium mb-2">NAME</label><input type="text" id="hallName" name="hall_name" placeholder="Enter Hall Name" class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800" required></div>
+                                <div><label for="hallCapacity" class="block text-gray-600 text-sm font-medium mb-2">CAPACITY</label><input type="number" id="hallCapacity" name="hall_capacity" placeholder="Enter Hall Capacity" class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800" required></div>
+                            </div>
+                            <div class="md:col-span-2"><label for="assignedTo" class="block text-gray-600 text-sm font-medium mb-2">ALLOTTED FOR</label><input type="text" id="assignedTo" name="assigned_to" placeholder="e.g., M.Sc. - II YEAR" class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800"></div>
+                        </div>
+                    </section>
+
+                    <section class="bg-white p-6 rounded-lg shadow-md" aria-labelledby="location-features-heading">
+                        <h3 id="location-features-heading" class="text-xl font-semibold text-gray-800 mb-4 border-b border-gray-200 pb-2">Location & Features</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label for="floor" class="block text-gray-600 text-sm font-medium mb-2">FLOOR</label>
+                                <select id="floor" name="hall_floor" class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800" required>
+                                    <option value="" disabled selected>Select Floor</option>
+                                    <template x-for="floor in floorOptions" :key="floor.value">
+                                        <option :value="floor.value" x-text="floor.label"></option>
+                                    </template>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="zone" class="block text-gray-600 text-sm font-medium mb-2">ZONE</label>
+                                <select id="zone" name="hall_zone" class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800" required>
+                                    <option value="" disabled selected>Select Zone</option>
+                                    <template x-for="zone in zoneOptions" :key="zone.value">
+                                        <option :value="zone.value" x-text="zone.label"></option>
+                                    </template>
+                                </select>
+                            </div>
+                            <div><label for="latitude" class="block text-gray-600 text-sm font-medium mb-2">LATITUDE</label><input type="number" step="any" id="latitude" name="latitude" placeholder="e.g., 11.9416" x-model="coordinates.lat" class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800"></div>
+                            <div><label for="longitude" class="block text-gray-600 text-sm font-medium mb-2">LONGITUDE</label><input type="number" step="any" id="longitude" name="longitude" placeholder="e.g., 79.8083" x-model="coordinates.lng" class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800"></div>
+                            
+                            <div class="md:col-span-2">
+                                <label class="block text-gray-600 text-sm font-medium mb-2">LOCATE ON MAP</label>
+                                <div class="mt-2">
+                                    <button type="button" @click="openMapModal()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-md shadow-lg transition-colors duration-200 flex items-center space-x-2">
+                                        <i class="fas fa-map-marker-alt"></i>
+                                        <span>Locate</span>
+                                    </button>
+                                    <p class="text-xs text-gray-500 mt-1">Click to open map and drop a pin at the hall location</p>
+                                    <div x-show="coordinates.lat && coordinates.lng" class="mt-2 text-sm text-green-600 font-medium">
+                                        <i class="fas fa-check-circle mr-1"></i>
+                                        Location selected: <span x-text="coordinates.lat && parseFloat(coordinates.lat).toFixed(6)"></span>, <span x-text="coordinates.lng && parseFloat(coordinates.lng).toFixed(6)"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="md:col-span-2">
+                                <label class="block text-gray-600 text-sm font-medium mb-2">FEATURES</label>
+                                <div class="mt-2 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                                        <template x-for="feature in featuresOptions" :key="feature.value">
+                                            <label class="flex items-center p-2 hover:bg-gray-100 cursor-pointer text-gray-800 rounded-md transition-colors duration-200">
+                                                <input type="checkbox" :value="feature.value" x-model="selectedFeatures" class="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500 rounded">
+                                                <span x-text="feature.label" class="ml-3 text-sm font-medium text-gray-700"></span>
+                                            </label>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block text-gray-600 text-sm font-medium mb-2">HALL IMAGE</label>
+                                <div class="mt-2 group">
+                                    <div class="flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md opacity-50 cursor-not-allowed">
+                                        <div class="space-y-1 text-center">
+                                            <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                                                <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                                            </svg>
+                                            <div class="flex text-sm text-gray-600">
+                                                <label for="file-upload" class="relative cursor-not-allowed bg-white rounded-md font-medium text-indigo-600 group-hover:text-indigo-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500">
+                                                    <span>Upload a file</span>
+                                                    <input id="file-upload" name="file-upload" type="file" class="sr-only" disabled>
+                                                </label>
+                                                <p class="pl-1">or drag and drop</p>
+                                            </div>
+                                            <p class="text-xs text-gray-500">PNG, JPG up to 2MB</p>
+                                            <p class="text-xs font-semibold text-red-500 pt-2">(Feature currently disabled)</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            </div>
+                    </section>
+                    
+                    <section class="bg-white p-6 rounded-lg shadow-md" aria-labelledby="ownership-heading">
+                        <h3 id="ownership-heading" class="text-xl font-semibold text-gray-800 mb-4 border-b border-gray-200 pb-2">Ownership & Availability</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="md:col-span-2">
+                                <label for="belongsTo" class="block w-full text-gray-600 text-sm font-medium mb-2">BELONGS TO</label>
+                                <select id="belongsTo" name="belongs_to" class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800" x-model="selectedBelongsTo" required>
+                                    <option value="" disabled>Select Type</option>
+                                    <option value="school">School</option>
+                                    <option value="department">Department</option>
+                                    <option value="administration">Administration</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div x-show="selectedBelongsTo === 'school'" class="mt-4 relative" @click.away="closeDropdownAndValidate('school')"><label class="block text-gray-600 text-sm font-medium mb-2">SCHOOL NAME</label><input type="text" x-model="searchTerms.school" @focus="dropdowns.school = true; if(schoolOptions.length === 0) fetchSchools();" @input.debounce.300ms="selectedSchoolId = null" placeholder="Type to search school..." class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800"><div x-show="dropdowns.school" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto"><template x-if="isLoading.schools"><div class="px-4 py-2 text-sm text-gray-400">Loading...</div></template><template x-for="option in filteredSchools" :key="option.value"><div @click="selectOption('school', option.value)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="option.label"></div></template><template x-if="!isLoading.schools && filteredSchools.length === 0"><div class="px-4 py-2 text-sm text-gray-500">No schools found.</div></template></div></div>
+                        <div x-show="selectedBelongsTo === 'department'" class="mt-4 space-y-4"><div class="relative" @click.away="closeDropdownAndValidate('deptSchool')"><label class="block text-gray-600 text-sm font-medium mb-2">SCHOOL (Parent of Department)</label><input type="text" x-model="searchTerms.deptSchool" @focus="dropdowns.deptSchool = true; if(schoolOptions.length === 0) fetchSchools();" @input.debounce.300ms="selectedDeptSchoolId = null" placeholder="Type to search school..." class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800"><div x-show="dropdowns.deptSchool" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto"><template x-if="isLoading.schools"><div class="px-4 py-2 text-sm text-gray-400">Loading...</div></template><template x-for="option in filteredDeptSchools" :key="option.value"><div @click="selectOption('deptSchool', option.value)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="option.label"></div></template><template x-if="!isLoading.schools && filteredDeptSchools.length === 0"><div class="px-4 py-2 text-sm text-gray-500">No schools found.</div></template></div></div><div class="relative" @click.away="closeDropdownAndValidate('department')"><label class="block text-gray-600 text-sm font-medium mb-2">DEPARTMENT</label><input type="text" x-model="searchTerms.department" @focus="dropdowns.department = true; if(schoolOptions.length === 0) fetchSchools(); if(departmentOptions.length === 0) fetchDepartments();" @input.debounce.300ms="selectedDepartmentId = null" placeholder="Type to search department..." class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800"><div x-show="dropdowns.department" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto"><template x-if="isLoading.departments"><div class="px-4 py-2 text-sm text-gray-400">Loading...</div></template><template x-for="option in filteredDepartments" :key="option.value"><div @click="selectOption('department', option.value)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="option.label"></div></template><template x-if="!isLoading.departments && filteredDepartments.length === 0"><div class="px-4 py-2 text-sm text-gray-500">No departments found.</div></template></div></div></div>
+                        <div x-show="selectedBelongsTo === 'administration'" class="mt-4 relative" @click.away="closeDropdownAndValidate('general')"><label class="block text-gray-600 text-sm font-medium mb-2">ADMINISTRATIVE SECTION</label><input type="text" x-model="searchTerms.general" @focus="dropdowns.general = true" @input.debounce.300ms="selectedGeneralOptionId = null" placeholder="Type to search section..." class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800"><div x-show="dropdowns.general" x-transition class="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto"><template x-for="option in filteredGeneral" :key="option.value"><div @click="selectOption('general', option.value)" class="px-4 py-2 text-sm hover:bg-gray-100 cursor-pointer" x-text="option.label"></div></template><template x-if="filteredGeneral.length === 0"><div class="px-4 py-2 text-sm text-gray-500">No sections found.</div></template></div></div>
+                        <fieldset>
+                                <legend class="block text-gray-600 text-sm font-medium mb-2 pt-3">AVAILABILITY</legend>
+                                <div class="flex items-center space-x-2 mt-2">
+                                    <button type="button" @click="isAvailable = 'yes'" :class="{'bg-green-600 text-white shadow-lg': isAvailable === 'yes', 'bg-gray-200 text-gray-700 hover:bg-gray-300': isAvailable !== 'yes'}" class="flex-1 py-2 px-3 text-center rounded-md text-sm font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">Available</button>
+                                    <button type="button" @click="isAvailable = 'no'" :class="{'bg-red-600 text-white shadow-lg': isAvailable === 'no', 'bg-gray-200 text-gray-700 hover:bg-gray-300': isAvailable !== 'no'}" class="flex-1 py-2 px-3 text-center rounded-md text-sm font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">Unavailable</button>
+                                </div>
+                            </fieldset>
+                        <div x-show="isAvailable === 'no'" x-transition class="mt-4">
+                            <label for="unavailabilityReason" class="block text-gray-600 text-sm font-medium mb-2">REASON FOR UNAVAILABILITY</label>
+                            <select id="unavailabilityReason" name="unavailability_reason" x-model="unavailabilityReason" class="block w-full p-3 bg-white border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-gray-800">
+                                <option value="" disabled>Select a reason</option>
+                                <template x-for="reason in unavailabilityOptions" :key="reason.value">
+                                    <option :value="reason.value" x-text="reason.label"></option>
+                                </template>
+                            </select>
+                        </div>
+                    </section>
+
+                    <div class="flex justify-end space-x-4 pt-6">
+                        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-md shadow-lg transition-colors duration-300">Submit</button>
+                        <button type="button" @click="window.location.href='manageHall.html'" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-8 rounded-md shadow-lg transition-colors duration-300">CANCEL</button>
+                    </div>
+                </form>
+            </div>
+            
+            <div x-show="showMapModal" 
+                 x-transition:enter="transition ease-out duration-300"
+                 x-transition:enter-start="opacity-0"
+                 x-transition:enter-end="opacity-100"
+                 x-transition:leave="transition ease-in duration-200"
+                 x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0"
+                 class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center map-popup" 
+                 style="z-index: 9999;" 
+                 @click.self="closeMapModal()">
+                <div class="bg-white rounded-xl shadow-2xl w-[90vw] h-[85vh] max-w-6xl relative flex flex-col overflow-hidden" @click.stop>
+                    <div class="flex-shrink-0 flex justify-between items-center p-6 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+                        <div>
+                            <h3 class="text-2xl font-bold">Select Hall Location</h3>
+                            <p class="text-blue-100 text-sm mt-1">Click on the map to drop a pin at the hall location</p>
+                        </div>
+                        <button @click="closeMapModal()" class="text-white hover:text-gray-200 text-2xl font-bold w-10 h-10 flex items-center justify-center rounded-full hover:bg-white hover:bg-opacity-20 transition-colors duration-200">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="relative flex-1 overflow-hidden">
+                        <div id="mapContainer" class="map-container"></div>
+                        
+                        <div class="map-view-toggle" @click="toggleMapView()">
+                            <i class="fas fa-layer-group mr-1"></i>
+                            <span x-text="currentMapView === 'satellite' ? 'Street View' : 'Satellite'"></span>
+                        </div>
+                        
+                        <div class="absolute bottom-4 left-4 bg-white bg-opacity-95 rounded-lg p-3 shadow-lg max-w-xs z-[1000]">
+                            <p class="text-sm text-gray-700 font-medium flex items-center">
+                                <i class="fas fa-info-circle text-blue-500 mr-2"></i>
+                                <span x-show="!tempPin">Click anywhere on the map to place a pin</span>
+                                <span x-show="tempPin" class="text-green-600">Pin placed! Click Continue to confirm.</span>
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex-shrink-0 p-6 border-t border-gray-200 bg-gray-50 flex justify-between items-center">
+                        <div class="text-sm text-gray-600">
+                            <span x-show="tempPin">
+                                Selected coordinates: 
+                                <span class="font-mono font-medium" x-text="tempPin ? `${tempPin.lat.toFixed(6)}, ${tempPin.lng.toFixed(6)}` : ''"></span>
+                            </span>
+                            <span x-show="!tempPin">No location selected</span>
+                        </div>
+                        <div class="flex space-x-3">
+                            <button @click="closeMapModal()" class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-md shadow-lg transition-colors duration-200">
+                                Cancel
+                            </button>
+                            <button @click="confirmLocation()" :disabled="!tempPin" :class="tempPin ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-300 cursor-not-allowed'" class="text-white font-semibold py-3 px-6 rounded-md shadow-lg transition-colors duration-200">
+                                <i class="fas fa-check mr-2"></i>
+                                Continue
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="footer-placeholder"></div>
+    
+    <div x-data x-show="$store.modal.show" @click.away="$store.modal.close()" style="display: none;" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm text-center">
+            <div x-show="$store.modal.isSuccess" class="text-5xl mb-4 text-green-500"><i class="fas fa-check-circle"></i></div>
+            <div x-show="!$store.modal.isSuccess" class="text-5xl mb-4 text-red-500"><i class="fas fa-times-circle"></i></div>
+            <p class="text-lg font-semibold text-gray-800" x-html="$store.modal.message" role="alert"></p>
+            <button @click="$store.modal.close()" class="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-md">OK</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('alpine:init', () => {
+            Alpine.store('modal', {
+                show: false,
+                isSuccess: false,
+                message: '',
+                open(isSuccess, message) {
+                    this.isSuccess = isSuccess;
+                    this.message = message;
+                    this.show = true;
+                },
+                close() { 
+                    this.show = false; 
+                    if (this.isSuccess) {
+                        // Redirect on success
+                        window.location.href = 'manageHall.html';
+                    }
+                }
+            });
+
+            Alpine.data('addHallForm', () => ({
+                hallId: null,
+                hallType: '', 
+                selectedFeatures: [], 
+                selectedBelongsTo: '',
+                selectedSchoolId: null, 
+                selectedDepartmentId: null, 
+                selectedDeptSchoolId: null, 
+                selectedGeneralOptionId: null,
+                isAvailable: 'yes', 
+                unavailabilityReason: '',
+                
+                // Map-related properties
+                showMapModal: false,
+                map: null,
+                currentPin: null,
+                streetLayer: null,
+                satelliteLayer: null,
+                currentMapView: 'street',
+                tempPin: null,
+                coordinates: {
+                    lat: '',
+                    lng: ''
+                },
+                
+                dropdowns: { school: false, department: false, deptSchool: false, general: false },
+                searchTerms: { school: '', department: '', deptSchool: '', general: '' },
+                isLoading: { schools: false, departments: false, hall: false },
+                
+                floorOptions: AppConfig.formOptions.floors,
+                zoneOptions: AppConfig.formOptions.zones,
+                featuresOptions: AppConfig.formOptions.features,
+                generalOptions: AppConfig.formOptions.generalSections,
+                unavailabilityOptions: AppConfig.formOptions.unavailabilityReasons,
+                schoolOptions: [], 
+                departmentOptions: [],
+                
+                // --- AUTHENTICATION LOGIC ---
+                async fetchWithAuth(url, options = {}) {
+                    const headers = getAuthHeaders();
+                    if (!headers) {
+                        logout();
+                        throw new Error('User not authenticated');
+                    }
+                    
+                    const config = { ...options, headers: {...headers, ...options.headers} };
+                    const response = await fetch(url, config);
+
+                    if (response.status === 401) {
+                        logout();
+                        throw new Error('Authentication failed');
+                    }
+                    return response;
+                },
+                // --- END AUTHENTICATION LOGIC ---
+
+                init() {
+                    if (!getAuthHeaders()) {
+                        console.error("No auth token found. Redirecting to login.");
+                        logout();
+                        return;
+                    }
+                },
+
+                openMapModal() {
+                    this.showMapModal = true;
+                    this.tempPin = null;
+                    this.$nextTick(() => {
+                        setTimeout(() => this.initializeMap(), 300);
+                    });
+                },
+
+                closeMapModal() {
+                    this.showMapModal = false;
+                    this.tempPin = null;
+                    if (this.map) {
+                        this.map.remove();
+                        this.map = null;
+                    }
+                },
+
+                initializeMap() {
+                    const mapContainer = document.getElementById('mapContainer');
+                    if (!mapContainer || this.map) return;
+
+                    const defaultCenter = [12.019284, 79.853336];
+                    const existingCoords = this.coordinates.lat && this.coordinates.lng ? 
+                        [parseFloat(this.coordinates.lat), parseFloat(this.coordinates.lng)] : 
+                        defaultCenter;
+
+                    this.map = L.map('mapContainer').setView(existingCoords, 15);
+                    this.streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '© OpenStreetMap contributors'
+                    }).addTo(this.map);
+                    this.satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                        attribution: 'Tiles © Esri'
+                    });
+
+                    if (this.coordinates.lat && this.coordinates.lng) {
+                        this.tempPin = { lat: parseFloat(this.coordinates.lat), lng: parseFloat(this.coordinates.lng) };
+                        this.addPinToMap(this.tempPin.lat, this.tempPin.lng);
+                    }
+                    this.map.on('click', (e) => this.onMapClick(e));
+                },
+
+                toggleMapView() {
+                    if (!this.map) return;
+                    if (this.currentMapView === 'street') {
+                        this.map.removeLayer(this.streetLayer);
+                        this.satelliteLayer.addTo(this.map);
+                        this.currentMapView = 'satellite';
+                    } else {
+                        this.map.removeLayer(this.satelliteLayer);
+                        this.streetLayer.addTo(this.map);
+                        this.currentMapView = 'street';
+                    }
+                },
+
+                onMapClick(e) {
+                    const { lat, lng } = e.latlng;
+                    if (this.currentPin) this.map.removeLayer(this.currentPin);
+                    this.tempPin = { lat, lng };
+                    this.addPinToMap(lat, lng);
+                },
+
+                addPinToMap(lat, lng) {
+                    const pinIcon = L.divIcon({
+                        html: '<i class="fas fa-map-marker-alt text-red-500 text-3xl drop-shadow-lg"></i>',
+                        iconSize: [30, 30],
+                        iconAnchor: [15, 30],
+                        className: 'custom-pin'
+                    });
+                    this.currentPin = L.marker([lat, lng], { icon: pinIcon }).addTo(this.map)
+                        .bindPopup(`<b>Selected Location</b><br>Lat: ${lat.toFixed(6)}<br>Lng: ${lng.toFixed(6)}`).openPopup();
+                },
+
+                confirmLocation() {
+                    if (!this.tempPin) return;
+                    this.coordinates.lat = this.tempPin.lat.toFixed(6);
+                    this.coordinates.lng = this.tempPin.lng.toFixed(6);
+                    this.closeMapModal();
+                },
+
+                get filteredSchools() { return this.schoolOptions.filter(o => o.label.toLowerCase().includes(this.searchTerms.school.toLowerCase())); },
+                get filteredDeptSchools() { return this.schoolOptions.filter(o => o.label.toLowerCase().includes(this.searchTerms.deptSchool.toLowerCase())); },
+                get filteredDepartments() {
+                    let depts = this.departmentOptions;
+                    if (this.selectedDeptSchoolId) { depts = depts.filter(d => d.schoolId === this.selectedDeptSchoolId); }
+                    return depts.filter(o => o.label.toLowerCase().includes(this.searchTerms.department.toLowerCase()));
+                },
+                get filteredGeneral() { return this.generalOptions.filter(o => o.label.toLowerCase().includes(this.searchTerms.general.toLowerCase())); },
+                
+                async fetchSchools() { 
+                    this.isLoading.schools = true; 
+                    try { 
+                        const response = await this.fetchWithAuth(AppConfig.apiBaseUrl + AppConfig.endpoints.allschool);
+                        if (!response.ok) throw new Error('Network error'); 
+                        const d = await response.json(); 
+                        this.schoolOptions = d.filter(s => s && s.unique_id && s.school_name).map(s => ({ value: s.unique_id, label: s.school_name })); 
+                    } catch (e) { 
+                        Alpine.store('modal').open(false, `Could not load school data: ${e.message}`); 
+                    } finally { 
+                        this.isLoading.schools = false; 
+                    } 
+                },
+                async fetchDepartments() { 
+                    this.isLoading.departments = true; 
+                    try { 
+                        const response = await this.fetchWithAuth(AppConfig.apiBaseUrl + AppConfig.endpoints.alldept);
+                        if (!response.ok) throw new Error('Network error'); 
+                        const d = await response.json(); 
+                        this.departmentOptions = d.filter(t => t && t.unique_id && t.department_name && t.school_id).map(t => ({ value: t.unique_id, label: t.department_name, schoolId: t.school_id })); 
+                    } catch (e) { 
+                        Alpine.store('modal').open(false, `Could not load department data: ${e.message}`); 
+                    } finally { 
+                        this.isLoading.departments = false; 
+                    } 
+                },
+                
+                getLabelById(options, id) { const option = options.find(o => o.value === id); return option ? option.label : null; },
+                
+                toggleDropdown(key) { 
+                    this.dropdowns[key] = !this.dropdowns[key]; 
+                    if (this.dropdowns[key]) {
+                        if (key === 'school' || key === 'deptSchool') {
+                            if (this.schoolOptions.length === 0 && !this.isLoading.schools) {
+                                this.fetchSchools();
+                            }
+                        } else if (key === 'department') {
+                            if (this.departmentOptions.length === 0 && !this.isLoading.departments) {
+                                this.fetchDepartments();
+                            }
+                        }
+                    }
+                },
+                
+                selectOption(type, value) {
+                    if (type === 'school') { this.selectedSchoolId = value; this.searchTerms.school = this.getLabelById(this.schoolOptions, value); } 
+                    else if (type === 'deptSchool') { this.selectedDeptSchoolId = value; this.searchTerms.deptSchool = this.getLabelById(this.schoolOptions, value); this.selectedDepartmentId = null; this.searchTerms.department = ''; } 
+                    else if (type === 'general') { this.selectedGeneralOptionId = value; this.searchTerms.general = this.getLabelById(this.generalOptions, value); } 
+                    else if (type === 'department') {
+                        this.selectedDepartmentId = value;
+                        const dept = this.departmentOptions.find(o => o.value === value);
+                        if (dept) {
+                            this.searchTerms.department = dept.label;
+                            if (!this.selectedDeptSchoolId) { this.selectedDeptSchoolId = dept.schoolId; this.searchTerms.deptSchool = this.getLabelById(this.schoolOptions, dept.schoolId); }
+                        }
+                    }
+                    this.dropdowns[type] = false;
+                },
+
+                closeDropdownAndValidate(type) {
+                    if (type === 'school' && !this.selectedSchoolId) this.searchTerms.school = '';
+                    if (type === 'deptSchool' && !this.selectedDeptSchoolId) this.searchTerms.deptSchool = '';
+                    if (type === 'department' && !this.selectedDepartmentId) this.searchTerms.department = '';
+                    if (type === 'general' && !this.selectedGeneralOptionId) this.searchTerms.general = '';
+                    this.dropdowns[type] = false;
+                },
+
+                resetForm() {
+                    this.hallType = '';
+                    this.selectedFeatures = [];
+                    this.selectedBelongsTo = '';
+                    this.selectedSchoolId = null;
+                    this.selectedDepartmentId = null;
+                    this.selectedDeptSchoolId = null;
+                    this.selectedGeneralOptionId = null;
+                    this.isAvailable = 'yes';
+                    this.unavailabilityReason = '';
+                    this.searchTerms = { school: '', department: '', deptSchool: '', general: '' };
+                    document.getElementById('addHallForm')?.reset();
+                },
+
+                async submitForm() {
+                    if (!this.hallType) { Alpine.store('modal').open(false, 'Please select a hall type.'); return; }
+                    const form = document.getElementById('addHallForm');
+                    if (!form.checkValidity()) { 
+                        Alpine.store('modal').open(false, 'Please fill out all required fields.');
+                        form.reportValidity(); 
+                        return; 
+                    }
+                    
+                    const payload = {
+                        name: form.hall_name.value,
+                        image_url: "https://upload.wikimedia.org/wikipedia/en/d/d0/Pondy_Univ_logo1.png", // Placeholder
+                        type: this.hallType.replace(/_hall|_room/g, '').toUpperCase(),
+                        capacity: parseInt(form.hall_capacity.value, 10),
+                        floor: form.hall_floor.value.toUpperCase(),
+                        zone: form.hall_zone.value.toUpperCase(),
+                        belongs_to: this.selectedBelongsTo.toUpperCase(),
+                        features: this.selectedFeatures,
+                        availability: this.isAvailable === 'yes',
+                        assigned_to: form.assigned_to.value || undefined,
+                    };
+                    
+                    const latitude = form.latitude.value;
+                    const longitude = form.longitude.value;
+                    if(latitude) payload.latitude = parseFloat(latitude);
+                    if(longitude) payload.longitude = parseFloat(longitude);
+
+                    if (this.isAvailable === 'no') {
+                        payload.unavailability_reason = this.unavailabilityReason;
+                    }
+
+                    if (this.selectedBelongsTo === 'school') { payload.school_id = this.selectedSchoolId; } 
+                    else if (this.selectedBelongsTo === 'department') { payload.school_id = this.selectedDeptSchoolId; payload.department_id = this.selectedDepartmentId; } 
+                    else if (this.selectedBelongsTo === 'administration') { payload.section = this.selectedGeneralOptionId; }
+                    
+                    console.log('Sending Payload:', JSON.stringify(payload, null, 2));
+
+                    try {
+                        const url = `${AppConfig.apiBaseUrl}${AppConfig.endpoints.addHall}`;
+                        const response = await this.fetchWithAuth(url, { 
+                            method: 'POST',
+                            body: JSON.stringify(payload) 
+                        });
+                        
+                        const result = await response.json();
+                        if (!response.ok) {
+                            throw result;
+                        }
+                        Alpine.store('modal').open(true, 'Hall added successfully!');
+                    } catch (error) {
+                        let errorMessage = 'An unexpected error occurred. Please try again.';
+                        // Check for the new format: { success, message, error: [...] }
+                        if (error && Array.isArray(error.error) && error.error.length > 0) {
+                            errorMessage = error.error.map(e => `<b>${e.path.join('.')}:</b> ${e.message}`).join('<br>');
+                        }
+                        // Fallback for the previous format: { success, errors: [...] }
+                        else if (error && Array.isArray(error.errors) && error.errors.length > 0) {
+                            errorMessage = error.errors.map(e => e.message).join('<br>');
+                        } else if (error && error.message) {
+                            errorMessage = error.message;
+                        }
+
+                        Alpine.store('modal').open(false, errorMessage);
+                    }
+                }
+            }));
+        });
+    </script>
+    <script src="layout.js"></script>
+</body>
+</html>

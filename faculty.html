@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Faculty Dashboard - Hall Booking Schedule</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="config.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background-image: linear-gradient(to right, #14555F, #0B1940);
+            background-attachment: fixed;
+        }
+        .calendar-grid, .day-view-grid {
+            display: grid;
+            grid-template-rows: auto;
+            min-height: 600px;
+        }
+        .calendar-grid {
+            grid-template-columns: 70px repeat(7, minmax(120px, auto));
+            overflow: hidden;
+            width: 100%;
+        }
+        .day-view-grid {
+             grid-template-columns: 90px 1fr;
+        }
+        .month-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+        }
+        .month-day {
+            min-height: 120px;
+            border-right: 1px solid #e5e7eb;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .month-day:nth-child(7n) {
+            border-right: 0;
+        }
+        .time-slot {
+            grid-column: 1 / 2;
+        }
+        .day-column {
+            border-left: 1px solid #e5e7eb;
+            position: relative;
+        }
+        .calendar-event,         .day-event {
+            border-radius: 4px;
+            padding: 6px 8px;
+            font-size: 0.75rem;
+            margin: 0 4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: normal;
+            line-height: 1.3;
+            position: absolute;
+            width: calc(100% - 8px);
+            z-index: 10;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        .month-event {
+             font-size: 0.75rem;
+             padding: 0 4px;
+             border-radius: 2px;
+             margin-top: 2px;
+             white-space: nowrap;
+             overflow: hidden;
+             text-overflow: ellipsis;
+        }
+        
+        /* Color styles - Updated for better visibility */
+        .event-booked-individual { background-color: #fee2e2; border-left: 3px solid #fca5a5; color: #991b1b; }
+        .event-booked-semester { background-color: #ffedd5; border-left: 3px solid #fdba74; color: #9a3412; }
+        .event-pending-individual { background-color: #fef3c7; border-left: 3px solid #fcd34d; color: #92400e; }
+        .event-pending-semester { background-color: #c7d2fe; border-left: 3px solid #818cf8; color: #3730a3; }
+
+        .day-event-booked-individual { 
+            background-color: #fecaca; 
+            border-left: 4px solid #ef4444; 
+            color: #7f1d1d; 
+            border-color: #ef4444;
+        }
+        .day-event-booked-semester { 
+            background-color: #fed7aa; 
+            border-left: 4px solid #f97316; 
+            color: #9a3412; 
+            border-color: #f97316;
+        }
+        .day-event-pending-individual { 
+            background-color: #fef3c7; 
+            border-left: 4px solid #f59e0b; 
+            color: #92400e; 
+            border-color: #f59e0b;
+        }
+        .day-event-pending-semester { 
+            background-color: #ddd6fe; 
+            border-left: 4px solid #8b5cf6; 
+            color: #5b21b6; 
+            border-color: #8b5cf6;
+        }
+
+        .month-event-booked-individual { background-color: #fee2e2; color: #991b1b; border-left: 3px solid #fca5a5; }
+        .month-event-booked-semester { background-color: #ffedd5; color: #9a3412; border-left: 3px solid #fdba74; }
+        .month-event-pending-individual { background-color: #fef3c7; color: #92400e; border-left: 3px solid #fcd34d; }
+        .month-event-pending-semester { background-color: #c7d2fe; color: #3730a3; border-left: 3px solid #818cf8; }
+
+        .highlight-today {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        .month-day.today {
+            background-color: #ebf8ff;
+        }
+
+        /* Day view specific styles */
+        .day-view-container {
+            position: relative;
+            min-height: 600px;
+        }
+        
+        .day-time-grid {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+        }
+        
+        .day-time-slot {
+            height: 64px; /* 4rem = 64px */
+            border-bottom: 1px solid #e5e7eb;
+            position: relative;
+        }
+        
+        .day-time-slot:last-child {
+            border-bottom: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <div id="nav-placeholder"></div>
+    <script src="layout.js"></script>
+    
+    <main class="flex-grow p-6">
+        <div class="container mx-auto bg-white p-4 rounded-lg shadow-xl" 
+             x-data="calendar()" 
+             @keydown.arrow-left.window="navigate('prev')" 
+             @keydown.arrow-right.window="navigate('next')">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center space-x-2">
+                    <button @click="navigate('prev')" class="p-2 rounded hover:bg-gray-200 text-gray-600"><i class="fas fa-chevron-left"></i></button>
+                    <button @click="navigate('next')" class="p-2 rounded hover:bg-gray-200 text-gray-600"><i class="fas fa-chevron-right"></i></button>
+                    <button @click="goToToday()" class="px-4 py-2 border rounded-md text-gray-700 hover:bg-gray-100 transition-colors">Today</button>
+                </div>
+                <h3 class="text-2xl font-semibold text-gray-800" x-text="headerDate"></h3>
+                <div class="flex items-center border border-gray-300 rounded-md">
+                    <button @click="view = 'month'" :class="{'bg-gray-800 text-white': view === 'month'}" class="px-4 py-2 rounded-l-md hover:bg-gray-200 transition-colors">Month</button>
+                    <button @click="view = 'week'" :class="{'bg-gray-800 text-white': view === 'week'}" class="px-4 py-2 border-l border-r hover:bg-gray-200 transition-colors">Week</button>
+                    <button @click="view = 'day'" :class="{'bg-gray-800 text-white': view === 'day'}" class="px-4 py-2 rounded-r-md hover:bg-gray-200 transition-colors">Day</button>
+                </div>
+            </div>
+
+            <template x-if="view === 'week'">
+                <div class="calendar-grid border-t border-gray-200">
+                    <div class="time-slot text-right pr-2 border-r border-gray-200">
+                        <div class="h-10"></div>
+                        <template x-for="time in timeSlots" :key="time">
+                             <div class="h-16 flex items-start justify-end pt-1 text-sm text-gray-500" x-text="time"></div>
+                        </template>
+                    </div>
+                    <template x-for="day in weekDays" :key="day.date">
+                        <div class="day-column" :class="{'highlight-today': day.isToday}">
+                            <div class="text-center font-semibold p-2 border-b" :class="{'text-blue-600': day.isToday}" x-text="day.label"></div>
+                            <div class="relative h-full border-t">
+                                <template x-for="event in getEventsForDay(day.date)" :key="event.id">
+                                     <div class="calendar-event" :style="getEventStyle(event)" x-text="event.title" :class="getEventClasses(event, 'event')"></div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </template>
+
+            <template x-if="view === 'month'">
+                <div class="month-grid border-t border-l border-gray-200">
+                    <template x-for="dayName in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']" :key="dayName">
+                        <div class="text-center font-semibold p-2 border-b border-r border-gray-200" x-text="dayName"></div>
+                    </template>
+                    <template x-for="day in monthDays" :key="day.date">
+                        <div class="month-day p-2 cursor-pointer" :class="{'today': day.isToday}" @click="switchToDayView(day.date)">
+                            <span :class="{'text-gray-400': !day.isCurrentMonth}" x-text="day.dayNumber"></span>
+                            <div class="mt-1">
+                                <template x-for="event in getVisibleEvents(day.date, 2)" :key="event.id">
+                                    <div class="month-event" x-text="event.title" :class="getEventClasses(event, 'month-event')"></div>
+                                </template>
+                                <template x-if="getMoreEventsCount(day.date, 2) > 0">
+                                    <div class="text-xs text-blue-600 mt-1 hover:underline" x-text="'+' + getMoreEventsCount(day.date, 2) + ' more'"></div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </template>
+            
+            <template x-if="view === 'day'">
+                <div class="border border-gray-200 rounded-lg">
+                    <div class="text-center font-semibold p-3 border-b bg-gray-50 text-lg" 
+                         :class="{'bg-blue-50 text-blue-800': isToday(currentDate)}" 
+                         x-text="getDayViewHeader()"></div>
+                    
+                    <div class="day-view-grid">
+                        <div class="border-r border-gray-200 bg-gray-50">
+                            <template x-for="(time, index) in timeSlots" :key="time">
+                                <div class="h-16 flex items-start justify-end pr-3 pt-1 text-sm text-gray-600 font-medium border-b border-gray-100"
+                                     :class="{'border-b-0': index === timeSlots.length - 1}"
+                                     x-text="time"></div>
+                            </template>
+                        </div>
+                        
+                        <div class="day-view-container relative">
+                            <div class="day-time-grid">
+                                <template x-for="(time, index) in timeSlots" :key="time">
+                                    <div class="day-time-slot"></div>
+                                </template>
+                            </div>
+                            
+                            <template x-for="event in dayEvents" :key="event.id">
+                                <div class="day-event" 
+                                     :style="getEventStyle(event)" 
+                                     :class="getEventClasses(event, 'day-event')"
+                                     :title="getEventTooltip(event)">
+                                    <div class="font-semibold text-xs mb-1" x-text="getEventTimeRange(event)"></div>
+                                    <div class="text-xs font-medium" x-text="event.title"></div>
+                                </div>
+                            </template>
+                            
+                            <template x-if="dayEvents.length === 0 && !isLoading.bookings && events.length > 0">
+                                <div class="absolute inset-0 flex items-center justify-center text-gray-500">
+                                    <div class="text-center">
+                                        <i class="fas fa-calendar-day text-4xl mb-3 opacity-50"></i>
+                                        <p class="text-lg">No bookings for this day</p>
+                                        <p class="text-sm">Your hall bookings will appear here</p>
+                                    </div>
+                                </div>
+                            </template>
+                            
+                            <template x-if="events.length === 0 && !isLoading.bookings">
+                                <div class="absolute inset-0 flex items-center justify-center text-gray-500">
+                                    <div class="text-center">
+                                        <i class="fas fa-calendar-plus text-4xl mb-3 opacity-50"></i>
+                                        <p class="text-lg">No bookings found</p>
+                                        <p class="text-sm">You don't have any hall bookings yet</p>
+                                    </div>
+                                </div>
+                            </template>
+                            
+                            <template x-if="isLoading.bookings">
+                                <div class="absolute inset-0 flex items-center justify-center text-gray-500">
+                                    <div class="text-center">
+                                        <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                                        <p>Loading bookings...</p>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            <div class="flex flex-wrap justify-center items-center gap-x-4 gap-y-2 mt-4 text-sm">
+                <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2" style="background-color: #fee2e2; border: 1px solid #fca5a5;"></span> Booked (Indv)</div>
+                <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2" style="background-color: #ffedd5; border: 1px solid #fdba74;"></span> Booked (Sem)</div>
+                <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2" style="background-color: #fef3c7; border: 1px solid #fcd34d;"></span> Pending (Indv)</div>
+                <div class="flex items-center"><span class="h-4 w-4 rounded-sm mr-2" style="background-color: #c7d2fe; border: 1px solid #818cf8;"></span> Pending (Sem)</div>
+            </div>
+        </div>
+    </main>
+
+    <div id="footer-placeholder"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script>
+        function calendar() {
+            return {
+                view: 'day',
+                currentDate: new Date(),
+                weekDays: [],
+                monthDays: [],
+                dayEvents: [],
+                timeSlots: ['9:30AM', '10:30AM', '11:30AM', '12:30PM', '1:30PM', '2:30PM', '3:30PM', '4:30PM', '5:30PM'],
+                events: [],
+                schoolOptions: [],
+                departmentOptions: [],
+                isLoading: { schools: true, departments: true, bookings: true },
+
+                async init() {
+                    if (!getAuthHeaders()) {
+                        logout();
+                        return;
+                    }
+                    await this.fetchSchools();
+                    await this.fetchDepartments();
+                    await this.fetchBookings();
+
+                    // Watch for changes and update the calendar and day view
+                    this.$watch('view', () => {
+                        this.updateCalendar();
+                    });
+                    
+                    this.$watch('currentDate', () => {
+                        this.updateCalendar();
+                    });
+                    
+                    this.updateCalendar();
+                },
+
+                // --- HELPER FUNCTIONS FOR ROBUST DATE HANDLING ---
+                parseLocalDate(dateString) {
+                    const [year, month, day] = dateString.split('-').map(Number);
+                    return new Date(year, month - 1, day);
+                },
+
+                formatLocalDate(date) {
+                    const year = date.getFullYear();
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    return `${year}-${month}-${day}`;
+                },
+
+                isToday(date) {
+                    const today = new Date();
+                    return date.toDateString() === today.toDateString();
+                },
+
+                getDayViewHeader() {
+                    const options = { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                    };
+                    return this.currentDate.toLocaleDateString('en-US', options);
+                },
+
+                getEventTimeRange(event) {
+                    return `${event.startTime} - ${event.endTime}`;
+                },
+
+                getEventTooltip(event) {
+                    const status = event.status.charAt(0).toUpperCase() + event.status.slice(1).toLowerCase();
+                    const type = event.type.charAt(0).toUpperCase() + event.type.slice(1).toLowerCase();
+                    return `${event.title}\nTime: ${event.startTime} - ${event.endTime}\nStatus: ${status}\nType: ${type}`;
+                },
+                // --- END HELPER FUNCTIONS ---
+
+                async fetchWithAuth(url, options = {}) {
+                    const headers = getAuthHeaders();
+                    if (!headers) {
+                        logout();
+                        throw new Error('User not authenticated');
+                    }
+                    const config = { ...options, headers: {...headers, ...options.headers} };
+                    const response = await fetch(url, config);
+                    if (response.status === 401) {
+                        logout();
+                        throw new Error('Authentication failed');
+                    }
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({ message: 'An unknown error occurred' }));
+                        throw new Error(errorData.message || `HTTP error! Status: ${response.status}`);
+                    }
+                    return response.json();
+                },
+
+                async fetchSchools() { 
+                    this.isLoading.schools = true; 
+                    try {
+                        const url = AppConfig.apiBaseUrl + AppConfig.endpoints.allschool;
+                        const data = await this.fetchWithAuth(url);
+                        this.schoolOptions = data.map(s => ({ value: s.unique_id, label: s.school_name }));
+                    } catch (e) { console.error("Could not load schools:", e.message); } 
+                    finally { this.isLoading.schools = false; } 
+                },
+
+                async fetchDepartments() { 
+                    this.isLoading.departments = true; 
+                    try {
+                        const url = AppConfig.apiBaseUrl + AppConfig.endpoints.alldept;
+                        const data = await this.fetchWithAuth(url);
+                        this.departmentOptions = data.map(d => ({ value: d.unique_id, label: d.department_name, schoolId: d.school_id }));
+                    } catch (e) { console.error("Could not load departments:", e.message); } 
+                    finally { this.isLoading.departments = false; } 
+                },
+
+                async fetchBookings() {
+                    this.isLoading.bookings = true;
+                    try {
+                        const url = AppConfig.apiBaseUrl + AppConfig.endpoints.myBookings;
+                        const result = await this.fetchWithAuth(url);
+
+                        if (result.success) {
+                            this.events = result.data
+                                .filter(item => item.status && !item.status.toUpperCase().includes('REJECTED'))
+                                .flatMap(item => {
+                                    if (item.booking_type === 'SEMESTER' && item.days_of_week && item.days_of_week.length > 0) {
+                                        return this.expandRecurringEvent(item);
+                                    } else {
+                                        // Handle individual bookings
+                                        const startDate = new Date(item.start_date);
+                                        const endDate = new Date(item.end_date);
+                                        const events = [];
+                                        
+                                        // Create events for each day in the date range
+                                        let currentDate = new Date(startDate);
+                                        while (currentDate <= endDate) {
+                                            const dateStr = this.formatLocalDate(currentDate);
+                                            events.push({
+                                                id: `${item.id}-${dateStr}`,
+                                                date: dateStr,
+                                                startTime: item.start_time,
+                                                endTime: item.end_time,
+                                                title: `${item.hall?.name || 'Unknown Hall'} - ${item.purpose}`,
+                                                status: item.status,
+                                                type: item.booking_type,
+                                                rawData: item // Keep original data for debugging
+                                            });
+                                            currentDate.setDate(currentDate.getDate() + 1);
+                                        }
+                                        return events;
+                                    }
+                                });
+                            
+                            console.log('Fetched events:', this.events); // Debug log
+                        }
+                    } catch (error) {
+                        console.error('Failed to fetch bookings:', error.message);
+                    } finally {
+                        this.isLoading.bookings = false;
+                        this.updateCalendar();
+                    }
+                },
+
+                expandRecurringEvent(booking) {
+                    const expandedEvents = [];
+                    const dayMap = { "SUNDAY": 0, "MONDAY": 1, "TUESDAY": 2, "WEDNESDAY": 3, "THURSDAY": 4, "FRIDAY": 5, "SATURDAY": 6 };
+                    const targetDays = booking.days_of_week.map(day => dayMap[day.toUpperCase()]);
+                    
+                    let currentDate = this.parseLocalDate(booking.start_date.split('T')[0]);
+                    const endDate = this.parseLocalDate(booking.end_date.split('T')[0]);
+
+                    while (currentDate <= endDate) {
+                        if (targetDays.includes(currentDate.getDay())) {
+                            const dateStr = this.formatLocalDate(currentDate);
+                            expandedEvents.push({
+                                id: `${booking.id}-${dateStr}`,
+                                date: dateStr,
+                                startTime: booking.start_time,
+                                endTime: booking.end_time,
+                                title: `${booking.hall?.name || 'Unknown Hall'} - ${booking.purpose}`,
+                                status: booking.status,
+                                type: booking.booking_type
+                            });
+                        }
+                        currentDate.setDate(currentDate.getDate() + 1);
+                    }
+                    return expandedEvents;
+                },
+
+                getEventClasses(event, prefix) {
+                    const status = event.status ? event.status.toUpperCase() : '';
+                    const type = event.type ? event.type.toUpperCase() : '';
+                    
+                    console.log(`Event classes for ${event.title}: status=${status}, type=${type}`); // Debug
+                    
+                    if (status.includes('PENDING')) {
+                        return type === 'INDIVIDUAL' ? `${prefix}-pending-individual` : `${prefix}-pending-semester`;
+                    } else if (status.includes('CONFIRMED')) {
+                        return type === 'INDIVIDUAL' ? `${prefix}-booked-individual` : `${prefix}-booked-semester`;
+                    } else {
+                        // Default to booked if status is unclear
+                        return type === 'INDIVIDUAL' ? `${prefix}-booked-individual` : `${prefix}-booked-semester`;
+                    }
+                },
+
+                updateCalendar() {
+                    if (this.view === 'week') this.generateWeek();
+                    if (this.view === 'month') this.generateMonth();
+                    if (this.view === 'day') this.updateDayViewEvents();
+                },
+
+                // FIXED: Update the day view events properly
+                updateDayViewEvents() {
+                    const selectedDateStr = this.formatLocalDate(this.currentDate);
+                    this.dayEvents = this.events.filter(e => e.date === selectedDateStr);
+                    console.log(`Day events for ${selectedDateStr}:`, this.dayEvents); // Debug log
+                },
+
+                get headerDate() {
+                    if (this.view === 'month') {
+                        return this.currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                    }
+                    if (this.view === 'day') {
+                        return this.currentDate.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
+                    }
+                    if (this.view === 'week' && this.weekDays.length > 0) {
+                        const startOfWeek = this.parseLocalDate(this.weekDays[0].date);
+                        const endOfWeek = this.parseLocalDate(this.weekDays[6].date);
+                        const startMonth = startOfWeek.toLocaleDateString('en-US', { month: 'long' });
+                        const endMonth = endOfWeek.toLocaleDateString('en-US', { month: 'long' });
+                        if (startMonth === endMonth) {
+                            return `${startOfWeek.getDate()} - ${endOfWeek.getDate()} ${startMonth}, ${startOfWeek.getFullYear()}`;
+                        }
+                        return `${startOfWeek.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })} - ${endOfWeek.toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}, ${endOfWeek.getFullYear()}`;
+                    }
+                    return '';
+                },
+
+                generateWeek() {
+                    const startOfWeek = new Date(this.currentDate);
+                    const dayOfWeek = startOfWeek.getDay();
+                    const diff = startOfWeek.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+                    startOfWeek.setDate(diff);
+                    this.weekDays = [];
+                    const today = new Date();
+                    today.setHours(0,0,0,0);
+                    for (let i = 0; i < 7; i++) {
+                        const day = new Date(startOfWeek);
+                        day.setDate(startOfWeek.getDate() + i);
+                        this.weekDays.push({
+                            label: `${day.toLocaleDateString('en-US', { weekday: 'short' })} ${day.getDate()}/${day.getMonth() + 1}`,
+                            date: this.formatLocalDate(day),
+                            isToday: day.getTime() === today.getTime()
+                        });
+                    }
+                },
+
+                generateMonth() {
+                    this.monthDays = [];
+                    const year = this.currentDate.getFullYear();
+                    const month = this.currentDate.getMonth();
+                    const firstDayOfMonth = new Date(year, month, 1);
+                    const lastDayOfMonth = new Date(year, month + 1, 0);
+                    const firstDayOfWeek = firstDayOfMonth.getDay() === 0 ? 6 : firstDayOfMonth.getDay() - 1;
+                    const lastDayOfPrevMonth = new Date(year, month, 0).getDate();
+                    for (let i = firstDayOfWeek; i > 0; i--) {
+                        const day = lastDayOfPrevMonth - i + 1;
+                        const date = new Date(year, month - 1, day);
+                        this.monthDays.push({ date: this.formatLocalDate(date), dayNumber: day, isCurrentMonth: false });
+                    }
+                    const today = new Date();
+                    today.setHours(0,0,0,0);
+                    for (let i = 1; i <= lastDayOfMonth.getDate(); i++) {
+                        const date = new Date(year, month, i);
+                        this.monthDays.push({
+                            date: this.formatLocalDate(date),
+                            dayNumber: i,
+                            isCurrentMonth: true,
+                            isToday: date.getTime() === today.getTime()
+                        });
+                    }
+                    const lastDayOfWeek = lastDayOfMonth.getDay() === 0 ? 6 : lastDayOfMonth.getDay() - 1;
+                    let day = 1;
+                    for (let i = lastDayOfWeek; i < 6; i++) {
+                         const date = new Date(year, month + 1, day);
+                         this.monthDays.push({ date: this.formatLocalDate(date), dayNumber: day, isCurrentMonth: false });
+                         day++;
+                    }
+                },
+                
+                navigate(direction) {
+                    const increment = direction === 'next' ? 1 : -1;
+                    let newDate = new Date(this.currentDate);
+                    if (this.view === 'week') {
+                        newDate.setDate(newDate.getDate() + (7 * increment));
+                    }
+                    if (this.view === 'month') {
+                        newDate.setMonth(newDate.getMonth() + increment);
+                    }
+                     if (this.view === 'day') {
+                        newDate.setDate(newDate.getDate() + increment);
+                    }
+                    this.currentDate = newDate;
+                    this.updateCalendar();
+                },
+
+                goToToday() {
+                    this.currentDate = new Date();
+                    this.updateCalendar();
+                },
+                
+                switchToDayView(date) {
+                    this.currentDate = this.parseLocalDate(date);
+                    this.view = 'day';
+                    // The updateCalendar will be triggered by the watcher
+                },
+
+                getEventsForDay(date) {
+                    return this.events.filter(e => e.date === date);
+                },
+
+                getVisibleEvents(date, limit) {
+                    return this.getEventsForDay(date).slice(0, limit);
+                },
+
+                getMoreEventsCount(date, limit) {
+                    return Math.max(0, this.getEventsForDay(date).length - limit);
+                },
+
+                getEventStyle(event) {
+                    const calendarStartMinutes = 9 * 60 + 30; // 9:30 AM in minutes
+                    
+                    // Parse start time - handle "HH:MM" format
+                    const startTimeParts = event.startTime.split(':');
+                    const startHours = parseInt(startTimeParts[0]);
+                    const startMinutes = parseInt(startTimeParts[1]);
+                    const eventStartMinutes = startHours * 60 + startMinutes;
+                    
+                    // Parse end time - handle "HH:MM" format  
+                    const endTimeParts = event.endTime.split(':');
+                    const endHours = parseInt(endTimeParts[0]);
+                    const endMins = parseInt(endTimeParts[1]);
+                    const eventEndMinutes = endHours * 60 + endMins;
+                    
+                    // Calculate position and height
+                    const minutesFromTop = Math.max(0, eventStartMinutes - calendarStartMinutes);
+                    const durationMinutes = eventEndMinutes - eventStartMinutes;
+                    
+                    // Ensure the event doesn't go beyond our calendar view (9:30 AM to 5:30 PM = 8 hours)
+                    const calendarEndMinutes = 17 * 60 + 30; // 5:30 PM
+                    const adjustedEndMinutes = Math.min(eventEndMinutes, calendarEndMinutes);
+                    const adjustedDurationMinutes = adjustedEndMinutes - Math.max(eventStartMinutes, calendarStartMinutes);
+                    
+                    // Convert to rem units (1 hour = 4rem)
+                    const top = (minutesFromTop / 60) * 4;
+                    const height = Math.max((adjustedDurationMinutes / 60) * 4, 0.25); // Minimum height
+                    
+                    console.log(`Event ${event.title}: 
+                        Time: ${event.startTime}-${event.endTime}
+                        Duration: ${durationMinutes} minutes
+                        Adjusted Duration: ${adjustedDurationMinutes} minutes
+                        Position: top=${top}rem, height=${height}rem`);
+                    
+                    return { 
+                        top: `${top}rem`, 
+                        height: `${height}rem`,
+                        left: '2px',
+                        right: '2px',
+                        width: 'calc(100% - 4px)',
+                        position: 'absolute'
+                    };
+                }
+            }
+        }
+    </script>
+</body>
+</html>
