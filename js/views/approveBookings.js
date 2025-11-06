@@ -326,6 +326,7 @@ window.ApproveBookingsView = (function() {
                 </div>
                 <div class="flex-shrink-0 flex gap-2">
                     <button data-action="resolve-approve" data-approve-id="${booking.unique_id}" data-reject-ids="${rejectIds.join(',')}" class="glowing-btn px-3 py-1.5 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-md">Approve This</button>
+
                     <button data-action="resolve-reject" data-reject-id="${booking.unique_id}" class="glowing-btn px-3 py-1.5 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-md">Reject</button>
                 </div>
             </div>`;
@@ -384,60 +385,13 @@ window.ApproveBookingsView = (function() {
     }
 
     async function handleApproveClick(bookingId) {
-        const originalRequest = state.bookings.find(b => b.unique_id === bookingId);
-        if (!originalRequest || !originalRequest.hall_id) {
-            showToast('Could not find the booking request or its hall ID.', 'error');
-            return;
-        }
-
-        const row = document.querySelector(`tr[data-booking-id="${bookingId}"]`);
-        if (row) {
-            row.style.opacity = '0.5';
-            row.querySelectorAll('button').forEach(btn => btn.disabled = true);
-        }
-
-        try {
-            const conflictData = await ApiService.bookings.getConflictsForHall(originalRequest.hall_id);
-            
-            let overlappingRequests = [];
-            if (conflictData && Array.isArray(conflictData.conflicts)) {
-                overlappingRequests = conflictData.conflicts.filter(c => {
-                    if (c.unique_id === originalRequest.unique_id) return false;
-                    
-                    const originalStart = new Date(originalRequest.start_date.substring(0, 10) + 'T' + originalRequest.start_time);
-                    const originalEnd = new Date(originalRequest.end_date.substring(0, 10) + 'T' + originalRequest.end_time);
-                    const conflictStart = new Date(c.start_date.substring(0, 10) + 'T' + c.start_time);
-                    const conflictEnd = new Date(c.end_date.substring(0, 10) + 'T' + c.end_time);
-
-                    return originalStart < conflictEnd && originalEnd > conflictStart;
-                });
-            }
-
-            if (overlappingRequests.length > 0) {
-                if (row) {
-                    row.style.opacity = '1';
-                    row.querySelectorAll('button').forEach(btn => btn.disabled = false);
-                }
-                displayConflictModal(originalRequest, overlappingRequests);
-            } else {
-                if (row) {
-                    row.style.opacity = '1';
-                    row.querySelectorAll('button').forEach(btn => btn.disabled = false);
-                }
-                showConfirmationModal(
-                    'Confirm Approval',
-                    'No conflicts found. Are you sure you want to approve this booking?',
-                    () => handleBookingAction(bookingId, 'approve')
-                );
-            }
-        } catch (error) {
-            console.error('Error checking for conflicts during approval:', error);
-            showToast('Failed to check for conflicts before approving. Please try again.', 'error');
-            if (row) {
-                row.style.opacity = '1';
-                row.querySelectorAll('button').forEach(btn => btn.disabled = false);
-            }
-        }
+        // Removed conflict check as requested.
+        // Directly show the confirmation modal.
+        showConfirmationModal(
+            'Confirm Approval',
+            'Are you sure you want to approve this booking?', // Updated message
+            () => handleBookingAction(bookingId, 'approve')
+        );
     }
 
     async function handleCheckConflicts(bookingId) {
@@ -647,4 +601,3 @@ window.ApproveBookingsView = (function() {
 
     return { initialize, cleanup };
 })();
-
